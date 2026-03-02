@@ -1,0 +1,9 @@
+{
+  "name": "contractortimesheet-invoice",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes serve . -l 3000",
+    "start": "npm run dev"
+  }
+}

@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>TimeTrack Pro - Contractor Timesheet & Invoicing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container" id="app">
+        <!-- Loading State -->
+        <div class="loading-screen" id="loading-screen">
+            <div class="loading-spinner">
+                <span class="logo-icon pulse">◈</span>
+                <p>Loading TimeTrack Pro...</p>
+            </div>
+        </div>
+
+        <!-- Auth Screen -->
+        <div class="auth-screen" id="auth-screen" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <span class="logo-icon">◈</span>
+                    <h1>TimeTrack<span class="accent">Pro</span></h1>
+                    <p>Contractor Timesheet & Invoicing</p>
+                </div>
+
+                <!-- Login Form -->
+                <form class="auth-form" id="login-form">
+                    <h2>Sign In</h2>
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <div class="auth-error" id="login-error"></div>
+                    <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+                    <p class="auth-switch">
+                        Don't have an account? <a href="#" id="show-signup">Create one</a>
+                    </p>
+                </form>
+
+                <!-- Signup Form -->
+                <form class="auth-form" id="signup-form" style="display: none;">
+                    <h2>Create Account</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="signup-first-name">First Name</label>
+                            <input type="text" id="signup-first-name" required placeholder="Jane">
+                        </div>
+                        <div class="form-group">
+                            <label for="signup-last-name">Last Name</label>
+                            <input type="text" id="signup-last-name" required placeholder="Doe">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" required placeholder="you@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <div class="auth-error" id="signup-error"></div>
+                    <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                    <p class="auth-switch">
+                        Already have an account? <a href="#" id="show-login">Sign in</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Dashboard (Employee View) -->
+        <div class="dashboard" id="employee-dashboard" style="display: none;">
+            <header class="app-header">
+                <div class="logo">
+                    <span class="logo-icon">◈</span>
+                    <h1>TimeTrack<span class="accent">Pro</span></h1>
+                </div>
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <nav class="main-nav" id="main-nav">
+                    <button class="nav-btn active" data-view="timesheet">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Time Clock</span>
+                    </button>
+                    <button class="nav-btn" data-view="shifts">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <span>My Shifts</span>
+                    </button>
+                    <button class="nav-btn" data-view="invoices">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>Invoices</span>
+                    </button>
+                    <button class="nav-btn" data-view="sop-employee">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 11l3 3L22 4"></path>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                        <span>SOPs</span>
+                    </button>
+                    <button class="nav-btn" data-view="profile">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span>Profile</span>
+                    </button>
+                    <button class="nav-btn nav-signout" id="mobile-logout-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>Sign Out</span>
+                    </button>
+                </nav>
+                <div class="header-actions">
+                    <span class="user-greeting" id="user-greeting">Hello!</span>
+                    <button class="btn btn-secondary btn-sm" id="logout-btn">Sign Out</button>
+                </div>
+            </header>
+            <div class="nav-overlay" id="nav-overlay"></div>
+
+            <main class="main-content">
+                <!-- Time Clock View -->
+                <section class="view active" id="timesheet-view">
+                    <div class="view-header">
+                        <h2>Time Clock</h2>
+                        <p class="current-date" id="current-date"></p>
+                    </div>
+
+                    <div class="clock-container">
+                        <div class="clock-display">
+                            <div class="clock-label">Current Time</div>
+                            <div class="current-time" id="current-time">00:00:00</div>
+                            <div class="clock-status" id="clock-status">Not clocked in</div>
+                        </div>
+                        
+                        <div class="clock-actions">
+                            <button class="btn btn-clock btn-clock-in" id="clock-in-btn">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                Clock In
+                            </button>
+                            <button class="btn btn-clock btn-clock-out" id="clock-out-btn" style="display: none;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="6" y="4" width="12" height="16" rx="2"></rect>
+                                </svg>
+                                Clock Out
+                            </button>
+                        </div>
+
+                        <button class="btn btn-secondary btn-add-manual" id="add-manual-shift-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Manual Shift
+                        </button>
+
+                        <div class="session-info" id="session-info" style="display: none;">
+                            <div class="session-stat">
+                                <span class="stat-label">Clocked in at</span>
+                                <span class="stat-value" id="clocked-in-time">--:--</span>
+                            </div>
+                            <div class="session-stat">
+                                <span class="stat-label">Time worked</span>
+                                <span class="stat-value" id="time-worked">0:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel today-summary" style="display: none;">
+                        <h3>Today's Summary</h3>
+                        <div class="summary-stats">
+                            <div class="summary-stat">
+                                <span class="stat-value" id="today-hours">0.00</span>
+                                <span class="stat-label">Hours Today</span>
+                            </div>
+                            <div class="summary-stat">
+                                <span class="stat-value" id="today-earnings">$0.00</span>
+                                <span class="stat-label">Estimated Earnings</span>
+                            </div>
+                            <div class="summary-stat">
+                                <span class="stat-value" id="hourly-rate-display">$0.00/hr</span>
+                                <span class="stat-label">Your Rate</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's SOP Checklist (shown when clocked in and daily SOP exists) -->
+                    <div class="panel sop-checklist-panel" id="sop-checklist-panel" style="display: none;">
+                        <div class="sop-checklist-header">
+                            <h3>Today's Checklist</h3>
+                            <span class="sop-checklist-title" id="sop-checklist-title"></span>
+                            <button type="button" class="btn btn-secondary btn-sm" id="sop-checklist-refresh">Refresh</button>
+                        </div>
+                        <div class="sop-checklist-items" id="sop-checklist-items">
+                            <!-- Items rendered by JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- My Shifts View -->
+                <section class="view" id="shifts-view">
+                    <div class="view-header">
+                        <h2>My Shifts</h2>
+                        <button class="btn btn-primary" id="add-shift-btn">
+                            <span>+</span> Add Manual Entry
+                        </button>
+                    </div>
+
+                    <div class="panel">
+                        <div class="filter-bar">
+                            <div class="date-range">
+                                <div class="calendar-input-wrapper calendar-input-sm" id="shifts-start-wrapper">
+                                    <input type="text" id="shifts-start-date-display" class="calendar-input-display" readonly placeholder="Start date">
+                                    <input type="hidden" id="shifts-start-date">
+                                    <svg class="calendar-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                </div>
+                                <span>to</span>
+                                <div class="calendar-input-wrapper calendar-input-sm" id="shifts-end-wrapper">
+                                    <input type="text" id="shifts-end-date-display" class="calendar-input-display" readonly placeholder="End date">
+                                    <input type="hidden" id="shifts-end-date">
+                                    <svg class="calendar-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" id="filter-shifts-btn">Filter</button>
+                            <button class="btn btn-secondary btn-sm" id="copy-shifts-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy to Spreadsheet
+                            </button>
+                        </div>
+
+                        <div class="entries-table-wrapper">
+                            <table class="entries-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Clock In</th>
+                                        <th>Clock Out</th>
+                                        <th>Hours</th>
+                                        <th>Description</th>
+                                        <th>Status</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shifts-body">
+                                    <!-- Shifts will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="shifts-totals">
+                            <span>Period Total:</span>
+                            <span id="period-hours">0.00 hrs</span>
+                            <span id="period-amount">$0.00</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Invoices View -->
+                <section class="view" id="invoices-view">
+                    <div class="view-header">
+                        <h2>My Invoices</h2>
+                    </div>
+
+                    <div class="invoices-grid" id="invoices-list">
+                        <!-- Invoices will be populated here -->
+                    </div>
+                </section>
+
+                <!-- SOPs View (Employee) -->
+                <section class="view" id="sop-employee-view">
+                    <div class="view-header">
+                        <h2>SOPs</h2>
+                        <p class="current-date" id="sop-current-date"></p>
+                    </div>
+
+                    <div id="sop-employee-content">
+                        <!-- Active SOP section -->
+                        <div class="panel" id="sop-employee-active-section">
+                            <div id="sop-pick-template" style="display: none;">
+                                <h3>Start a new checklist</h3>
+                                <p class="sop-select-hint">Choose an SOP below to start today's checklist. Your teammates will see it and can check off items and add to it.</p>
+                                <div class="sop-template-grid" id="sop-template-grid">
+                                    <!-- Rendered by JS -->
+                                </div>
+                            </div>
+
+                            <div id="sop-active-checklist" style="display: none;">
+                                <div class="sop-active-header">
+                                    <div>
+                                        <h3 id="sop-active-name"></h3>
+                                        <span class="sop-active-date" id="sop-active-date"></span>
+                                        <p class="sop-shared-hint">Shared with the team — everyone can check off items.</p>
+                                    </div>
+                                    <div class="sop-active-btns">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="sop-employee-refresh">Refresh</button>
+                                        <button type="button" class="btn btn-danger btn-sm" id="sop-cancel-btn">Cancel SOP</button>
+                                    </div>
+                                </div>
+                                <div class="sop-progress-bar" id="sop-progress-bar">
+                                    <div class="sop-progress-fill" id="sop-progress-fill"></div>
+                                </div>
+                                <div class="sop-progress-text" id="sop-progress-text"></div>
+                                <div class="sop-checklist-items" id="sop-employee-checklist-items">
+                                    <!-- Checklist items rendered by JS -->
+                                </div>
+                            </div>
+
+                            <div id="sop-no-templates" style="display: none;">
+                                <div class="sop-empty-state">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M9 11l3 3L22 4"></path>
+                                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                    </svg>
+                                    <h3>No SOPs Available</h3>
+                                    <p>Your admin hasn't created any standard operating procedures yet.</p>
+                                </div>
+                            </div>
+
+                            <div id="sop-today-complete" style="display: none;">
+                                <div class="sop-empty-state">
+                                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2">
+                                        <path d="M20 6L9 17l-5-5"/>
+                                    </svg>
+                                    <h3>Today's checklist is complete</h3>
+                                    <p>All tasks have been finished. Start a new one below if needed.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Completed SOPs section (always visible) -->
+                        <div class="panel sop-completed-panel" id="sop-employee-completed-panel">
+                            <h3><span class="panel-icon">●</span> Completed SOPs</h3>
+                            <div class="sop-completed-list" id="sop-employee-completed-list">
+                                <!-- Rendered by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Profile View -->
+                <section class="view" id="profile-view">
+                    <div class="view-header">
+                        <h2>My Profile</h2>
+                    </div>
+
+                    <div class="profile-grid">
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> Personal Information</h3>
+                            <form id="profile-form">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="profile-first-name">First Name</label>
+                                        <input type="text" id="profile-first-name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-last-name">Last Name</label>
+                                        <input type="text" id="profile-last-name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-email">Email</label>
+                                        <input type="email" id="profile-email" readonly>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-phone">Phone Number</label>
+                                        <input type="tel" id="profile-phone" placeholder="(555) 123-4567">
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="profile-street">Street Address</label>
+                                        <input type="text" id="profile-street" placeholder="123 Main St">
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="profile-street2">Street Address Line 2</label>
+                                        <input type="text" id="profile-street2" placeholder="Apt, Suite, Unit, etc. (optional)">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-city">City</label>
+                                        <input type="text" id="profile-city" placeholder="New York">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-state">State</label>
+                                        <select id="profile-state">
+                                            <option value="">Select State</option>
+                                            <option value="AL">AL - Alabama</option>
+                                            <option value="AK">AK - Alaska</option>
+                                            <option value="AZ">AZ - Arizona</option>
+                                            <option value="AR">AR - Arkansas</option>
+                                            <option value="CA">CA - California</option>
+                                            <option value="CO">CO - Colorado</option>
+                                            <option value="CT">CT - Connecticut</option>
+                                            <option value="DE">DE - Delaware</option>
+                                            <option value="FL">FL - Florida</option>
+                                            <option value="GA">GA - Georgia</option>
+                                            <option value="HI">HI - Hawaii</option>
+                                            <option value="ID">ID - Idaho</option>
+                                            <option value="IL">IL - Illinois</option>
+                                            <option value="IN">IN - Indiana</option>
+                                            <option value="IA">IA - Iowa</option>
+                                            <option value="KS">KS - Kansas</option>
+                                            <option value="KY">KY - Kentucky</option>
+                                            <option value="LA">LA - Louisiana</option>
+                                            <option value="ME">ME - Maine</option>
+                                            <option value="MD">MD - Maryland</option>
+                                            <option value="MA">MA - Massachusetts</option>
+                                            <option value="MI">MI - Michigan</option>
+                                            <option value="MN">MN - Minnesota</option>
+                                            <option value="MS">MS - Mississippi</option>
+                                            <option value="MO">MO - Missouri</option>
+                                            <option value="MT">MT - Montana</option>
+                                            <option value="NE">NE - Nebraska</option>
+                                            <option value="NV">NV - Nevada</option>
+                                            <option value="NH">NH - New Hampshire</option>
+                                            <option value="NJ">NJ - New Jersey</option>
+                                            <option value="NM">NM - New Mexico</option>
+                                            <option value="NY">NY - New York</option>
+                                            <option value="NC">NC - North Carolina</option>
+                                            <option value="ND">ND - North Dakota</option>
+                                            <option value="OH">OH - Ohio</option>
+                                            <option value="OK">OK - Oklahoma</option>
+                                            <option value="OR">OR - Oregon</option>
+                                            <option value="PA">PA - Pennsylvania</option>
+                                            <option value="RI">RI - Rhode Island</option>
+                                            <option value="SC">SC - South Carolina</option>
+                                            <option value="SD">SD - South Dakota</option>
+                                            <option value="TN">TN - Tennessee</option>
+                                            <option value="TX">TX - Texas</option>
+                                            <option value="UT">UT - Utah</option>
+                                            <option value="VT">VT - Vermont</option>
+                                            <option value="VA">VA - Virginia</option>
+                                            <option value="WA">WA - Washington</option>
+                                            <option value="WV">WV - West Virginia</option>
+                                            <option value="WI">WI - Wisconsin</option>
+                                            <option value="WY">WY - Wyoming</option>
+                                            <option value="DC">DC - District of Columbia</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="profile-zip">ZIP Code</label>
+                                        <input type="text" id="profile-zip" placeholder="10001" pattern="[0-9]{5}(-[0-9]{4})?" title="Enter a valid ZIP code (e.g., 12345 or 12345-6789)">
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> Rate & Earnings</h3>
+                            <div class="rate-info">
+                                <div class="rate-display">
+                                    <span class="rate-label">Your Hourly Rate</span>
+                                    <span class="rate-value" id="profile-rate">$0.00</span>
+                                </div>
+                                <p class="rate-note">Your hourly rate is set by your employer. Contact them if you have questions.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div class="dashboard admin-dashboard" id="admin-dashboard" style="display: none;">
+            <header class="app-header">
+                <div class="logo">
+                    <span class="logo-icon">◈</span>
+                    <h1>TimeTrack<span class="accent">Pro</span></h1>
+                    <span class="admin-badge">Admin</span>
+                </div>
+                <button class="hamburger-btn" id="admin-hamburger-btn" aria-label="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <nav class="main-nav" id="admin-main-nav">
+                    <button class="nav-btn active" data-view="team">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Team</span>
+                    </button>
+                    <button class="nav-btn" data-view="timesheets">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Timesheets</span>
+                    </button>
+                    <button class="nav-btn" data-view="admin-invoices">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>Invoices</span>
+                    </button>
+                    <button class="nav-btn" data-view="sop">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 11l3 3L22 4"></path>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                        <span>SOP</span>
+                    </button>
+                    <button class="nav-btn" data-view="equipment">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                        </svg>
+                        <span>Equipment</span>
+                    </button>
+                    <button class="nav-btn" data-view="settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        <span>Settings</span>
+                    </button>
+                    <button class="nav-btn nav-signout" id="admin-mobile-logout-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>Sign Out</span>
+                    </button>
+                </nav>
+                <div class="header-actions">
+                    <span class="user-greeting" id="admin-greeting">Hello, Admin!</span>
+                    <button class="btn btn-secondary btn-sm" id="admin-logout-btn">Sign Out</button>
+                </div>
+            </header>
+            <div class="nav-overlay" id="admin-nav-overlay"></div>
+
+            <main class="main-content">
+                <!-- Team View -->
+                <section class="view active" id="team-view">
+                    <div class="view-header">
+                        <h2>Team Members</h2>
+                        <button class="btn btn-primary" id="add-team-member-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle>
+                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                            </svg>
+                            Add Team Member
+                        </button>
+                    </div>
+
+                    <div class="team-grid" id="team-list">
+                        <!-- Team members will be populated here -->
+                    </div>
+                </section>
+
+                <!-- Timesheets View -->
+                <section class="view" id="timesheets-view">
+                    <div class="view-header">
+                        <h2>All Timesheets</h2>
+                    </div>
+
+                    <div class="panel">
+                        <div class="filter-bar">
+                            <select id="employee-filter">
+                                <option value="">All Employees</option>
+                            </select>
+                            <div class="date-range">
+                                <div class="calendar-input-wrapper calendar-input-sm" id="admin-start-wrapper">
+                                    <input type="text" id="admin-start-date-display" class="calendar-input-display" readonly placeholder="Start date">
+                                    <input type="hidden" id="admin-start-date">
+                                    <svg class="calendar-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                </div>
+                                <span>to</span>
+                                <div class="calendar-input-wrapper calendar-input-sm" id="admin-end-wrapper">
+                                    <input type="text" id="admin-end-date-display" class="calendar-input-display" readonly placeholder="End date">
+                                    <input type="hidden" id="admin-end-date">
+                                    <svg class="calendar-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" id="admin-filter-btn">Filter</button>
+                            <button class="btn btn-secondary btn-sm" id="admin-copy-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy to Spreadsheet
+                            </button>
+                        </div>
+
+                        <div class="entries-table-wrapper">
+                            <table class="entries-table">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Date</th>
+                                        <th>Clock In</th>
+                                        <th>Clock Out</th>
+                                        <th>Hours</th>
+                                        <th>Rate</th>
+                                        <th>Status</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-timesheets-body">
+                                    <!-- Timesheets will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="shifts-totals">
+                            <span>Total:</span>
+                            <span id="admin-total-hours">0.00 hrs</span>
+                            <span id="admin-total-amount">$0.00</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Admin Invoices View -->
+                <section class="view" id="admin-invoices-view">
+                    <div class="view-header">
+                        <h2>Generate Invoice</h2>
+                    </div>
+
+                    <div class="invoice-generator">
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> Select Employee & Period</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="invoice-employee">Employee</label>
+                                    <select id="invoice-employee">
+                                        <option value="">Select Employee</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="invoice-period-start">Period Start</label>
+                                    <div class="calendar-input-wrapper" id="period-start-wrapper">
+                                        <input type="text" id="invoice-period-start-display" class="calendar-input-display" readonly placeholder="Select date">
+                                        <input type="hidden" id="invoice-period-start">
+                                        <svg class="calendar-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="invoice-period-end">Period End</label>
+                                    <div class="calendar-input-wrapper" id="period-end-wrapper">
+                                        <input type="text" id="invoice-period-end-display" class="calendar-input-display" readonly placeholder="Select date">
+                                        <input type="hidden" id="invoice-period-end">
+                                        <svg class="calendar-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="invoice-due-days">Payment Terms</label>
+                                    <select id="invoice-due-days">
+                                        <option value="0">Due on Receipt</option>
+                                        <option value="15">Net 15</option>
+                                        <option value="30" selected>Net 30</option>
+                                        <option value="45">Net 45</option>
+                                        <option value="60">Net 60</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button class="btn btn-primary" id="generate-invoice-btn">Generate Invoice</button>
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> Recent Invoices</h3>
+                            <div class="invoices-list" id="admin-invoices-list">
+                                <!-- Invoices will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SOP View (Admin) -->
+                <section class="view" id="sop-view">
+                    <div class="view-header">
+                        <h2>Standard Operating Procedures</h2>
+                        <button class="btn btn-primary" id="create-sop-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Create SOP
+                        </button>
+                    </div>
+
+                    <!-- Today's active daily checklist (admin) -->
+                    <div class="panel sop-admin-daily-panel" id="sop-admin-daily-panel" style="display: none;">
+                        <div class="sop-active-header">
+                            <div>
+                                <h3 id="sop-admin-daily-name">Today's Checklist</h3>
+                                <span class="sop-active-date" id="sop-admin-daily-date"></span>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" id="sop-admin-daily-refresh">Refresh</button>
+                        </div>
+                        <div class="sop-progress-bar" id="sop-admin-progress-bar">
+                            <div class="sop-progress-fill" id="sop-admin-progress-fill"></div>
+                        </div>
+                        <div class="sop-progress-text" id="sop-admin-progress-text"></div>
+                        <div class="sop-checklist-items" id="sop-admin-checklist-items">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="sop-list panel" id="sop-list">
+                        <!-- SOP templates list -->
+                    </div>
+
+                    <!-- Completed checklists (admin) -->
+                    <div class="panel sop-completed-panel" id="sop-completed-panel">
+                        <h3><span class="panel-icon">●</span> Completed Checklists</h3>
+                        <p class="text-muted">Daily checklists that have been fully completed.</p>
+                        <div class="sop-completed-list" id="sop-completed-list">
+                            <!-- Rendered by JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Equipment View -->
+                <section class="view" id="equipment-view">
+                    <div class="view-header">
+                        <h2>Equipment</h2>
+                        <button class="btn btn-primary" id="add-equipment-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Equipment
+                        </button>
+                    </div>
+                    <div class="equipment-grid panel" id="equipment-list">
+                        <!-- Equipment cards rendered by JS -->
+                    </div>
+                </section>
+
+                <!-- Business Settings View -->
+                <section class="view" id="settings-view">
+                    <div class="view-header">
+                        <h2>Business Settings</h2>
+                    </div>
+
+                    <div class="settings-grid">
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> Company Information</h3>
+                            <form id="business-form">
+                                <div class="form-grid">
+                                    <div class="form-group full-width">
+                                        <label for="business-name">Company Name</label>
+                                        <input type="text" id="business-name" required>
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="business-address">Company Address</label>
+                                        <textarea id="business-address" rows="3"></textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="business-email">Company Email</label>
+                                        <input type="email" id="business-email">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="business-phone">Company Phone</label>
+                                        <input type="tel" id="business-phone">
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="business-payment">Payment Instructions</label>
+                                        <textarea id="business-payment" rows="4" placeholder="Bank details, payment methods accepted, etc."></textarea>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add Shift Modal -->
+    <div class="modal-overlay" id="shift-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Add Manual Entry</h3>
+                <button class="btn btn-close" id="close-shift-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="shift-form">
+                    <div class="form-group">
+                        <label for="shift-date">Start Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="shift-date" required>
+                            <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Time</label>
+                            <div class="time-input-wrapper" id="start-time-wrapper">
+                                <input type="text" id="shift-start-display" class="time-input-display" readonly placeholder="Tap to set" required>
+                                <input type="hidden" id="shift-start" required>
+                                <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>End Time</label>
+                            <div class="time-input-wrapper" id="end-time-wrapper">
+                                <input type="text" id="shift-end-display" class="time-input-display" readonly placeholder="Tap to set" required>
+                                <input type="hidden" id="shift-end" required>
+                                <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="shift-overnight">
+                            <span>Shift spans to next day</span>
+                        </label>
+                    </div>
+                    <div class="form-group" id="end-date-group" style="display: none;">
+                        <label for="shift-end-date">End Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="shift-end-date">
+                            <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="shift-description">Description (optional)</label>
+                        <input type="text" id="shift-description" placeholder="What did you work on?">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-shift-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Entry</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Calendar Picker Popup -->
+    <div class="calendar-picker-popup" id="calendar-picker-popup">
+        <div class="calendar-picker-header">
+            <button type="button" class="calendar-nav-btn" id="calendar-prev-month">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span class="calendar-month-title" id="calendar-month-title">December 2025</span>
+            <button type="button" class="calendar-nav-btn" id="calendar-next-month">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+        <div class="calendar-days" id="calendar-days">
+            <!-- Calendar days will be generated by JavaScript -->
+        </div>
+        <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot pending"></span> Pending</span>
+            <span class="legend-item"><span class="legend-dot paid"></span> Paid</span>
+        </div>
+        <div class="calendar-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="calendar-clear">Clear</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="calendar-today">Today</button>
+        </div>
+    </div>
+    <div class="calendar-picker-backdrop" id="calendar-picker-backdrop"></div>
+
+    <!-- Time Picker Popup -->
+    <div class="time-picker-popup" id="time-picker-popup">
+        <div class="time-picker-header">
+            <span class="time-picker-title">Select Time</span>
+            <button type="button" class="btn btn-close time-picker-close" id="time-picker-close">×</button>
+        </div>
+        <div class="time-picker-display" id="time-picker-preview">12:00 PM</div>
+        <div class="time-picker-controls">
+            <div class="time-picker-column">
+                <button type="button" class="time-picker-arrow" data-action="hour-up">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                </button>
+                <span class="time-picker-value" id="time-picker-hour">12</span>
+                <button type="button" class="time-picker-arrow" data-action="hour-down">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+            </div>
+            <span class="time-picker-separator">:</span>
+            <div class="time-picker-column">
+                <button type="button" class="time-picker-arrow" data-action="minute-up">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                </button>
+                <span class="time-picker-value" id="time-picker-minute">00</span>
+                <button type="button" class="time-picker-arrow" data-action="minute-down">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+            </div>
+            <div class="time-picker-column time-picker-period">
+                <button type="button" class="time-picker-period-btn" data-period="AM" id="time-picker-am">AM</button>
+                <button type="button" class="time-picker-period-btn" data-period="PM" id="time-picker-pm">PM</button>
+            </div>
+        </div>
+        <div class="time-picker-quick">
+            <button type="button" class="time-picker-quick-btn" data-time="09:00">9 AM</button>
+            <button type="button" class="time-picker-quick-btn" data-time="12:00">12 PM</button>
+            <button type="button" class="time-picker-quick-btn" data-time="17:00">5 PM</button>
+            <button type="button" class="time-picker-quick-btn" data-time="now">Now</button>
+        </div>
+        <button type="button" class="btn btn-primary btn-block" id="time-picker-confirm">Set Time</button>
+    </div>
+    <div class="time-picker-backdrop" id="time-picker-backdrop"></div>
+
+    <!-- Employee Detail Modal (for admin) -->
+    <div class="modal-overlay" id="employee-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>Employee Details</h3>
+                <button class="btn btn-close" id="close-employee-modal">×</button>
+            </div>
+            <div class="modal-body" id="employee-modal-content">
+                <!-- Employee details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Timesheet Modal (for admin) -->
+    <div class="modal-overlay" id="edit-timesheet-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Edit Time Entry</h3>
+                <button class="btn btn-close" id="close-edit-timesheet-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-timesheet-form">
+                    <input type="hidden" id="edit-timesheet-id">
+                    <div class="form-group">
+                        <label>Employee</label>
+                        <input type="text" id="edit-timesheet-employee" readonly class="readonly-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-timesheet-date">Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="edit-timesheet-date" required>
+                            <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Clock In Time</label>
+                            <div class="time-input-wrapper" id="edit-start-time-wrapper">
+                                <input type="text" id="edit-timesheet-start-display" class="time-input-display" readonly placeholder="Tap to set" required>
+                                <input type="hidden" id="edit-timesheet-start" required>
+                                <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Clock Out Time</label>
+                            <div class="time-input-wrapper" id="edit-end-time-wrapper">
+                                <input type="text" id="edit-timesheet-end-display" class="time-input-display" readonly placeholder="Tap to set">
+                                <input type="hidden" id="edit-timesheet-end">
+                                <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="edit-timesheet-overnight">
+                            <span>Shift spans to next day</span>
+                        </label>
+                    </div>
+                    <div class="form-group" id="edit-end-date-group" style="display: none;">
+                        <label for="edit-timesheet-end-date">End Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="edit-timesheet-end-date">
+                            <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-timesheet-description">Description (optional)</label>
+                        <input type="text" id="edit-timesheet-description" placeholder="What was worked on?">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-edit-timesheet-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Team Member Modal -->
+    <div class="modal-overlay" id="add-team-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Add Team Member</h3>
+                <button class="btn btn-close" id="close-add-team-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Search by email -->
+                <div id="add-team-search-step">
+                    <div class="form-group">
+                        <label for="search-member-email">Search by Email</label>
+                        <div class="search-input-wrapper">
+                            <input type="email" id="search-member-email" placeholder="employee@example.com">
+                            <button type="button" class="btn btn-primary" id="search-member-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                Search
+                            </button>
+                        </div>
+                    </div>
+                    <div id="search-result" class="search-result" style="display: none;">
+                        <!-- Search results will appear here -->
+                    </div>
+                </div>
+                
+                <!-- Step 2: Invite form (shown when user not found) -->
+                <div id="add-team-invite-step" style="display: none;">
+                    <div class="not-found-message">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <p>No user found with email: <strong id="not-found-email"></strong></p>
+                        <p class="subtext">Would you like to send them an invite?</p>
+                    </div>
+                    <form id="add-team-form">
+                        <input type="hidden" id="invite-email">
+                        <div class="form-group">
+                            <label for="invite-first-name">First Name</label>
+                            <input type="text" id="invite-first-name" placeholder="John">
+                        </div>
+                        <div class="form-group">
+                            <label for="invite-last-name">Last Name</label>
+                            <input type="text" id="invite-last-name" placeholder="Doe">
+                        </div>
+                        <div class="form-group">
+                            <label for="invite-hourly-rate">Hourly Rate</label>
+                            <input type="number" id="invite-hourly-rate" placeholder="0.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="invite-role">Role</label>
+                            <select id="invite-role">
+                                <option value="employee">Employee</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="back-to-search-btn">Back</button>
+                            <button type="submit" class="btn btn-primary" id="send-invite-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                                Send Invite
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Member Confirmation Modal -->
+    <div class="modal-overlay" id="delete-member-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Remove Team Member</h3>
+                <button class="btn btn-close" id="close-delete-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="delete-confirmation">
+                    <div class="delete-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <p class="delete-message">Are you sure you want to remove</p>
+                    <p class="delete-member-name" id="delete-member-name"></p>
+                    <p class="delete-member-email" id="delete-member-email"></p>
+                    <p class="delete-warning">This will permanently delete their profile and all associated time entries and invoices.</p>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirm-delete-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Remove Member
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Preview Modal -->
+    <div class="modal-overlay" id="invoice-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3>Invoice Preview</h3>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" id="print-invoice-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        Print
+                    </button>
+                    <button class="btn btn-close" id="close-invoice-modal">×</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="invoice-document" id="invoice-preview">
+                    <!-- Invoice content will be generated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Select SOP for Today Modal (employee, first clock-in of day) -->
+    <div class="modal-overlay" id="select-sop-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Select SOP for Today</h3>
+                <button class="btn btn-close" id="close-select-sop-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="sop-select-hint">Choose the checklist to use for today. All staff who clock in today will see and share this checklist.</p>
+                <div class="sop-select-list" id="sop-select-list"></div>
+                <div class="form-actions" style="margin-top: 1rem;">
+                    <button type="button" class="btn btn-secondary" id="select-sop-skip">Skip for today</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (reusable) -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">Confirm</h3>
+                <button class="btn btn-close" id="close-confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message"></p>
+                <div class="form-actions" style="margin-top: 1rem;">
+                    <button type="button" class="btn btn-secondary" id="confirm-modal-cancel">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirm-modal-ok">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit SOP Modal (admin) -->
+    <!-- Equipment Editor Modal -->
+    <div class="modal-overlay" id="equipment-editor-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3 id="equipment-editor-title">Add Equipment</h3>
+                <button class="btn btn-close" id="close-equipment-editor-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="equipment-editor-form">
+                    <input type="hidden" id="equipment-editor-id">
+                    <div class="form-group">
+                        <label for="equipment-editor-name">Name</label>
+                        <input type="text" id="equipment-editor-name" required placeholder="e.g. Pressure Washer">
+                    </div>
+                    <div class="form-group">
+                        <label for="equipment-editor-location">Location</label>
+                        <input type="text" id="equipment-editor-location" placeholder="e.g. Storage Room B">
+                    </div>
+                    <div class="form-group">
+                        <label>Image (optional)</label>
+                        <div class="equipment-image-preview" id="equipment-image-preview"></div>
+                        <input type="file" id="equipment-image-input" accept="image/*" style="display:none;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="equipment-image-btn">Upload Image</button>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="equipment-editor-cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Equipment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="sop-editor-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="sop-editor-title">Create SOP</h3>
+                <button class="btn btn-close" id="close-sop-editor-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="sop-editor-form">
+                    <input type="hidden" id="sop-editor-id">
+                    <div class="form-group">
+                        <label for="sop-editor-name">SOP Name</label>
+                        <input type="text" id="sop-editor-name" required placeholder="e.g. Opening Checklist">
+                    </div>
+                    <div class="form-group">
+                        <label for="sop-editor-description">Description (optional)</label>
+                        <textarea id="sop-editor-description" rows="2" placeholder="Brief description of this SOP"></textarea>
+                    </div>
+                    <div class="sop-items-editor">
+                        <div class="sop-items-header">
+                            <label>Tasks &amp; sections</label>
+                            <div class="sop-items-header-btns">
+                                <button type="button" class="btn btn-secondary btn-sm" id="sop-add-section-btn">+ Section header</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="sop-add-item-btn">+ Add task</button>
+                            </div>
+                        </div>
+                        <p class="sop-items-hint">Drag the handle to reorder. Section headers group tasks.</p>
+                        <div class="sop-items-list" id="sop-items-list">
+                            <!-- Items added by JS -->
+                            <div class="sop-drop-indicator" id="sop-drop-indicator" aria-hidden="true"></div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="sop-editor-cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save SOP</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOP Review Modal (admin reviews completed SOPs and adds per-task comments) -->
+    <div class="modal-overlay" id="sop-review-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="sop-review-title">Review Completed SOP</h3>
+                <button class="btn btn-close" id="close-sop-review-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="sop-review-meta" id="sop-review-meta"></div>
+                <div class="sop-review-items" id="sop-review-items">
+                    <!-- Rendered by JS -->
+                </div>
+                <div class="form-actions sop-review-actions">
+                    <button type="button" class="btn btn-secondary" id="sop-review-cancel">Close</button>
+                    <button type="button" class="btn btn-primary" id="sop-review-save">Save Comments</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOP Task Row Template (hidden, cloned by JS) -->
+    <template id="sop-item-row-template">
+        <div class="sop-item-row sop-editor-row" data-item-id="">
+            <div class="sop-drag-handle" draggable="true" title="Drag to reorder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </div>
+            <div class="sop-row-collapsed-summary">
+                <span class="sop-collapsed-type-badge task">Task</span>
+                <span class="sop-collapsed-title"></span>
+            </div>
+            <div class="sop-item-row-fields">
+                <input type="text" class="sop-item-title" placeholder="Task title" required>
+                <textarea class="sop-item-desc" rows="2" placeholder="Description (optional)"></textarea>
+                <div class="sop-item-media">
+                    <label>Photos / Videos</label>
+                    <div class="sop-item-media-list"></div>
+                    <input type="file" class="sop-item-media-input" accept="image/*,video/*" multiple style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-sm sop-item-media-btn">Upload photo or video</button>
+                </div>
+                <div class="sop-item-equipment">
+                    <label>Equipment <span class="text-muted">(max 5)</span></label>
+                    <div class="sop-item-equipment-list"></div>
+                    <button type="button" class="btn btn-secondary btn-sm sop-item-equipment-add-btn">+ Add Equipment</button>
+                    <div class="equipment-picker-dropdown" style="display:none;">
+                        <input type="text" class="equipment-picker-search" placeholder="Search equipment...">
+                        <div class="equipment-picker-results"></div>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-close sop-item-remove" title="Remove task">×</button>
+        </div>
+    </template>
+    <!-- SOP Section Row Template -->
+    <template id="sop-section-row-template">
+        <div class="sop-section-row sop-editor-row" data-item-id="">
+            <div class="sop-drag-handle" draggable="true" title="Drag to reorder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </div>
+            <div class="sop-row-collapsed-summary">
+                <span class="sop-collapsed-type-badge section">Section</span>
+                <span class="sop-collapsed-title"></span>
+            </div>
+            <input type="text" class="sop-section-title" placeholder="Section header">
+            <button type="button" class="btn btn-close sop-item-remove" title="Remove section">×</button>
+        </div>
+    </template>
+
+    <!-- Onboarding Modal -->
+    <div class="modal-overlay" id="onboarding-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-body onboarding-modal-body">
+                <div class="onboarding-header">
+                    <span class="onboarding-icon">👋</span>
+                    <h2>Welcome to TimeTrack Pro!</h2>
+                    <p>Let's set up your profile so you can start tracking time and generating invoices.</p>
+                </div>
+                
+                <form id="onboarding-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="onboarding-first-name">First Name <span class="required">*</span></label>
+                            <input type="text" id="onboarding-first-name" required placeholder="Jane">
+                        </div>
+                        <div class="form-group">
+                            <label for="onboarding-last-name">Last Name <span class="required">*</span></label>
+                            <input type="text" id="onboarding-last-name" required placeholder="Doe">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-email">Email</label>
+                        <input type="email" id="onboarding-email" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-phone">Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="onboarding-phone" required placeholder="(555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-street">Street Address <span class="required">*</span></label>
+                        <input type="text" id="onboarding-street" required placeholder="123 Main St">
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-street2">Street Address Line 2</label>
+                        <input type="text" id="onboarding-street2" placeholder="Apt, Suite, Unit, etc. (optional)">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="onboarding-city">City <span class="required">*</span></label>
+                            <input type="text" id="onboarding-city" required placeholder="New York">
+                        </div>
+                        <div class="form-group">
+                            <label for="onboarding-state">State <span class="required">*</span></label>
+                            <select id="onboarding-state" required>
+                                <option value="">Select State</option>
+                                <option value="AL">AL - Alabama</option>
+                                <option value="AK">AK - Alaska</option>
+                                <option value="AZ">AZ - Arizona</option>
+                                <option value="AR">AR - Arkansas</option>
+                                <option value="CA">CA - California</option>
+                                <option value="CO">CO - Colorado</option>
+                                <option value="CT">CT - Connecticut</option>
+                                <option value="DE">DE - Delaware</option>
+                                <option value="FL">FL - Florida</option>
+                                <option value="GA">GA - Georgia</option>
+                                <option value="HI">HI - Hawaii</option>
+                                <option value="ID">ID - Idaho</option>
+                                <option value="IL">IL - Illinois</option>
+                                <option value="IN">IN - Indiana</option>
+                                <option value="IA">IA - Iowa</option>
+                                <option value="KS">KS - Kansas</option>
+                                <option value="KY">KY - Kentucky</option>
+                                <option value="LA">LA - Louisiana</option>
+                                <option value="ME">ME - Maine</option>
+                                <option value="MD">MD - Maryland</option>
+                                <option value="MA">MA - Massachusetts</option>
+                                <option value="MI">MI - Michigan</option>
+                                <option value="MN">MN - Minnesota</option>
+                                <option value="MS">MS - Mississippi</option>
+                                <option value="MO">MO - Missouri</option>
+                                <option value="MT">MT - Montana</option>
+                                <option value="NE">NE - Nebraska</option>
+                                <option value="NV">NV - Nevada</option>
+                                <option value="NH">NH - New Hampshire</option>
+                                <option value="NJ">NJ - New Jersey</option>
+                                <option value="NM">NM - New Mexico</option>
+                                <option value="NY">NY - New York</option>
+                                <option value="NC">NC - North Carolina</option>
+                                <option value="ND">ND - North Dakota</option>
+                                <option value="OH">OH - Ohio</option>
+                                <option value="OK">OK - Oklahoma</option>
+                                <option value="OR">OR - Oregon</option>
+                                <option value="PA">PA - Pennsylvania</option>
+                                <option value="RI">RI - Rhode Island</option>
+                                <option value="SC">SC - South Carolina</option>
+                                <option value="SD">SD - South Dakota</option>
+                                <option value="TN">TN - Tennessee</option>
+                                <option value="TX">TX - Texas</option>
+                                <option value="UT">UT - Utah</option>
+                                <option value="VT">VT - Vermont</option>
+                                <option value="VA">VA - Virginia</option>
+                                <option value="WA">WA - Washington</option>
+                                <option value="WV">WV - West Virginia</option>
+                                <option value="WI">WI - Wisconsin</option>
+                                <option value="WY">WY - Wyoming</option>
+                                <option value="DC">DC - District of Columbia</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-zip">ZIP Code <span class="required">*</span></label>
+                        <input type="text" id="onboarding-zip" required placeholder="10001" pattern="[0-9]{5}(-[0-9]{4})?" title="Enter a valid ZIP code (e.g., 12345 or 12345-6789)">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Complete Setup
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 8px;">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Success!</span>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
