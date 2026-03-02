@@ -399,6 +399,7 @@ async function checkCurrentClockIn() {
         updateClockUI(true);
         startTimeWorkedCounter();
         loadSopChecklistPanelIfClockedIn();
+        loadTaskListClockInPanel();
     } else {
         currentClockIn = null;
         updateClockUI(false);
@@ -476,7 +477,10 @@ async function clockIn() {
         startTimeWorkedCounter();
         clearShiftsCache(); // Clear calendar cache
         showToast('Clocked in successfully!');
-        await showSopFlowAfterClockIn();
+        const hasTaskLists = await showTaskListClockInPopup();
+        if (!hasTaskLists) {
+            await showSopFlowAfterClockIn();
+        }
     } catch (error) {
         console.error('Clock in error:', error);
         showToast('Failed to clock in. Please try again.', 'error');
@@ -803,6 +807,7 @@ function initEmployeeNavigation() {
             document.getElementById(`${viewId}-view`).classList.add('active');
             
             if (viewId === 'sop-employee') loadEmployeeSopView();
+            if (viewId === 'my-tasks') loadMyTasks();
 
             // Close mobile nav after selection
             mainNav.classList.remove('open');
@@ -1234,40 +1239,37 @@ async function loadBusinessSettings() {
         document.getElementById('business-email').value = data.company_email || '';
         document.getElementById('business-phone').value = data.company_phone || '';
         document.getElementById('business-payment').value = data.payment_instructions || '';
+        const keyInput = document.getElementById('business-openai-key');
+        if (keyInput && data.openai_api_key) keyInput.value = data.openai_api_key;
     }
 }
 
 async function saveBusinessSettings(formData) {
     try {
-        // First check if a record exists
         const { data: existing } = await supabaseClient
             .from('business_settings')
             .select('id')
             .limit(1)
             .maybeSingle();
         
+        const payload = {
+            company_name: formData.name,
+            company_address: formData.address,
+            company_email: formData.email,
+            company_phone: formData.phone,
+            payment_instructions: formData.payment
+        };
+
         let error;
         if (existing) {
             ({ error } = await supabaseClient
                 .from('business_settings')
-                .update({
-                    company_name: formData.name,
-                    company_address: formData.address,
-                    company_email: formData.email,
-                    company_phone: formData.phone,
-                    payment_instructions: formData.payment
-                })
+                .update(payload)
                 .eq('id', existing.id));
         } else {
             ({ error } = await supabaseClient
                 .from('business_settings')
-                .insert({
-                    company_name: formData.name,
-                    company_address: formData.address,
-                    company_email: formData.email,
-                    company_phone: formData.phone,
-                    payment_instructions: formData.payment
-                }));
+                .insert(payload));
         }
         
         if (error) throw error;
@@ -1277,6 +1279,43 @@ async function saveBusinessSettings(formData) {
         console.error('Save business settings error:', error);
         showToast('Failed to save settings.', 'error');
     }
+}
+
+async function saveOpenAiKey() {
+    try {
+        const key = document.getElementById('business-openai-key').value.trim();
+        const { data: existing } = await supabaseClient
+            .from('business_settings')
+            .select('id')
+            .limit(1)
+            .maybeSingle();
+
+        let error;
+        if (existing) {
+            ({ error } = await supabaseClient
+                .from('business_settings')
+                .update({ openai_api_key: key || null })
+                .eq('id', existing.id));
+        } else {
+            ({ error } = await supabaseClient
+                .from('business_settings')
+                .insert({ company_name: 'My Company', openai_api_key: key || null }));
+        }
+        if (error) throw error;
+        showToast('API key saved!');
+    } catch (err) {
+        console.error('Save OpenAI key error:', err);
+        showToast('Failed to save API key.', 'error');
+    }
+}
+
+async function getOpenAiKey() {
+    const { data } = await supabaseClient
+        .from('business_settings')
+        .select('openai_api_key')
+        .limit(1)
+        .maybeSingle();
+    return data?.openai_api_key || null;
 }
 
 async function generateInvoice() {
@@ -1515,6 +1554,8 @@ function initAdminNavigation() {
                 loadSopList();
             } else if (viewId === 'equipment') {
                 loadEquipmentList();
+            } else if (viewId === 'task-lists') {
+                loadTaskLists();
             }
         });
     });
@@ -1896,6 +1937,12 @@ function initializeEventListeners() {
         });
     });
     
+    // OpenAI API key form
+    document.getElementById('openai-key-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveOpenAiKey();
+    });
+
     // Generate invoice
     document.getElementById('generate-invoice-btn')?.addEventListener('click', generateInvoice);
     
@@ -4025,6 +4072,9 @@ document.getElementById('sop-checklist-refresh')?.addEventListener('click', () =
 window.openSopEditor = openSopEditor;
 window.deleteSop = deleteSop;
 
+// Init task list event listeners (runs at module load like SOP listeners above)
+initTaskListEventListeners();
+
 // ==================== EQUIPMENT ====================
 
 const EQUIPMENT_STORAGE_BUCKET = 'sop-media';
@@ -4816,6 +4866,1191 @@ async function toggleShiftPaid(shiftId, currentStatus) {
     }
 }
 
+// ==================== TASK LISTS ====================
+
+const TASK_LIST_STORAGE_BUCKET = 'sop-media';
+let tlEditorItems = [];
+let tlEditorMode = 'manual';
+let tlVideoFile = null;
+let tlVideoUrl = null;
+
+let _ffmpeg = null;
+let _ffmpegUtil = null;
+
+function buildFFmpegWorkerBlobURL() {
+    const workerScript = `
+const CORE_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js";
+const FFMessageType = {
+    LOAD:"LOAD",EXEC:"EXEC",WRITE_FILE:"WRITE_FILE",READ_FILE:"READ_FILE",
+    DELETE_FILE:"DELETE_FILE",RENAME:"RENAME",CREATE_DIR:"CREATE_DIR",
+    LIST_DIR:"LIST_DIR",DELETE_DIR:"DELETE_DIR",ERROR:"ERROR",
+    DOWNLOAD:"DOWNLOAD",PROGRESS:"PROGRESS",LOG:"LOG",MOUNT:"MOUNT",UNMOUNT:"UNMOUNT"
+};
+const ERROR_UNKNOWN_MESSAGE_TYPE = new Error("unknown message type");
+const ERROR_NOT_LOADED = new Error("ffmpeg is not loaded, call ffmpeg.load() first");
+const ERROR_IMPORT_FAILURE = new Error("failed to import ffmpeg-core.js");
+
+let ffmpeg;
+const load = async ({ coreURL: _coreURL, wasmURL: _wasmURL, workerURL: _workerURL }) => {
+    const first = !ffmpeg;
+    try {
+        if (!_coreURL) _coreURL = CORE_URL;
+        importScripts(_coreURL);
+    } catch {
+        if (!_coreURL) _coreURL = CORE_URL.replace('/umd/', '/esm/');
+        const _mod = await import(_coreURL);
+        if (_mod.default) self.createFFmpegCore = _mod.default;
+        if (!self.createFFmpegCore) throw ERROR_IMPORT_FAILURE;
+    }
+    const coreURL = _coreURL;
+    const wasmURL = _wasmURL ? _wasmURL : _coreURL.replace(/.js$/g, ".wasm");
+    const workerURL = _workerURL ? _workerURL : _coreURL.replace(/.js$/g, ".worker.js");
+    ffmpeg = await self.createFFmpegCore({
+        mainScriptUrlOrBlob: coreURL + "#" + btoa(JSON.stringify({ wasmURL, workerURL })),
+    });
+    ffmpeg.setLogger((data) => self.postMessage({ type: FFMessageType.LOG, data }));
+    ffmpeg.setProgress((data) => self.postMessage({ type: FFMessageType.PROGRESS, data }));
+    return first;
+};
+const exec = ({ args, timeout = -1 }) => { ffmpeg.setTimeout(timeout); ffmpeg.exec(...args); const ret = ffmpeg.ret; ffmpeg.reset(); return ret; };
+const writeFile = ({ path, data }) => { ffmpeg.FS.writeFile(path, data); return true; };
+const readFile = ({ path, encoding }) => ffmpeg.FS.readFile(path, { encoding });
+const deleteFile = ({ path }) => { ffmpeg.FS.unlink(path); return true; };
+const rename = ({ oldPath, newPath }) => { ffmpeg.FS.rename(oldPath, newPath); return true; };
+const createDir = ({ path }) => { ffmpeg.FS.mkdir(path); return true; };
+const listDir = ({ path }) => {
+    const names = ffmpeg.FS.readdir(path);
+    const nodes = [];
+    for (const name of names) { const stat = ffmpeg.FS.stat(path+"/"+name); nodes.push({ name, isDir: ffmpeg.FS.isDir(stat.mode) }); }
+    return nodes;
+};
+const deleteDir = ({ path }) => { ffmpeg.FS.rmdir(path); return true; };
+const mount = ({ fsType, options, mountPoint }) => { const fs = ffmpeg.FS.filesystems[fsType]; if (!fs) return false; ffmpeg.FS.mount(fs, options, mountPoint); return true; };
+const unmount = ({ mountPoint }) => { ffmpeg.FS.unmount(mountPoint); return true; };
+
+self.onmessage = async ({ data: { id, type, data: _data } }) => {
+    const trans = [];
+    let data;
+    try {
+        if (type !== FFMessageType.LOAD && !ffmpeg) throw ERROR_NOT_LOADED;
+        switch (type) {
+            case FFMessageType.LOAD: data = await load(_data); break;
+            case FFMessageType.EXEC: data = exec(_data); break;
+            case FFMessageType.WRITE_FILE: data = writeFile(_data); break;
+            case FFMessageType.READ_FILE: data = readFile(_data); break;
+            case FFMessageType.DELETE_FILE: data = deleteFile(_data); break;
+            case FFMessageType.RENAME: data = rename(_data); break;
+            case FFMessageType.CREATE_DIR: data = createDir(_data); break;
+            case FFMessageType.LIST_DIR: data = listDir(_data); break;
+            case FFMessageType.DELETE_DIR: data = deleteDir(_data); break;
+            case FFMessageType.MOUNT: data = mount(_data); break;
+            case FFMessageType.UNMOUNT: data = unmount(_data); break;
+            default: throw ERROR_UNKNOWN_MESSAGE_TYPE;
+        }
+    } catch (e) { self.postMessage({ id, type: FFMessageType.ERROR, data: e.toString() }); return; }
+    if (data instanceof Uint8Array) trans.push(data.buffer);
+    self.postMessage({ id, type, data }, trans);
+};`;
+    const blob = new Blob([workerScript], { type: 'text/javascript' });
+    return URL.createObjectURL(blob);
+}
+
+async function loadFFmpegInstance() {
+    if (_ffmpeg) return _ffmpeg;
+
+    const { FFmpeg } = await import('https://esm.sh/@ffmpeg/ffmpeg@0.12.10');
+    _ffmpegUtil = await import('https://esm.sh/@ffmpeg/util@0.12.1');
+
+    const ffmpeg = new FFmpeg();
+    const esmBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+
+    await ffmpeg.load({
+        coreURL: `${esmBase}/ffmpeg-core.js`,
+        wasmURL: `${esmBase}/ffmpeg-core.wasm`,
+        classWorkerURL: buildFFmpegWorkerBlobURL(),
+    });
+
+    _ffmpeg = ffmpeg;
+    return ffmpeg;
+}
+let tlTranscript = null;
+let tlCurrentFilter = 'all';
+
+// ---- Admin: Load & List ----
+
+async function loadTaskLists() {
+    const container = document.getElementById('tl-cards');
+    const emptyState = document.getElementById('tl-empty-state');
+    if (!container) return;
+
+    let query = supabaseClient
+        .from('task_lists')
+        .select('*, task_list_items(id), task_list_assignments(id, status)')
+        .order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) {
+        container.innerHTML = '<p class="text-muted">Failed to load task lists.</p>';
+        return;
+    }
+
+    let filtered = data || [];
+    if (tlCurrentFilter === 'sop') filtered = filtered.filter(t => t.is_sop);
+    else if (tlCurrentFilter === 'task') filtered = filtered.filter(t => !t.is_sop);
+
+    if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = '';
+        return;
+    }
+    emptyState.style.display = 'none';
+
+    container.innerHTML = filtered.map(t => {
+        const itemCount = (t.task_list_items || []).length;
+        const assignments = t.task_list_assignments || [];
+        const completedCount = assignments.filter(a => a.status === 'completed').length;
+        return `
+        <div class="tl-card" data-id="${t.id}">
+            <div class="tl-card-header">
+                <h4>${escapeHtml(t.title)} <span class="tl-badge ${t.is_sop ? 'sop' : 'task'}">${t.is_sop ? 'SOP' : 'Task'}</span></h4>
+            </div>
+            ${t.description ? `<div class="tl-card-meta">${escapeHtml(t.description)}</div>` : ''}
+            <div class="tl-card-stats">
+                <span>${itemCount} task${itemCount !== 1 ? 's' : ''}</span>
+                <span>${assignments.length} assigned</span>
+                <span>${completedCount} completed</span>
+                ${t.source_video_url ? '<span>Has video</span>' : ''}
+            </div>
+            <div class="tl-card-actions">
+                <button type="button" class="btn btn-secondary btn-sm tl-action-view" data-id="${t.id}">View</button>
+                <button type="button" class="btn btn-secondary btn-sm tl-action-assign" data-id="${t.id}">Assign</button>
+                <button type="button" class="btn btn-secondary btn-sm tl-action-edit" data-id="${t.id}">Edit</button>
+                <button type="button" class="btn btn-danger btn-sm tl-action-delete" data-id="${t.id}" data-name="${escapeHtml(t.title)}">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.tl-action-view').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openTaskListDetail(btn.dataset.id); });
+    });
+    container.querySelectorAll('.tl-action-assign').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openTaskListAssignModal(btn.dataset.id); });
+    });
+    container.querySelectorAll('.tl-action-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openTaskListEditor(btn.dataset.id); });
+    });
+    container.querySelectorAll('.tl-action-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); deleteTaskList(btn.dataset.id, btn.dataset.name); });
+    });
+}
+
+async function deleteTaskList(id, name) {
+    if (!confirm(`Delete task list "${name}"? This cannot be undone.`)) return;
+    const { error } = await supabaseClient.from('task_lists').delete().eq('id', id);
+    if (error) { showToast('Failed to delete task list', 'error'); return; }
+    showToast('Task list deleted');
+    loadTaskLists();
+}
+
+// ---- Admin: Editor ----
+
+function resetTlEditor() {
+    tlEditorItems = [];
+    tlEditorMode = 'manual';
+    tlVideoFile = null;
+    tlVideoUrl = null;
+    tlTranscript = null;
+    document.getElementById('tl-editor-id').value = '';
+    document.getElementById('tl-editor-name').value = '';
+    document.getElementById('tl-editor-description').value = '';
+    document.getElementById('tl-editor-is-sop').checked = false;
+    document.getElementById('tl-editor-title').textContent = 'Create Task List';
+    document.getElementById('tl-items-list').innerHTML = '';
+
+    // Reset video UI
+    document.getElementById('tl-video-upload-area').style.display = '';
+    document.getElementById('tl-video-preview').style.display = 'none';
+    document.getElementById('tl-video-processing').style.display = 'none';
+    document.getElementById('tl-process-video-btn').style.display = 'none';
+    document.getElementById('tl-transcript-panel').style.display = 'none';
+    document.getElementById('tl-generated-items').style.display = 'none';
+
+    // Default to manual tab
+    document.querySelectorAll('.tl-mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.tl-mode-tab[data-mode="manual"]').classList.add('active');
+    document.getElementById('tl-mode-manual').style.display = '';
+    document.getElementById('tl-mode-video').style.display = 'none';
+}
+
+async function openTaskListEditor(editId) {
+    resetTlEditor();
+    if (editId) {
+        document.getElementById('tl-editor-title').textContent = 'Edit Task List';
+        document.getElementById('tl-editor-id').value = editId;
+        const { data: tl } = await supabaseClient.from('task_lists').select('*').eq('id', editId).single();
+        if (tl) {
+            document.getElementById('tl-editor-name').value = tl.title || '';
+            document.getElementById('tl-editor-description').value = tl.description || '';
+            document.getElementById('tl-editor-is-sop').checked = tl.is_sop;
+            if (tl.source_video_url) tlVideoUrl = tl.source_video_url;
+            if (tl.source_transcript) tlTranscript = tl.source_transcript;
+        }
+        const { data: items } = await supabaseClient
+            .from('task_list_items')
+            .select('*')
+            .eq('task_list_id', editId)
+            .order('sort_order');
+        if (items) {
+            tlEditorItems = items.map(it => ({
+                id: it.id,
+                title: it.title || '',
+                description: it.description || '',
+                media: it.media || []
+            }));
+        }
+    }
+    renderTlEditorItems();
+    document.getElementById('tl-editor-modal').classList.add('active');
+}
+
+function renderTlEditorItems(targetList) {
+    const listId = targetList || 'tl-items-list';
+    const list = document.getElementById(listId);
+    if (!list) return;
+
+    list.innerHTML = tlEditorItems.map((item, idx) => `
+        <div class="tl-item-row" data-idx="${idx}" draggable="true">
+            <div class="tl-drag-handle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </div>
+            <div class="tl-item-fields">
+                <input type="text" class="tl-item-title" placeholder="Task title" value="${escapeHtml(item.title)}" required>
+                <textarea class="tl-item-desc" rows="2" placeholder="Description (optional)">${escapeHtml(item.description)}</textarea>
+                <div class="tl-item-media-row">
+                    ${(item.media || []).map((m, mi) => `
+                        <span style="position:relative;display:inline-block;">
+                            <img src="${escapeHtml(m.url)}" class="tl-item-media-thumb" alt="">
+                            <button type="button" class="btn btn-close tl-media-remove" data-idx="${idx}" data-mi="${mi}" style="position:absolute;top:-4px;right:-4px;font-size:12px;width:18px;height:18px;">&times;</button>
+                        </span>
+                    `).join('')}
+                    <input type="file" class="tl-item-media-input" accept="image/*" multiple style="display:none;" data-idx="${idx}">
+                    <button type="button" class="btn btn-secondary btn-sm tl-item-media-btn" data-idx="${idx}">+ Image</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-close tl-item-remove" data-idx="${idx}">&times;</button>
+        </div>
+    `).join('');
+
+    // Bind events
+    list.querySelectorAll('.tl-item-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+            syncTlEditorItems(listId);
+            tlEditorItems.splice(parseInt(btn.dataset.idx, 10), 1);
+            renderTlEditorItems(listId);
+        });
+    });
+    list.querySelectorAll('.tl-item-media-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            list.querySelector(`.tl-item-media-input[data-idx="${btn.dataset.idx}"]`).click();
+        });
+    });
+    list.querySelectorAll('.tl-item-media-input').forEach(input => {
+        input.onchange = async (e) => {
+            const files = e.target.files;
+            if (!files?.length) return;
+            syncTlEditorItems(listId);
+            const idx = parseInt(input.dataset.idx, 10);
+            for (const file of files) {
+                try {
+                    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const path = `${currentUser.id}/task-media/${Date.now()}-${safeName}`;
+                    const { data, error } = await supabaseClient.storage.from(TASK_LIST_STORAGE_BUCKET).upload(path, file, { upsert: true });
+                    if (error) throw error;
+                    const { data: urlData } = supabaseClient.storage.from(TASK_LIST_STORAGE_BUCKET).getPublicUrl(data.path);
+                    if (!tlEditorItems[idx].media) tlEditorItems[idx].media = [];
+                    tlEditorItems[idx].media.push({ url: urlData.publicUrl, type: 'image' });
+                    renderTlEditorItems(listId);
+                } catch (err) {
+                    showToast('Image upload failed', 'error');
+                }
+            }
+            input.value = '';
+        };
+    });
+    list.querySelectorAll('.tl-media-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+            syncTlEditorItems(listId);
+            const idx = parseInt(btn.dataset.idx, 10);
+            const mi = parseInt(btn.dataset.mi, 10);
+            tlEditorItems[idx].media.splice(mi, 1);
+            renderTlEditorItems(listId);
+        });
+    });
+
+    // Drag and drop reorder
+    initTlDragAndDrop(list, listId);
+}
+
+function syncTlEditorItems(listId) {
+    const list = document.getElementById(listId || 'tl-items-list');
+    if (!list) return;
+    list.querySelectorAll('.tl-item-row').forEach(row => {
+        const idx = parseInt(row.dataset.idx, 10);
+        if (tlEditorItems[idx] === undefined) return;
+        const titleEl = row.querySelector('.tl-item-title');
+        const descEl = row.querySelector('.tl-item-desc');
+        if (titleEl) tlEditorItems[idx].title = titleEl.value;
+        if (descEl) tlEditorItems[idx].description = descEl.value;
+    });
+}
+
+function initTlDragAndDrop(list, listId) {
+    let dragIdx = null;
+    list.querySelectorAll('.tl-item-row').forEach(row => {
+        row.addEventListener('dragstart', (e) => {
+            dragIdx = parseInt(row.dataset.idx, 10);
+            row.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+            row.style.opacity = '';
+            dragIdx = null;
+        });
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const dropIdx = parseInt(row.dataset.idx, 10);
+            if (dragIdx === null || dragIdx === dropIdx) return;
+            syncTlEditorItems(listId);
+            const [moved] = tlEditorItems.splice(dragIdx, 1);
+            tlEditorItems.splice(dropIdx, 0, moved);
+            renderTlEditorItems(listId);
+        });
+    });
+}
+
+async function saveTaskList(e) {
+    e.preventDefault();
+    const id = document.getElementById('tl-editor-id').value;
+    const title = document.getElementById('tl-editor-name').value.trim();
+    const description = document.getElementById('tl-editor-description').value.trim();
+    const isSop = document.getElementById('tl-editor-is-sop').checked;
+
+    if (!title) { showToast('Please enter a task list name', 'error'); return; }
+
+    // Sync items from whichever list is visible
+    const activeListId = tlEditorMode === 'video' && document.getElementById('tl-generated-items').style.display !== 'none'
+        ? 'tl-generated-items-list' : 'tl-items-list';
+    syncTlEditorItems(activeListId);
+
+    const validItems = tlEditorItems.filter(it => it.title.trim());
+    if (validItems.length === 0) { showToast('Add at least one task', 'error'); return; }
+
+    try {
+        let taskListId = id;
+        const payload = {
+            title,
+            description: description || null,
+            is_sop: isSop,
+            source_video_url: tlVideoUrl || null,
+            source_transcript: tlTranscript || null
+        };
+
+        if (id) {
+            const { error } = await supabaseClient.from('task_lists').update(payload).eq('id', id);
+            if (error) throw error;
+            await supabaseClient.from('task_list_items').delete().eq('task_list_id', id);
+        } else {
+            payload.created_by = currentUser.id;
+            const { data, error } = await supabaseClient.from('task_lists').insert(payload).select().single();
+            if (error) throw error;
+            taskListId = data.id;
+        }
+
+        const itemRows = validItems.map((it, idx) => ({
+            task_list_id: taskListId,
+            sort_order: idx,
+            title: it.title.trim(),
+            description: it.description?.trim() || null,
+            media: it.media || []
+        }));
+
+        const { error: itemsErr } = await supabaseClient.from('task_list_items').insert(itemRows);
+        if (itemsErr) throw itemsErr;
+
+        document.getElementById('tl-editor-modal').classList.remove('active');
+        showToast(id ? 'Task list updated' : 'Task list created');
+        loadTaskLists();
+    } catch (err) {
+        console.error('Save task list error:', err);
+        showToast('Failed to save task list', 'error');
+    }
+}
+
+// ---- Video Processing ----
+
+function setupTlVideoUpload() {
+    const dropzone = document.getElementById('tl-video-dropzone');
+    const fileInput = document.getElementById('tl-video-input');
+    const browseBtn = document.getElementById('tl-video-browse-btn');
+
+    browseBtn?.addEventListener('click', () => fileInput.click());
+    dropzone?.addEventListener('click', (e) => {
+        if (e.target === browseBtn || browseBtn.contains(e.target)) return;
+        fileInput.click();
+    });
+
+    dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('video/')) handleTlVideoSelect(file);
+        else showToast('Please drop a video file', 'error');
+    });
+
+    fileInput?.addEventListener('change', (e) => {
+        if (e.target.files[0]) handleTlVideoSelect(e.target.files[0]);
+    });
+}
+
+function handleTlVideoSelect(file) {
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > 2048) {
+        showToast(`Video is ${sizeMB.toFixed(0)}MB — too large to process in browser. Try a shorter video.`, 'error');
+        return;
+    }
+    tlVideoFile = file;
+    const player = document.getElementById('tl-video-player');
+    player.src = URL.createObjectURL(file);
+    document.getElementById('tl-video-filename').textContent = file.name;
+    document.getElementById('tl-video-upload-area').style.display = 'none';
+    document.getElementById('tl-video-preview').style.display = '';
+    document.getElementById('tl-process-video-btn').style.display = '';
+}
+
+async function processTaskVideo() {
+    if (!tlVideoFile) return;
+
+    const processingEl = document.getElementById('tl-video-processing');
+    const processBtn = document.getElementById('tl-process-video-btn');
+    const statusEl = document.getElementById('tl-processing-status');
+
+    processBtn.style.display = 'none';
+    processingEl.style.display = '';
+
+    function setStep(stepId) {
+        document.querySelectorAll('.tl-step').forEach(s => s.classList.remove('active'));
+        const el = document.getElementById(stepId);
+        if (el) el.classList.add('active');
+        let found = false;
+        document.querySelectorAll('.tl-step').forEach(s => {
+            if (s.id === stepId) found = true;
+            else if (!found) s.classList.add('done');
+        });
+    }
+
+    try {
+        // Step 1: Compress video with FFmpeg.wasm
+        setStep('tl-step-compress');
+        statusEl.textContent = 'Loading video compressor (first time may take a moment)…';
+
+        const ffmpeg = await loadFFmpegInstance();
+        ffmpeg.on('progress', ({ progress }) => {
+            const pct = Math.min(100, Math.round(progress * 100));
+            statusEl.textContent = `Compressing video… ${pct}%`;
+        });
+
+        const ext = tlVideoFile.name.split('.').pop().toLowerCase();
+        const inputName = `input.${ext}`;
+        await ffmpeg.writeFile(inputName, await _ffmpegUtil.fetchFile(tlVideoFile));
+
+        await ffmpeg.exec([
+            '-i', inputName,
+            '-vf', 'scale=-2:720',
+            '-r', '24',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '28',
+            '-c:a', 'aac',
+            '-b:a', '64k',
+            'output.mp4'
+        ]);
+
+        statusEl.textContent = 'Extracting audio for transcription…';
+        await ffmpeg.exec([
+            '-i', inputName,
+            '-vn',
+            '-c:a', 'libmp3lame',
+            '-b:a', '96k',
+            '-ar', '16000',
+            '-ac', '1',
+            'output.mp3'
+        ]);
+
+        const videoData = await ffmpeg.readFile('output.mp4');
+        const audioData = await ffmpeg.readFile('output.mp3');
+
+        await ffmpeg.deleteFile(inputName);
+        await ffmpeg.deleteFile('output.mp4');
+        await ffmpeg.deleteFile('output.mp3');
+
+        const compressedVideoBlob = new Blob([videoData.buffer], { type: 'video/mp4' });
+        const audioBlob = new Blob([audioData.buffer], { type: 'audio/mpeg' });
+
+        console.log(`Compressed video: ${(compressedVideoBlob.size / 1048576).toFixed(1)}MB, Audio MP3: ${(audioBlob.size / 1048576).toFixed(1)}MB`);
+
+        // Step 2: Upload compressed video + audio
+        setStep('tl-step-upload');
+        statusEl.textContent = 'Uploading compressed video…';
+
+        const safeName = tlVideoFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.\w+$/, '.mp4');
+        const storagePath = `${currentUser.id}/task-videos/${Date.now()}-${safeName}`;
+        const { data: uploadData, error: uploadErr } = await supabaseClient.storage
+            .from(TASK_LIST_STORAGE_BUCKET)
+            .upload(storagePath, compressedVideoBlob, { upsert: true, contentType: 'video/mp4' });
+        if (uploadErr) throw uploadErr;
+
+        const { data: urlData } = supabaseClient.storage.from(TASK_LIST_STORAGE_BUCKET).getPublicUrl(uploadData.path);
+        tlVideoUrl = urlData.publicUrl;
+
+        statusEl.textContent = 'Uploading audio…';
+        const audioPath = `${currentUser.id}/task-audio/${Date.now()}.mp3`;
+        const { data: audioUpload, error: audioErr } = await supabaseClient.storage
+            .from(TASK_LIST_STORAGE_BUCKET)
+            .upload(audioPath, audioBlob, { upsert: true, contentType: 'audio/mpeg' });
+        if (audioErr) throw audioErr;
+
+        const { data: audioUrlData } = supabaseClient.storage.from(TASK_LIST_STORAGE_BUCKET).getPublicUrl(audioUpload.path);
+
+        // Step 3: Transcribe + generate tasks
+        setStep('tl-step-transcribe');
+        statusEl.textContent = 'Transcribing audio…';
+
+        const session = await supabaseClient.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        const edgeResp = await fetch(`${SUPABASE_CONFIG.edgeFunctionUrl}/process-task-video`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'apikey': SUPABASE_CONFIG.anonKey
+            },
+            body: JSON.stringify({ video_url: audioUrlData.publicUrl })
+        });
+
+        if (!edgeResp.ok) {
+            const errData = await edgeResp.json().catch(() => ({}));
+            throw new Error(errData.error || `Processing failed (${edgeResp.status})`);
+        }
+
+        const result = await edgeResp.json();
+        tlTranscript = result.transcript;
+
+        setStep('tl-step-generate');
+        statusEl.textContent = 'Generating tasks…';
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 4: Capture screenshots from the compressed MP4
+        setStep('tl-step-screenshots');
+        statusEl.textContent = 'Capturing screenshots…';
+
+        let screenshotUrls = [];
+        if (result.capture_timestamps && result.capture_timestamps.length > 0) {
+            const mp4BlobUrl = URL.createObjectURL(compressedVideoBlob);
+            screenshotUrls = await captureVideoScreenshots(mp4BlobUrl, result.capture_timestamps);
+            URL.revokeObjectURL(mp4BlobUrl);
+        }
+
+        // Build task items from AI result
+        const tasks = result.tasks || [];
+        tlEditorItems = tasks.map((t, idx) => {
+            const media = [];
+            const indices = t.capture_indices || (t.capture_index != null ? [t.capture_index] : []);
+            for (const ci of indices) {
+                if (screenshotUrls[ci]) {
+                    media.push({ url: screenshotUrls[ci], type: 'image' });
+                }
+            }
+            return {
+                title: t.title || `Task ${idx + 1}`,
+                description: t.description || '',
+                media
+            };
+        });
+
+        // Show results
+        processingEl.style.display = 'none';
+
+        if (tlTranscript) {
+            document.getElementById('tl-transcript-text').textContent = tlTranscript;
+            document.getElementById('tl-transcript-panel').style.display = '';
+        }
+
+        document.getElementById('tl-generated-items').style.display = '';
+        renderTlEditorItems('tl-generated-items-list');
+        showToast(`Generated ${tlEditorItems.length} tasks from video`);
+
+    } catch (err) {
+        console.error('Video processing error:', err);
+        processingEl.style.display = 'none';
+        processBtn.style.display = '';
+        showToast('Video processing failed: ' + (err.message || 'Unknown error'), 'error');
+    }
+}
+
+// ---- Screenshot Extraction ----
+
+async function captureVideoScreenshots(videoUrl, timestamps) {
+    const video = document.getElementById('tl-screenshot-video');
+    const canvas = document.getElementById('tl-screenshot-canvas');
+    const ctx = canvas.getContext('2d');
+    const urls = [];
+
+    if (videoUrl.startsWith('blob:')) {
+        video.removeAttribute('crossorigin');
+    } else {
+        video.crossOrigin = 'anonymous';
+    }
+    video.src = videoUrl;
+    video.muted = true;
+
+    try {
+        await Promise.race([
+            new Promise((res, rej) => {
+                video.onloadedmetadata = res;
+                video.onerror = () => rej(new Error('Video decode failed'));
+                video.load();
+            }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('Video load timeout')), 8000))
+        ]);
+    } catch (err) {
+        console.warn('Cannot capture screenshots:', err.message, '— your browser may not support this video codec. Screenshots will be skipped.');
+        video.src = '';
+        return timestamps.map(() => null);
+    }
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 360;
+
+    for (const ts of timestamps) {
+        try {
+            video.currentTime = Math.max(0, ts - 0.5);
+            await Promise.race([
+                new Promise((res) => { video.onseeked = res; }),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('Seek timeout')), 5000))
+            ]);
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+
+            const path = `${currentUser.id}/task-screenshots/${Date.now()}-${ts.toFixed(1)}s.png`;
+            const { data, error } = await supabaseClient.storage
+                .from(TASK_LIST_STORAGE_BUCKET)
+                .upload(path, blob, { upsert: true, contentType: 'image/png' });
+
+            if (!error) {
+                const { data: urlData } = supabaseClient.storage.from(TASK_LIST_STORAGE_BUCKET).getPublicUrl(data.path);
+                urls.push(urlData.publicUrl);
+            } else {
+                urls.push(null);
+            }
+        } catch {
+            urls.push(null);
+        }
+    }
+
+    video.src = '';
+    return urls;
+}
+
+// ---- Assignment ----
+
+async function openTaskListAssignModal(taskListId) {
+    const modal = document.getElementById('tl-assign-modal');
+    modal.dataset.taskListId = taskListId;
+
+    // Load employees
+    const { data: employees } = await supabaseClient
+        .from('profiles')
+        .select('id, first_name, last_name, email, role')
+        .neq('id', currentUser.id)
+        .order('first_name');
+
+    // Load existing assignments
+    const { data: existing } = await supabaseClient
+        .from('task_list_assignments')
+        .select('id, assigned_to, status, profiles!task_list_assignments_assigned_to_fkey(first_name, last_name)')
+        .eq('task_list_id', taskListId);
+
+    const assignedIds = (existing || []).map(a => a.assigned_to);
+
+    const empContainer = document.getElementById('tl-assign-employees');
+    const unassigned = (employees || []).filter(e => !assignedIds.includes(e.id));
+    empContainer.innerHTML = unassigned.length === 0
+        ? '<p class="text-muted">All team members are already assigned.</p>'
+        : unassigned.map(e => `
+            <div class="tl-assign-employee-row">
+                <input type="checkbox" id="tl-assign-${e.id}" value="${e.id}">
+                <label for="tl-assign-${e.id}">${escapeHtml(e.first_name || '')} ${escapeHtml(e.last_name || '')} <span class="text-muted">${escapeHtml(e.email || '')}</span></label>
+            </div>
+        `).join('');
+
+    const existContainer = document.getElementById('tl-assign-existing');
+    if (existing && existing.length > 0) {
+        existContainer.innerHTML = '<label style="font-weight:600;margin-bottom:4px;display:block;">Current Assignments</label>' +
+            existing.map(a => {
+                const name = a.profiles ? `${a.profiles.first_name || ''} ${a.profiles.last_name || ''}` : 'Unknown';
+                return `<div class="tl-assign-existing-row">
+                    <span>${escapeHtml(name)}</span>
+                    <span class="tl-assign-status ${a.status}">${a.status.replace('_', ' ')}</span>
+                </div>`;
+            }).join('');
+    } else {
+        existContainer.innerHTML = '';
+    }
+
+    modal.classList.add('active');
+}
+
+async function saveTaskListAssignments() {
+    const modal = document.getElementById('tl-assign-modal');
+    const taskListId = modal.dataset.taskListId;
+    const checkboxes = document.querySelectorAll('#tl-assign-employees input[type="checkbox"]:checked');
+
+    if (checkboxes.length === 0) {
+        showToast('Select at least one employee', 'error');
+        return;
+    }
+
+    const rows = Array.from(checkboxes).map(cb => ({
+        task_list_id: taskListId,
+        assigned_to: cb.value,
+        assigned_by: currentUser.id,
+        status: 'pending'
+    }));
+
+    const { error } = await supabaseClient.from('task_list_assignments').insert(rows);
+    if (error) {
+        showToast('Failed to assign', 'error');
+        return;
+    }
+
+    modal.classList.remove('active');
+    showToast(`Assigned to ${rows.length} employee${rows.length > 1 ? 's' : ''}`);
+    loadTaskLists();
+}
+
+// ---- Admin Detail View ----
+
+async function openTaskListDetail(taskListId) {
+    const { data: tl } = await supabaseClient.from('task_lists').select('*').eq('id', taskListId).single();
+    if (!tl) { showToast('Task list not found', 'error'); return; }
+
+    const { data: items } = await supabaseClient
+        .from('task_list_items')
+        .select('*')
+        .eq('task_list_id', taskListId)
+        .order('sort_order');
+
+    const { data: assignments } = await supabaseClient
+        .from('task_list_assignments')
+        .select('*, profiles!task_list_assignments_assigned_to_fkey(first_name, last_name)')
+        .eq('task_list_id', taskListId);
+
+    document.getElementById('tl-detail-title').textContent = tl.title;
+    document.getElementById('tl-detail-meta').innerHTML = `
+        <span class="tl-badge ${tl.is_sop ? 'sop' : 'task'}">${tl.is_sop ? 'SOP' : 'Task'}</span>
+        ${tl.description ? ` &mdash; ${escapeHtml(tl.description)}` : ''}
+    `;
+
+    if (tl.source_video_url) {
+        document.getElementById('tl-detail-video').style.display = '';
+        document.getElementById('tl-detail-video-player').src = tl.source_video_url;
+    } else {
+        document.getElementById('tl-detail-video').style.display = 'none';
+    }
+
+    if (tl.source_transcript) {
+        document.getElementById('tl-detail-transcript').style.display = '';
+        document.getElementById('tl-detail-transcript-text').textContent = tl.source_transcript;
+    } else {
+        document.getElementById('tl-detail-transcript').style.display = 'none';
+    }
+
+    const itemsContainer = document.getElementById('tl-detail-items');
+    itemsContainer.innerHTML = (items || []).map((item, idx) => `
+        <div class="tl-detail-item">
+            <div class="tl-detail-item-num">${idx + 1}</div>
+            <div class="tl-detail-item-content">
+                <h5>${escapeHtml(item.title)}</h5>
+                ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}
+                ${(item.media && item.media.length > 0) ? `
+                    <div class="tl-detail-item-media">
+                        ${item.media.map(m => `<img src="${escapeHtml(m.url)}" alt="Task media">`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+
+    const assignContainer = document.getElementById('tl-detail-assignment-list');
+    if (assignments && assignments.length > 0) {
+        assignContainer.innerHTML = assignments.map(a => {
+            const name = a.profiles ? `${a.profiles.first_name || ''} ${a.profiles.last_name || ''}` : 'Unknown';
+            return `<div class="tl-assign-existing-row">
+                <span>${escapeHtml(name)}</span>
+                <span class="tl-assign-status ${a.status}">${a.status.replace('_', ' ')}</span>
+            </div>`;
+        }).join('');
+    } else {
+        assignContainer.innerHTML = '<p class="text-muted">No one assigned yet.</p>';
+    }
+
+    document.getElementById('tl-detail-modal').classList.add('active');
+}
+
+// ---- Employee: My Tasks View ----
+
+async function loadMyTasks() {
+    if (!currentUser) return;
+
+    const { data: assignments, error } = await supabaseClient
+        .from('task_list_assignments')
+        .select('*, task_lists(id, title, description, is_sop, source_video_url), task_list_item_checks(id)')
+        .eq('assigned_to', currentUser.id)
+        .order('created_at', { ascending: false });
+
+    if (error) { console.error('loadMyTasks error', error); return; }
+
+    const pending = (assignments || []).filter(a => a.status !== 'completed');
+    const completed = (assignments || []).filter(a => a.status === 'completed');
+
+    const pendingList = document.getElementById('my-tasks-pending-list');
+    const completedList = document.getElementById('my-tasks-completed-list');
+    const emptyEl = document.getElementById('my-tasks-empty');
+
+    if (pending.length === 0) {
+        pendingList.innerHTML = '';
+        emptyEl.style.display = '';
+    } else {
+        emptyEl.style.display = 'none';
+        pendingList.innerHTML = pending.map(a => `
+            <div class="my-task-assignment-card" data-assignment-id="${a.id}">
+                <div>
+                    <h4>${escapeHtml(a.task_lists?.title || 'Task List')}</h4>
+                    <p>${escapeHtml(a.task_lists?.description || '')} &mdash; <span class="tl-assign-status ${a.status}">${a.status.replace('_', ' ')}</span></p>
+                </div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+        `).join('');
+
+        pendingList.querySelectorAll('.my-task-assignment-card').forEach(card => {
+            card.addEventListener('click', () => openMyTaskChecklist(card.dataset.assignmentId));
+        });
+    }
+
+    if (completed.length === 0) {
+        completedList.innerHTML = '<p class="text-muted">No completed tasks yet.</p>';
+    } else {
+        completedList.innerHTML = completed.map(a => `
+            <div class="my-task-assignment-card" data-assignment-id="${a.id}" style="opacity:0.7;">
+                <div>
+                    <h4>${escapeHtml(a.task_lists?.title || 'Task List')}</h4>
+                    <p><span class="tl-assign-status completed">completed</span></p>
+                </div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+        `).join('');
+        completedList.querySelectorAll('.my-task-assignment-card').forEach(card => {
+            card.addEventListener('click', () => openMyTaskChecklist(card.dataset.assignmentId));
+        });
+    }
+}
+
+async function openMyTaskChecklist(assignmentId) {
+    const { data: assignment } = await supabaseClient
+        .from('task_list_assignments')
+        .select('*, task_lists(id, title, description, source_video_url)')
+        .eq('id', assignmentId)
+        .single();
+
+    if (!assignment) { showToast('Assignment not found', 'error'); return; }
+
+    const taskList = assignment.task_lists;
+
+    const { data: items } = await supabaseClient
+        .from('task_list_items')
+        .select('*')
+        .eq('task_list_id', taskList.id)
+        .order('sort_order');
+
+    const { data: checks } = await supabaseClient
+        .from('task_list_item_checks')
+        .select('*')
+        .eq('assignment_id', assignmentId);
+
+    const checkMap = {};
+    (checks || []).forEach(c => { checkMap[c.task_list_item_id] = c; });
+
+    document.getElementById('my-task-checklist-title').textContent = taskList.title;
+    document.getElementById('my-task-meta').innerHTML = taskList.description ? escapeHtml(taskList.description) : '';
+
+    if (taskList.source_video_url) {
+        document.getElementById('my-task-video').style.display = '';
+        document.getElementById('my-task-video-player').src = taskList.source_video_url;
+    } else {
+        document.getElementById('my-task-video').style.display = 'none';
+    }
+
+    const total = (items || []).length;
+    const checkedCount = Object.keys(checkMap).length;
+    const pct = total > 0 ? Math.round((checkedCount / total) * 100) : 0;
+    document.getElementById('my-task-progress-fill').style.width = `${pct}%`;
+    document.getElementById('my-task-progress-text').textContent = `${checkedCount} of ${total} tasks complete (${pct}%)`;
+
+    const listEl = document.getElementById('my-task-checklist-items');
+    listEl.innerHTML = (items || []).map(item => {
+        const checked = !!checkMap[item.id];
+        return `
+        <div class="sop-checklist-item ${checked ? 'checked' : ''}" data-item-id="${item.id}" data-assignment-id="${assignmentId}">
+            <label class="sop-checklist-label">
+                <input type="checkbox" class="my-task-check" data-item-id="${item.id}" data-assignment-id="${assignmentId}" ${checked ? 'checked disabled' : ''}>
+                <span class="sop-check-custom"></span>
+                <span class="sop-checklist-text">
+                    <strong>${escapeHtml(item.title)}</strong>
+                    ${item.description ? `<br><span class="text-muted">${escapeHtml(item.description)}</span>` : ''}
+                </span>
+            </label>
+            ${(item.media && item.media.length > 0) ? `
+                <div class="tl-detail-item-media" style="margin-left:28px;margin-top:4px;">
+                    ${item.media.map(m => `<img src="${escapeHtml(m.url)}" alt="" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border-color);cursor:pointer;" onclick="window.open('${escapeHtml(m.url)}','_blank')">`).join('')}
+                </div>
+            ` : ''}
+        </div>`;
+    }).join('');
+
+    listEl.querySelectorAll('.my-task-check:not(:disabled)').forEach(cb => {
+        cb.addEventListener('change', async () => {
+            if (!cb.checked) return;
+            cb.disabled = true;
+            const itemId = cb.dataset.itemId;
+            const aId = cb.dataset.assignmentId;
+
+            const { error } = await supabaseClient.from('task_list_item_checks').insert({
+                assignment_id: aId,
+                task_list_item_id: itemId,
+                checked_by: currentUser.id
+            });
+
+            if (error) {
+                cb.checked = false;
+                cb.disabled = false;
+                showToast('Failed to check off task', 'error');
+                return;
+            }
+
+            cb.closest('.sop-checklist-item').classList.add('checked');
+
+            // Update progress
+            const allCbs = listEl.querySelectorAll('.my-task-check');
+            const checkedNow = listEl.querySelectorAll('.my-task-check:checked').length;
+            const totalNow = allCbs.length;
+            const pctNow = totalNow > 0 ? Math.round((checkedNow / totalNow) * 100) : 0;
+            document.getElementById('my-task-progress-fill').style.width = `${pctNow}%`;
+            document.getElementById('my-task-progress-text').textContent = `${checkedNow} of ${totalNow} tasks complete (${pctNow}%)`;
+
+            // If all done, mark assignment as completed
+            if (checkedNow === totalNow) {
+                await supabaseClient.from('task_list_assignments')
+                    .update({ status: 'completed' })
+                    .eq('id', aId);
+                showToast('All tasks completed!');
+                loadMyTasks();
+                loadTaskListClockInPanel();
+            }
+
+            // If first check, mark as in_progress
+            if (checkedNow === 1) {
+                await supabaseClient.from('task_list_assignments')
+                    .update({ status: 'in_progress' })
+                    .eq('id', aId);
+            }
+        });
+    });
+
+    document.getElementById('my-task-checklist-modal').classList.add('active');
+}
+
+// ---- Clock-in Integration ----
+
+async function fetchPendingTaskAssignments() {
+    if (!currentUser) return [];
+    const { data } = await supabaseClient
+        .from('task_list_assignments')
+        .select('*, task_lists(title, description)')
+        .eq('assigned_to', currentUser.id)
+        .in('status', ['pending', 'in_progress']);
+    return data || [];
+}
+
+async function showTaskListClockInPopup() {
+    const assignments = await fetchPendingTaskAssignments();
+    if (assignments.length === 0) return false;
+
+    const modal = document.getElementById('tl-clockin-modal');
+    const list = document.getElementById('tl-clockin-list');
+
+    list.innerHTML = assignments.map(a => `
+        <div class="tl-clockin-card" data-assignment-id="${a.id}">
+            <div class="tl-clockin-card-info">
+                <h4>${escapeHtml(a.task_lists?.title || 'Task List')}</h4>
+                <p>${a.task_lists?.description ? escapeHtml(a.task_lists.description) : ''}</p>
+                <span class="tl-assign-status ${a.status}">${a.status.replace('_', ' ')}</span>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+    `).join('');
+
+    list.querySelectorAll('.tl-clockin-card').forEach(card => {
+        card.addEventListener('click', () => {
+            modal.classList.remove('active');
+            openMyTaskChecklist(card.dataset.assignmentId);
+        });
+    });
+
+    modal.classList.add('active');
+    return true;
+}
+
+async function loadTaskListClockInPanel() {
+    if (!currentUser) return;
+    const panel = document.getElementById('tl-clockin-panel');
+    if (!panel) return;
+
+    const assignments = await fetchPendingTaskAssignments();
+
+    if (assignments.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.style.display = '';
+    const container = document.getElementById('tl-clockin-assignments');
+    container.innerHTML = assignments.map(a => `
+        <div class="tl-clockin-card" data-assignment-id="${a.id}">
+            <div class="tl-clockin-card-info">
+                <h4>${escapeHtml(a.task_lists?.title || 'Task List')}</h4>
+                <p>${a.task_lists?.description ? escapeHtml(a.task_lists.description) : ''} &mdash; <span class="tl-assign-status ${a.status}">${a.status.replace('_', ' ')}</span></p>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.tl-clockin-card').forEach(card => {
+        card.addEventListener('click', () => openMyTaskChecklist(card.dataset.assignmentId));
+    });
+}
+
+// ---- Event Binding ----
+
+function initTaskListEventListeners() {
+    // Admin: create
+    document.getElementById('create-task-list-btn')?.addEventListener('click', () => openTaskListEditor());
+
+    // Editor modal close/cancel
+    document.getElementById('close-tl-editor-modal')?.addEventListener('click', () => {
+        document.getElementById('tl-editor-modal').classList.remove('active');
+    });
+    document.getElementById('tl-editor-cancel')?.addEventListener('click', () => {
+        document.getElementById('tl-editor-modal').classList.remove('active');
+    });
+
+    // Editor form submit
+    document.getElementById('tl-editor-form')?.addEventListener('submit', saveTaskList);
+
+    // Add task button
+    document.getElementById('tl-add-item-btn')?.addEventListener('click', () => {
+        syncTlEditorItems('tl-items-list');
+        tlEditorItems.push({ title: '', description: '', media: [] });
+        renderTlEditorItems('tl-items-list');
+    });
+
+    // Mode tabs
+    document.querySelectorAll('.tl-mode-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tl-mode-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            tlEditorMode = tab.dataset.mode;
+            document.getElementById('tl-mode-manual').style.display = tlEditorMode === 'manual' ? '' : 'none';
+            document.getElementById('tl-mode-video').style.display = tlEditorMode === 'video' ? '' : 'none';
+        });
+    });
+
+    // Video upload
+    setupTlVideoUpload();
+
+    document.getElementById('tl-video-remove')?.addEventListener('click', () => {
+        tlVideoFile = null;
+        document.getElementById('tl-video-player').src = '';
+        document.getElementById('tl-video-preview').style.display = 'none';
+        document.getElementById('tl-video-upload-area').style.display = '';
+        document.getElementById('tl-process-video-btn').style.display = 'none';
+        document.getElementById('tl-transcript-panel').style.display = 'none';
+        document.getElementById('tl-generated-items').style.display = 'none';
+    });
+
+    document.getElementById('tl-process-video-btn')?.addEventListener('click', processTaskVideo);
+
+    // Filter buttons
+    document.querySelectorAll('.tl-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tl-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            tlCurrentFilter = btn.dataset.filter;
+            loadTaskLists();
+        });
+    });
+
+    // Assign modal
+    document.getElementById('close-tl-assign-modal')?.addEventListener('click', () => {
+        document.getElementById('tl-assign-modal').classList.remove('active');
+    });
+    document.getElementById('tl-assign-cancel')?.addEventListener('click', () => {
+        document.getElementById('tl-assign-modal').classList.remove('active');
+    });
+    document.getElementById('tl-assign-save')?.addEventListener('click', saveTaskListAssignments);
+
+    // Detail modal
+    document.getElementById('close-tl-detail-modal')?.addEventListener('click', () => {
+        document.getElementById('tl-detail-modal').classList.remove('active');
+    });
+    document.getElementById('tl-detail-close')?.addEventListener('click', () => {
+        document.getElementById('tl-detail-modal').classList.remove('active');
+    });
+
+    // Employee: my-task checklist modal
+    document.getElementById('close-my-task-checklist-modal')?.addEventListener('click', () => {
+        document.getElementById('my-task-checklist-modal').classList.remove('active');
+    });
+    document.getElementById('my-task-checklist-close')?.addEventListener('click', () => {
+        document.getElementById('my-task-checklist-modal').classList.remove('active');
+    });
+
+    // Clock-in panel refresh
+    document.getElementById('tl-clockin-refresh')?.addEventListener('click', loadTaskListClockInPanel);
+
+    // Clock-in task list popup dismiss
+    document.getElementById('tl-clockin-modal-dismiss')?.addEventListener('click', () => {
+        document.getElementById('tl-clockin-modal').classList.remove('active');
+    });
+}
+
 // Make functions available globally for inline handlers
 window.deleteShift = deleteShift;
 window.showEmployeeDetail = showEmployeeDetail;
@@ -4823,6 +6058,10 @@ window.updateEmployeeRate = updateEmployeeRate;
 window.toggleShiftPaid = toggleShiftPaid;
 window.openEditTimesheetModal = openEditTimesheetModal;
 window.viewInvoice = async (id) => {
-    // Load and display invoice - simplified for now
     showToast('Invoice viewing coming soon!');
 };
+window.openTaskListEditor = openTaskListEditor;
+window.deleteTaskList = deleteTaskList;
+window.openTaskListAssignModal = openTaskListAssignModal;
+window.openTaskListDetail = openTaskListDetail;
+window.openMyTaskChecklist = openMyTaskChecklist;

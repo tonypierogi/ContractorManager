@@ -123,6 +123,15 @@
                         </svg>
                         <span>SOPs</span>
                     </button>
+                    <button class="nav-btn" data-view="my-tasks">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="16 3 16 8 21 8"></polyline>
+                            <line x1="8" y1="13" x2="16" y2="13"></line>
+                            <line x1="8" y1="17" x2="12" y2="17"></line>
+                        </svg>
+                        <span>My Tasks</span>
+                    </button>
                     <button class="nav-btn" data-view="profile">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -211,6 +220,17 @@
                                 <span class="stat-value" id="hourly-rate-display">$0.00/hr</span>
                                 <span class="stat-label">Your Rate</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Assigned Tasks Panel (shown when clocked in and task assignments exist) -->
+                    <div class="panel tl-clockin-panel" id="tl-clockin-panel" style="display: none;">
+                        <div class="sop-checklist-header">
+                            <h3>Your Assigned Tasks</h3>
+                            <button type="button" class="btn btn-secondary btn-sm" id="tl-clockin-refresh">Refresh</button>
+                        </div>
+                        <div id="tl-clockin-assignments">
+                            <!-- Assignment cards rendered by JS -->
                         </div>
                     </div>
 
@@ -375,6 +395,36 @@
                         <div class="panel sop-completed-panel" id="sop-employee-completed-panel">
                             <h3><span class="panel-icon">●</span> Completed SOPs</h3>
                             <div class="sop-completed-list" id="sop-employee-completed-list">
+                                <!-- Rendered by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- My Tasks View (Employee) -->
+                <section class="view" id="my-tasks-view">
+                    <div class="view-header">
+                        <h2>My Tasks</h2>
+                    </div>
+
+                    <div id="my-tasks-content">
+                        <div class="panel" id="my-tasks-pending-panel">
+                            <h3><span class="panel-icon">●</span> Pending Tasks</h3>
+                            <div id="my-tasks-pending-list">
+                                <!-- Rendered by JS -->
+                            </div>
+                            <div class="tl-empty-state" id="my-tasks-empty" style="display:none;">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <h3>No pending tasks</h3>
+                                <p>You're all caught up! Check back later for new assignments.</p>
+                            </div>
+                        </div>
+
+                        <div class="panel" id="my-tasks-completed-panel">
+                            <h3><span class="panel-icon">●</span> Completed Tasks</h3>
+                            <div id="my-tasks-completed-list">
                                 <!-- Rendered by JS -->
                             </div>
                         </div>
@@ -556,6 +606,15 @@
                             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
                         </svg>
                         <span>Equipment</span>
+                    </button>
+                    <button class="nav-btn" data-view="task-lists">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="16 3 16 8 21 8"></polyline>
+                            <line x1="8" y1="13" x2="16" y2="13"></line>
+                            <line x1="8" y1="17" x2="12" y2="17"></line>
+                        </svg>
+                        <span>Task Lists</span>
                     </button>
                     <button class="nav-btn" data-view="settings">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -803,6 +862,41 @@
                     </div>
                 </section>
 
+                <!-- Task Lists View (Admin) -->
+                <section class="view" id="task-lists-view">
+                    <div class="view-header">
+                        <h2>Task Lists</h2>
+                        <button class="btn btn-primary" id="create-task-list-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Create Task List
+                        </button>
+                    </div>
+
+                    <div class="panel tl-list-panel" id="tl-list-panel">
+                        <div class="tl-filters">
+                            <button class="btn btn-secondary btn-sm tl-filter-btn active" data-filter="all">All</button>
+                            <button class="btn btn-secondary btn-sm tl-filter-btn" data-filter="sop">SOPs Only</button>
+                            <button class="btn btn-secondary btn-sm tl-filter-btn" data-filter="task">Tasks Only</button>
+                        </div>
+                        <div class="tl-cards" id="tl-cards">
+                            <!-- Task list cards rendered by JS -->
+                        </div>
+                        <div class="tl-empty-state" id="tl-empty-state" style="display:none;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="16 3 16 8 21 8"></polyline>
+                                <line x1="8" y1="13" x2="16" y2="13"></line>
+                                <line x1="8" y1="17" x2="12" y2="17"></line>
+                            </svg>
+                            <h3>No Task Lists Yet</h3>
+                            <p>Create your first task list to assign work to your team.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Business Settings View -->
                 <section class="view" id="settings-view">
                     <div class="view-header">
@@ -837,6 +931,20 @@
                                 </div>
                                 <div class="form-actions">
                                     <button type="submit" class="btn btn-primary">Save Settings</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="panel">
+                            <h3><span class="panel-icon">●</span> AI / Video Processing</h3>
+                            <p class="text-muted" style="margin-bottom:var(--space-md);">Used for auto-generating task lists from uploaded videos. Your key is stored in the database and only visible to admins.</p>
+                            <form id="openai-key-form">
+                                <div class="form-group">
+                                    <label for="business-openai-key">OpenAI API Key</label>
+                                    <input type="password" id="business-openai-key" placeholder="sk-...">
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Save API Key</button>
                                 </div>
                             </form>
                         </div>
@@ -1350,6 +1458,205 @@
         </div>
     </div>
 
+    <!-- Clock-in Task List Popup -->
+    <div class="modal-overlay" id="tl-clockin-modal">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Here's your list for today!</h3>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); margin-bottom: 1rem;">You have tasks assigned — tap one to get started.</p>
+                <div id="tl-clockin-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="tl-clockin-modal-dismiss">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Task Checklist Modal -->
+    <div class="modal-overlay" id="my-task-checklist-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="my-task-checklist-title">Task Checklist</h3>
+                <button class="btn btn-close" id="close-my-task-checklist-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="my-task-meta" id="my-task-meta"></div>
+                <div class="my-task-video" id="my-task-video" style="display:none;">
+                    <video id="my-task-video-player" controls></video>
+                </div>
+                <div class="sop-progress-bar" id="my-task-progress-bar">
+                    <div class="sop-progress-fill" id="my-task-progress-fill"></div>
+                </div>
+                <div class="sop-progress-text" id="my-task-progress-text"></div>
+                <div class="sop-checklist-items" id="my-task-checklist-items">
+                    <!-- Checklist items rendered by JS -->
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="my-task-checklist-close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task List Editor Modal (admin) -->
+    <div class="modal-overlay" id="tl-editor-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="tl-editor-title">Create Task List</h3>
+                <button class="btn btn-close" id="close-tl-editor-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="tl-editor-form">
+                    <input type="hidden" id="tl-editor-id">
+                    <div class="form-group">
+                        <label for="tl-editor-name">Task List Name</label>
+                        <input type="text" id="tl-editor-name" required placeholder="e.g. Onboard New Client">
+                    </div>
+                    <div class="form-group">
+                        <label for="tl-editor-description">Description (optional)</label>
+                        <textarea id="tl-editor-description" rows="2" placeholder="Brief description of this task list"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="tl-editor-is-sop">
+                            <span>Mark as SOP (Standard Operating Procedure)</span>
+                        </label>
+                    </div>
+
+                    <!-- Creation mode tabs -->
+                    <div class="tl-mode-tabs">
+                        <button type="button" class="tl-mode-tab active" data-mode="manual">Manual Entry</button>
+                        <button type="button" class="tl-mode-tab" data-mode="video">From Video</button>
+                    </div>
+
+                    <!-- Manual entry mode -->
+                    <div class="tl-mode-content" id="tl-mode-manual">
+                        <div class="tl-items-editor">
+                            <div class="tl-items-header">
+                                <label>Tasks</label>
+                                <button type="button" class="btn btn-primary btn-sm" id="tl-add-item-btn">+ Add Task</button>
+                            </div>
+                            <div class="tl-items-list" id="tl-items-list">
+                                <!-- Items added by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video mode -->
+                    <div class="tl-mode-content" id="tl-mode-video" style="display:none;">
+                        <div class="tl-video-upload-area" id="tl-video-upload-area">
+                            <div class="tl-video-dropzone" id="tl-video-dropzone">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                </svg>
+                                <p>Drag &amp; drop a video or click to browse</p>
+                                <p class="text-muted">Max 25MB. Say "capture" during the video to auto-screenshot that moment.</p>
+                                <input type="file" id="tl-video-input" accept="video/*" style="display:none;">
+                                <button type="button" class="btn btn-secondary" id="tl-video-browse-btn">Choose Video</button>
+                            </div>
+                        </div>
+                        <div class="tl-video-preview" id="tl-video-preview" style="display:none;">
+                            <video id="tl-video-player" controls></video>
+                            <div class="tl-video-info">
+                                <span id="tl-video-filename"></span>
+                                <button type="button" class="btn btn-secondary btn-sm" id="tl-video-remove">Remove</button>
+                            </div>
+                        </div>
+                        <div class="tl-video-processing" id="tl-video-processing" style="display:none;">
+                            <div class="tl-processing-spinner"></div>
+                            <p id="tl-processing-status">Uploading video...</p>
+                            <div class="tl-processing-steps">
+                                <div class="tl-step" id="tl-step-compress">Compress video</div>
+                                <div class="tl-step" id="tl-step-upload">Upload files</div>
+                                <div class="tl-step" id="tl-step-transcribe">Transcribe audio</div>
+                                <div class="tl-step" id="tl-step-generate">Generate tasks</div>
+                                <div class="tl-step" id="tl-step-screenshots">Capture screenshots</div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="tl-process-video-btn" style="display:none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Process Video
+                        </button>
+                        <div class="tl-transcript-panel" id="tl-transcript-panel" style="display:none;">
+                            <label>Transcript</label>
+                            <div class="tl-transcript-text" id="tl-transcript-text"></div>
+                        </div>
+                        <div class="tl-generated-items" id="tl-generated-items" style="display:none;">
+                            <label>Generated Tasks (edit as needed)</label>
+                            <div class="tl-items-list" id="tl-generated-items-list">
+                                <!-- Generated items rendered by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="tl-editor-cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Task List</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task List Assignment Modal -->
+    <div class="modal-overlay" id="tl-assign-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Assign Task List</h3>
+                <button class="btn btn-close" id="close-tl-assign-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="tl-assign-hint" id="tl-assign-hint">Select employees to assign this task list to.</p>
+                <div class="tl-assign-employees" id="tl-assign-employees">
+                    <!-- Employee checkboxes rendered by JS -->
+                </div>
+                <div class="tl-assign-existing" id="tl-assign-existing">
+                    <!-- Existing assignments shown here -->
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="tl-assign-cancel">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="tl-assign-save">Assign</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task List Detail Modal (admin view of a task list + assignments) -->
+    <div class="modal-overlay" id="tl-detail-modal">
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <h3 id="tl-detail-title">Task List Details</h3>
+                <button class="btn btn-close" id="close-tl-detail-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tl-detail-meta" id="tl-detail-meta"></div>
+                <div class="tl-detail-video" id="tl-detail-video" style="display:none;">
+                    <label>Source Video</label>
+                    <video id="tl-detail-video-player" controls></video>
+                </div>
+                <div class="tl-detail-transcript" id="tl-detail-transcript" style="display:none;">
+                    <label>Transcript</label>
+                    <div class="tl-transcript-text" id="tl-detail-transcript-text"></div>
+                </div>
+                <div class="tl-detail-items" id="tl-detail-items">
+                    <!-- Task items rendered by JS -->
+                </div>
+                <div class="tl-detail-assignments" id="tl-detail-assignments">
+                    <label>Assignments</label>
+                    <div id="tl-detail-assignment-list"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="tl-detail-close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SOP Task Row Template (hidden, cloned by JS) -->
     <template id="sop-item-row-template">
         <div class="sop-item-row sop-editor-row" data-item-id="">
@@ -1513,6 +1820,10 @@
             </div>
         </div>
     </div>
+
+    <!-- Hidden elements for video screenshot extraction -->
+    <video id="tl-screenshot-video" style="display:none;" crossorigin="anonymous"></video>
+    <canvas id="tl-screenshot-canvas" style="display:none;"></canvas>
 
     <!-- Toast Notification -->
     <div class="toast" id="toast">
