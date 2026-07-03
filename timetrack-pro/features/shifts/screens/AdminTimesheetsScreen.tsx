@@ -21,13 +21,23 @@ import { formatDate, formatTime, formatCurrency } from '@/utils/format';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Default to the last 30 days so the unfiltered view doesn't load every
+// time entry ever recorded. Clearing the field and filtering shows all.
+function defaultStartDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function TimesheetsScreen() {
   const [employeeFilter, setEmployeeFilter] = useState('');
   // Draft values track the inputs; applied values feed the query only when
   // the Filter button commits them (typing must not fire queries).
-  const [startDraft, setStartDraft] = useState('');
+  const [startDraft, setStartDraft] = useState(defaultStartDate);
   const [endDraft, setEndDraft] = useState('');
-  const [appliedDates, setAppliedDates] = useState<{ start?: string; end?: string }>({});
+  const [appliedDates, setAppliedDates] = useState<{ start?: string; end?: string }>(
+    () => ({ start: defaultStartDate() }),
+  );
   const [showEmployeePicker, setShowEmployeePicker] = useState(false);
   const { showToast } = useToast();
 
@@ -51,21 +61,26 @@ export default function TimesheetsScreen() {
 
   const selectedMember = members?.find((m) => m.id === employeeFilter);
 
+  const memberById = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof members>[number]>();
+    (members ?? []).forEach((m) => map.set(m.id, m));
+    return map;
+  }, [members]);
+
   const getMemberName = useCallback(
     (userId: string) => {
-      const m = members?.find((p) => p.id === userId);
+      const m = memberById.get(userId);
       return m ? `${m.first_name} ${m.last_name}` : 'Unknown';
     },
-    [members],
+    [memberById],
   );
 
   const getHourlyRate = useCallback(
     (item: any) => {
       if (item.profiles?.hourly_rate != null) return item.profiles.hourly_rate;
-      const m = members?.find((p) => p.id === item.user_id);
-      return m?.hourly_rate ?? 0;
+      return memberById.get(item.user_id)?.hourly_rate ?? 0;
     },
-    [members],
+    [memberById],
   );
 
   const calcHours = (clockIn: string, clockOut: string | null): number => {
@@ -138,7 +153,8 @@ export default function TimesheetsScreen() {
         </View>
       );
     },
-    [getMemberName, getHourlyRate, togglePaid],
+    // togglePaid.mutate is referentially stable; the mutation object is not
+    [getMemberName, getHourlyRate, togglePaid.mutate],
   );
 
   return (

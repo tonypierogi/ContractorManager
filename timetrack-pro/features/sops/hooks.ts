@@ -80,21 +80,51 @@ export function useCreateDailySop() {
   });
 }
 
-export function useSopChecklist(dailySopId: string) {
+export function useSopChecklist(dailySopId: string, sopTemplateId?: string) {
   return useQuery({
     queryKey: qk.sops.checklist(dailySopId),
-    queryFn: () => fetchSopChecklist(dailySopId),
+    queryFn: () => fetchSopChecklist(dailySopId, sopTemplateId),
     enabled: !!dailySopId,
     staleTime: 1000 * 15,
   });
 }
+
+type ChecklistData = Awaited<ReturnType<typeof fetchSopChecklist>>;
 
 export function useToggleSopCheck() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: toggleSopCheck,
-    onSuccess: (_data, { dailySopId }) => {
+    // Optimistic: flip the checkbox in the cache immediately so taps feel
+    // instant on slow connections; roll back on error, refetch on settle.
+    onMutate: async ({ dailySopId, sopItemId, checked }) => {
+      await queryClient.cancelQueries({ queryKey: qk.sops.checklist(dailySopId) });
+      const previous = queryClient.getQueryData<ChecklistData>(
+        qk.sops.checklist(dailySopId),
+      );
+      queryClient.setQueryData<ChecklistData>(
+        qk.sops.checklist(dailySopId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            templateItems: old.templateItems.map((item) =>
+              item.id === sopItemId
+                ? { ...item, checked, checked_by_name: null }
+                : item,
+            ),
+          };
+        },
+      );
+      return { previous };
+    },
+    onError: (_err, { dailySopId }, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(qk.sops.checklist(dailySopId), context.previous);
+      }
+    },
+    onSettled: (_data, _err, { dailySopId }) => {
       queryClient.invalidateQueries({ queryKey: qk.sops.checklist(dailySopId) });
       queryClient.invalidateQueries({ queryKey: qk.sops.daily });
     },

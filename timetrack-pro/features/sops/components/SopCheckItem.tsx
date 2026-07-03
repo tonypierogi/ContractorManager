@@ -5,11 +5,11 @@ import type { SopItem } from '@/types/database';
 
 interface SopCheckItemProps {
   item: SopItem & { checked: boolean; checked_by_name?: string | null };
-  onToggle: () => void;
+  onToggle: (itemId: string, checked: boolean) => void;
   disabled?: boolean;
 }
 
-export default function SopCheckItem({ item, onToggle, disabled = false }: SopCheckItemProps) {
+function SopCheckItem({ item, onToggle, disabled = false }: SopCheckItemProps) {
   if (item.item_type === 'section') {
     return (
       <View style={styles.section}>
@@ -23,7 +23,7 @@ export default function SopCheckItem({ item, onToggle, disabled = false }: SopCh
 
   return (
     <TouchableOpacity
-      onPress={onToggle}
+      onPress={() => onToggle(item.id, !item.checked)}
       disabled={disabled}
       activeOpacity={0.7}
       style={[styles.row, disabled && styles.disabled]}
@@ -54,6 +54,10 @@ export default function SopCheckItem({ item, onToggle, disabled = false }: SopCh
     </TouchableOpacity>
   );
 }
+
+// Memoized: the checklist re-renders on every optimistic toggle, but only the
+// toggled item's object identity changes.
+export default React.memo(SopCheckItem);
 
 const styles = StyleSheet.create({
   section: {

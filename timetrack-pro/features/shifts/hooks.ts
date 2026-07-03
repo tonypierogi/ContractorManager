@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
 import {
   addShift,
@@ -23,6 +28,8 @@ export function useAllShifts(filters: ShiftFilters = {}) {
   return useQuery({
     queryKey: qk.timeEntries.list(filters),
     queryFn: () => fetchShiftsWithProfiles(filters),
+    // keep the previous rows on screen while a new filter refetches
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -21,9 +21,13 @@ export interface SaveTaskListInput {
 }
 
 export async function fetchTaskLists() {
+  // Explicit columns: task_lists.* would drag the full video transcript of
+  // every list into this list view.
   const { data, error } = await supabase
     .from('task_lists')
-    .select('*, task_list_items(id), task_list_assignments(id, status)')
+    .select(
+      'id, title, description, is_sop, source_video_url, created_at, task_list_items(id), task_list_assignments(id, status)',
+    )
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;

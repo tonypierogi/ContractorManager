@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SopCheckItem from '@/features/sops/components/SopCheckItem';
@@ -29,23 +29,30 @@ export default function SopsScreen() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { data: todaySop, isLoading: loadingTodaySop, refetch: refetchTodaySop } = useTodayDailySop();
-  const { data: checklist, isLoading: loadingChecklist, refetch: refetchChecklist } = useSopChecklist(todaySop?.id ?? '');
+  const { data: checklist, isLoading: loadingChecklist, refetch: refetchChecklist } = useSopChecklist(
+    todaySop?.id ?? '',
+    todaySop?.sop_template_id,
+  );
   const { data: completedSops } = useCompletedDailySops();
   const { data: templates, isLoading: loadingTemplates } = useSopTemplates();
   const toggleCheck = useToggleSopCheck();
   const completeDailySop = useCompleteDailySop();
   const createDailySop = useCreateDailySop();
 
-  const handleToggle = (itemId: string) => {
-    if (!todaySop || !user) return;
-    const item = checklist?.templateItems.find((i) => i.id === itemId);
-    toggleCheck.mutate({
-      dailySopId: todaySop.id,
-      sopItemId: itemId,
-      checkedBy: user.id,
-      checked: !item?.checked,
-    });
-  };
+  const dailySopId = todaySop?.id;
+  const userId = user?.id;
+  const handleToggle = useCallback(
+    (itemId: string, checked: boolean) => {
+      if (!dailySopId || !userId) return;
+      toggleCheck.mutate({
+        dailySopId,
+        sopItemId: itemId,
+        checkedBy: userId,
+        checked,
+      });
+    },
+    [dailySopId, userId, toggleCheck.mutate],
+  );
 
   const handleRefresh = () => {
     refetchTodaySop();
@@ -94,11 +101,7 @@ export default function SopsScreen() {
 
       <View style={s.checklistItems}>
         {checklist?.templateItems.map((item) => (
-          <SopCheckItem
-            key={item.id}
-            item={item}
-            onToggle={() => handleToggle(item.id)}
-          />
+          <SopCheckItem key={item.id} item={item} onToggle={handleToggle} />
         ))}
       </View>
 

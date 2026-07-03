@@ -142,19 +142,25 @@ export async function createDailySop(input: {
   return data as DailySopWithTemplate;
 }
 
-export async function fetchSopChecklist(dailySopId: string) {
-  const { data: daily } = await supabase
-    .from('daily_sops')
-    .select('sop_template_id')
-    .eq('id', dailySopId)
-    .single();
-  if (!daily) throw new Error('Daily SOP not found');
+export async function fetchSopChecklist(dailySopId: string, sopTemplateId?: string) {
+  // Callers that already hold the daily SOP row pass its template id and
+  // skip a serial round trip.
+  let templateId = sopTemplateId;
+  if (!templateId) {
+    const { data: daily } = await supabase
+      .from('daily_sops')
+      .select('sop_template_id')
+      .eq('id', dailySopId)
+      .single();
+    if (!daily) throw new Error('Daily SOP not found');
+    templateId = daily.sop_template_id as string;
+  }
 
   const [itemsResult, adHocResult, checksResult] = await Promise.all([
     supabase
       .from('sop_items')
       .select('*')
-      .eq('sop_template_id', daily.sop_template_id)
+      .eq('sop_template_id', templateId)
       .order('sort_order'),
     supabase
       .from('ad_hoc_tasks')
@@ -227,7 +233,8 @@ export async function fetchCompletedDailySops() {
     .from('daily_sops')
     .select('*, sop_templates(name)')
     .not('completed_at', 'is', null)
-    .order('date', { ascending: false });
+    .order('date', { ascending: false })
+    .limit(15);
   if (error) throw error;
   return data as DailySopWithTemplate[];
 }

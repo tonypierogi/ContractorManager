@@ -16,10 +16,12 @@ export async function fetchMyInvoices(userId: string): Promise<Invoice[]> {
 }
 
 export async function fetchAllInvoices(): Promise<InvoiceWithProfile[]> {
+  // Backs the admin "Recent Invoices" panel — unbounded history isn't needed.
   const { data, error } = await supabase
     .from('invoices')
     .select('*, profiles(first_name, last_name, email)')
-    .order('issue_date', { ascending: false });
+    .order('issue_date', { ascending: false })
+    .limit(20);
   if (error) throw error;
   return data as unknown as InvoiceWithProfile[];
 }
