@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '@/lib/auth-provider';
-import { isProfileIncomplete } from '@/hooks/useProfile';
+import { isProfileIncomplete } from '@/features/profile/utils';
 import { Colors } from '@/constants/theme';
 
 export default function IndexRedirect() {

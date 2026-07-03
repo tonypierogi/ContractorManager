@@ -14,7 +14,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAllShifts, useToggleShiftPaid } from '@/hooks/useShifts';
-import { useTeamMembers } from '@/hooks/useTeam';
+import { useTeamMembers } from '@/features/team/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate, formatTime, formatCurrency } from '@/utils/format';

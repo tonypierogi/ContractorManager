@@ -13,7 +13,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useAllInvoices, useGenerateInvoice } from '@/hooks/useInvoices';
-import { useTeamMembers } from '@/hooks/useTeam';
+import { useTeamMembers } from '@/features/team/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';

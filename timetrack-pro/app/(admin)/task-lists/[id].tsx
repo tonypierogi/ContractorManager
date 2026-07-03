@@ -22,7 +22,7 @@ import {
   useTaskListAssignments,
   useSaveAssignments,
 } from '@/hooks/useTaskLists';
-import { useTeamMembers } from '@/hooks/useTeam';
+import { useTeamMembers } from '@/features/team/hooks';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
