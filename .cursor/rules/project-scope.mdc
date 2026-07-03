@@ -1,0 +1,12 @@
+---
+description: Project scope — the active app is the Expo/React Native app in timetrack-pro/
+alwaysApply: true
+---
+
+# Project Scope
+
+- The active application is the Expo/React Native app in `timetrack-pro/` (TypeScript, expo-router, React Query, Supabase). One codebase targets iOS, Android, and web. All bug fixes, features, and refactors happen there.
+- The legacy vanilla HTML/JS web app was removed from the working tree and is preserved in git history at tag `legacy-html`. Some of its features (inventory, locations, schedule, events, spreadsheet) are NOT yet ported to timetrack-pro.
+- Code structure: feature modules under `timetrack-pro/features/<domain>/{api.ts, hooks.ts, components/, screens/}`; `timetrack-pro/app/` holds only thin expo-router route files and layouts. A new feature = a new `features/` folder plus 1–2 thin route files.
+- Database: Supabase. Migrations live in `supabase/migrations/` and are already applied to production — never run `supabase db push` blind. When DB changes are needed, write the SQL to a new timestamped migration file and give it to the user to apply manually — NEVER apply changes to the database directly.
+- Contractors/employees use the app exclusively on phones: all employee-facing UI must be mobile-first (small screens ~390px, 44px+ touch targets, correct input types).
