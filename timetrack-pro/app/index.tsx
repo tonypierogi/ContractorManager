@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { isProfileIncomplete } from '@/features/profile/utils';
 import { Colors } from '@/constants/theme';
 

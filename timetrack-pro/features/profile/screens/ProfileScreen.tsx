@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { useUpdateProfile } from '@/features/profile/hooks';
 import { formatCurrency } from '@/utils/format';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '@/constants/theme';

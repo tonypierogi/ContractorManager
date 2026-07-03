@@ -16,7 +16,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import {
   useTaskList,
   useTaskListAssignments,

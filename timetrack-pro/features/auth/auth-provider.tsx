@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { fetchProfileOrNull } from '@/features/profile/api';
 import { Profile } from '@/types/database';
 
 interface AuthContextType {
@@ -34,18 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      setProfile(await fetchProfileOrNull(userId));
+    } catch (error) {
       console.error('Error fetching profile:', error);
-      return;
     }
-
-    setProfile(data);
   }, []);
 
   const refreshProfile = useCallback(async () => {

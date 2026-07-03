@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import InvoiceCard from '@/components/invoices/InvoiceCard';
 import EmptyState from '@/components/ui/EmptyState';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { useInvoices } from '@/hooks/useInvoices';
 import { Colors, Spacing, FontSize, FontWeight } from '@/constants/theme';
 import type { Invoice } from '@/types/database';

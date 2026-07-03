@@ -9,7 +9,7 @@ import {
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 export interface NavItem {

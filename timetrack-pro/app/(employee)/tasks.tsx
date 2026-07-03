@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { useMyTaskAssignments } from '@/hooks/useTaskLists';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 

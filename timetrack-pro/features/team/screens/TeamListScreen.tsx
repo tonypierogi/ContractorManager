@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '@/components/ui/Button';
 import MemberCard from '@/features/team/components/MemberCard';
 import { useTeamMembers, useDeleteTeamMember } from '@/features/team/hooks';
-import { useAuth } from '@/lib/auth-provider';
+import { useAuth } from '@/features/auth/auth-provider';
 import { Colors, Spacing, FontSize } from '@/constants/theme';
 import type { Profile } from '@/types/database';
 

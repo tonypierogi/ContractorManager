@@ -12,7 +12,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { useProfile, useUpdateProfile } from '@/features/profile/hooks';
-import { useShifts } from '@/hooks/useShifts';
+import { useShifts } from '@/features/shifts/hooks';
 import { useDeleteTeamMember } from '@/features/team/hooks';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatTime, formatDate, formatCurrency, formatAddress } from '@/utils/format';

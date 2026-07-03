@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryProvider } from '@/lib/query-provider';
-import { AuthProvider } from '@/lib/auth-provider';
+import { AuthProvider } from '@/features/auth/auth-provider';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export { ErrorBoundary } from 'expo-router';
