@@ -5,3 +5,4 @@
 secrets/
 dist/
 web-build/
+.claude/settings.local.json

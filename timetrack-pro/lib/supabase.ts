@@ -1,12 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { Env } from '@/lib/env';
 
-const SUPABASE_URL = 'https://eleegjfvsriqzgbdsjid.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsZWVnamZ2c3JpcXpnYmRzamlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQyMTMsImV4cCI6MjA4NDAwMDIxM30.JY-vJUqqE2frSVRJDrQgNHrA0LM1BXQQbnd8N8ye_b4';
-
-export const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1`;
+export const EDGE_FUNCTION_URL = `${Env.supabaseUrl}/functions/v1`;
 
 const SecureStoreAdapter = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
@@ -29,7 +26,7 @@ const LocalStorageAdapter = {
   },
 };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient(Env.supabaseUrl, Env.supabaseAnonKey, {
   auth: {
     storage: Platform.OS === 'web' ? LocalStorageAdapter : SecureStoreAdapter,
     autoRefreshToken: true,
