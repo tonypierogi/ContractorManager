@@ -9,6 +9,7 @@ CREATE TABLE task_lists (
     title TEXT NOT NULL,
     description TEXT,
     is_sop BOOLEAN NOT NULL DEFAULT FALSE,
+    location TEXT,
     source_video_url TEXT,
     source_transcript TEXT,
     created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -24,8 +25,21 @@ CREATE TABLE task_list_items (
     title TEXT NOT NULL,
     description TEXT,
     media JSONB DEFAULT '[]'::jsonb,
+    item_type TEXT NOT NULL DEFAULT 'task' CHECK (item_type IN ('task', 'header')),
+    location_from TEXT,
+    location_to TEXT,
+    equipment JSONB DEFAULT '[]'::jsonb,
+    video_timestamp FLOAT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- If migrating an existing database, run these:
+-- ALTER TABLE task_list_items ADD COLUMN IF NOT EXISTS item_type TEXT NOT NULL DEFAULT 'task' CHECK (item_type IN ('task', 'header'));
+-- ALTER TABLE task_lists ADD COLUMN IF NOT EXISTS location TEXT;
+-- ALTER TABLE task_list_items ADD COLUMN IF NOT EXISTS location_from TEXT;
+-- ALTER TABLE task_list_items ADD COLUMN IF NOT EXISTS location_to TEXT;
+-- ALTER TABLE task_list_items ADD COLUMN IF NOT EXISTS equipment JSONB DEFAULT '[]'::jsonb;
+-- ALTER TABLE task_list_items ADD COLUMN IF NOT EXISTS video_timestamp FLOAT;
 
 -- Links a task list to a specific employee
 CREATE TABLE task_list_assignments (
@@ -95,6 +109,8 @@ CREATE POLICY "Employees can view own checks" ON task_list_item_checks
     FOR SELECT TO authenticated USING (checked_by = auth.uid());
 CREATE POLICY "Employees can insert own checks" ON task_list_item_checks
     FOR INSERT TO authenticated WITH CHECK (checked_by = auth.uid());
+CREATE POLICY "Employees can delete own checks" ON task_list_item_checks
+    FOR DELETE TO authenticated USING (checked_by = auth.uid());
 
 -- Trigger for updated_at on task_lists
 CREATE TRIGGER update_task_lists_updated_at
