@@ -91,54 +91,88 @@
                     </svg>
                 </button>
                 <nav class="main-nav" id="main-nav">
-                    <button class="nav-btn active" data-view="timesheet">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span>Time Clock</span>
-                    </button>
-                    <button class="nav-btn" data-view="shifts">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        <span>My Shifts</span>
-                    </button>
-                    <button class="nav-btn" data-view="invoices">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                        </svg>
-                        <span>Invoices</span>
-                    </button>
-                    <button class="nav-btn" data-view="sop-employee">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 11l3 3L22 4"></path>
-                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                        </svg>
-                        <span>SOPs</span>
-                    </button>
-                    <button class="nav-btn" data-view="my-tasks">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="16 3 16 8 21 8"></polyline>
-                            <line x1="8" y1="13" x2="16" y2="13"></line>
-                            <line x1="8" y1="17" x2="12" y2="17"></line>
-                        </svg>
-                        <span>My Tasks</span>
-                    </button>
-                    <button class="nav-btn" data-view="profile">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        <span>Profile</span>
-                    </button>
+                    <div class="nav-group">
+                        <span class="nav-group-label">Time & Attendance</span>
+                        <button class="nav-btn active" data-view="timesheet">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>Time Clock</span>
+                        </button>
+                        <button class="nav-btn" data-view="shifts">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span>My Shifts</span>
+                        </button>
+                        <button class="nav-btn" data-view="my-schedule">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                <line x1="8" y1="14" x2="8" y2="14.01"></line>
+                                <line x1="12" y1="14" x2="12" y2="14.01"></line>
+                                <line x1="16" y1="14" x2="16" y2="14.01"></line>
+                            </svg>
+                            <span>My Schedule</span>
+                        </button>
+                    </div>
+                    <div class="nav-group">
+                        <span class="nav-group-label">Work</span>
+                        <button class="nav-btn" data-view="sop-employee">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                            </svg>
+                            <span>SOPs</span>
+                        </button>
+                        <button class="nav-btn" data-view="my-tasks">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="16 3 16 8 21 8"></polyline>
+                                <line x1="8" y1="13" x2="16" y2="13"></line>
+                                <line x1="8" y1="17" x2="12" y2="17"></line>
+                            </svg>
+                            <span>My Tasks</span>
+                        </button>
+                        <button class="nav-btn" data-view="locations">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span>Locations</span>
+                        </button>
+                        <button class="nav-btn" data-view="my-inventory">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                            <span>Inventory</span>
+                        </button>
+                    </div>
+                    <div class="nav-group">
+                        <span class="nav-group-label">Account</span>
+                        <button class="nav-btn" data-view="invoices">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                            </svg>
+                            <span>Invoices</span>
+                        </button>
+                        <button class="nav-btn" data-view="profile">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span>Profile</span>
+                        </button>
+                    </div>
                     <button class="nav-btn nav-signout" id="mobile-logout-btn">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -319,6 +353,44 @@
                     </div>
                 </section>
 
+                <!-- My Schedule View (Employee) -->
+                <section class="view" id="my-schedule-view">
+                    <div class="view-header">
+                        <h2>My Schedule</h2>
+                    </div>
+
+                    <div class="panel schedule-controls-panel">
+                        <div class="schedule-toolbar">
+                            <div class="schedule-view-toggle">
+                                <button class="btn btn-secondary btn-sm schedule-toggle-btn active" id="my-schedule-view-week" data-mode="week">Week</button>
+                                <button class="btn btn-secondary btn-sm schedule-toggle-btn" id="my-schedule-view-month" data-mode="month">Month</button>
+                            </div>
+                            <div class="schedule-nav">
+                                <button class="btn btn-secondary btn-sm" id="my-schedule-prev">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                                </button>
+                                <span class="schedule-period-label" id="my-schedule-period-label">Mar 3 – Mar 9, 2026</span>
+                                <button class="btn btn-secondary btn-sm" id="my-schedule-next">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                                </button>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" id="my-schedule-today-btn">Today</button>
+                        </div>
+                    </div>
+
+                    <div class="panel" id="my-schedule-week-panel">
+                        <div class="my-schedule-list" id="my-schedule-list">
+                            <!-- Weekly shifts rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="panel schedule-month-panel" id="my-schedule-month-panel" style="display:none;">
+                        <div class="schedule-month-cal" id="my-schedule-month-cal">
+                            <!-- Monthly calendar rendered by JS -->
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Invoices View -->
                 <section class="view" id="invoices-view">
                     <div class="view-header">
@@ -367,6 +439,7 @@
                                 <div class="sop-checklist-items" id="sop-employee-checklist-items">
                                     <!-- Checklist items rendered by JS -->
                                 </div>
+                                <button type="button" class="btn btn-primary sop-mark-done-btn" id="sop-mark-done-btn" style="display: none;">Mark SOP as Done</button>
                             </div>
 
                             <div id="sop-no-templates" style="display: none;">
@@ -428,6 +501,44 @@
                                 <!-- Rendered by JS -->
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Task Checklist Detail View (Employee) -->
+                <section class="view" id="my-task-detail-view">
+                    <div class="view-header my-task-detail-header">
+                        <button type="button" class="btn btn-ghost btn-sm my-task-back-btn" id="my-task-back-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            My Tasks
+                        </button>
+                        <h2 id="my-task-checklist-title">Task Checklist</h2>
+                    </div>
+                    <div class="my-task-meta" id="my-task-meta"></div>
+                    <div class="my-task-video" id="my-task-video" style="display:none;">
+                        <button type="button" class="my-task-video-toggle" id="my-task-video-toggle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                            <span>Watch Video</span>
+                            <svg class="my-task-video-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                        <div class="my-task-video-wrap" id="my-task-video-wrap">
+                            <video id="my-task-video-player" controls></video>
+                        </div>
+                    </div>
+                    <div class="my-task-progress-section">
+                        <div class="my-task-progress-header">
+                            <span class="my-task-progress-label" id="my-task-progress-label">Progress</span>
+                            <span class="my-task-progress-count" id="my-task-progress-count">0/0</span>
+                        </div>
+                        <div class="my-task-progress-track" id="my-task-progress-bar">
+                            <div class="my-task-progress-fill" id="my-task-progress-fill"></div>
+                        </div>
+                        <div class="my-task-progress-pct" id="my-task-progress-text"></div>
+                    </div>
+                    <div class="my-task-checklist-items" id="my-task-checklist-items">
+                        <!-- Checklist items rendered by JS -->
+                    </div>
+                    <div class="my-task-actions">
+                        <button type="button" class="btn my-task-close-btn" id="my-task-checklist-close">Done</button>
                     </div>
                 </section>
 
@@ -550,6 +661,47 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- Locations View -->
+                <section class="view" id="locations-view">
+                    <div class="view-header">
+                        <h2>Locations</h2>
+                    </div>
+
+                    <div class="locations-tabs">
+                        <button class="locations-tab active" data-floor="upstairs">Upstairs</button>
+                        <button class="locations-tab" data-floor="downstairs">Downstairs</button>
+                    </div>
+
+                    <div class="locations-layout">
+                        <div class="locations-floorplan-wrap">
+                            <div class="locations-floorplan" id="emp-floorplan">
+                                <img src="images/locations/fp-up-default.png" alt="Floor plan" class="floorplan-img" id="emp-floorplan-img">
+                            </div>
+                        </div>
+                        <div class="locations-sidebar">
+                            <div class="locations-zone-list" id="emp-zone-list"></div>
+                            <div class="locations-photo-preview" id="emp-photo-preview">
+                                <div class="photo-placeholder">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    <p>Hover a zone to preview</p>
+                                </div>
+                            </div>
+                            <div class="locations-linked-tasks" id="emp-linked-tasks"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- My Inventory View (Employee) -->
+                <section class="view" id="my-inventory-view">
+                    <div class="view-header">
+                        <h2>Inventory Check</h2>
+                    </div>
+                    <div id="my-inventory-content"></div>
+                </section>
             </main>
         </div>
 
@@ -569,60 +721,126 @@
                     </svg>
                 </button>
                 <nav class="main-nav" id="admin-main-nav">
-                    <button class="nav-btn active" data-view="team">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                        <span>Team</span>
-                    </button>
-                    <button class="nav-btn" data-view="timesheets">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span>Timesheets</span>
-                    </button>
-                    <button class="nav-btn" data-view="admin-invoices">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                        </svg>
-                        <span>Invoices</span>
-                    </button>
-                    <button class="nav-btn" data-view="sop">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 11l3 3L22 4"></path>
-                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                        </svg>
-                        <span>SOP</span>
-                    </button>
-                    <button class="nav-btn" data-view="equipment">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-                        </svg>
-                        <span>Equipment</span>
-                    </button>
-                    <button class="nav-btn" data-view="task-lists">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="16 3 16 8 21 8"></polyline>
-                            <line x1="8" y1="13" x2="16" y2="13"></line>
-                            <line x1="8" y1="17" x2="12" y2="17"></line>
-                        </svg>
-                        <span>Task Lists</span>
-                    </button>
-                    <button class="nav-btn" data-view="settings">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                        <span>Settings</span>
-                    </button>
+                    <div class="nav-group">
+                        <span class="nav-group-label">Team</span>
+                        <button class="nav-btn active" data-view="team">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            <span>Team</span>
+                        </button>
+                        <button class="nav-btn" data-view="timesheets">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>Timesheets</span>
+                        </button>
+                        <button class="nav-btn" data-view="schedule">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                <line x1="8" y1="14" x2="8" y2="14.01"></line>
+                                <line x1="12" y1="14" x2="12" y2="14.01"></line>
+                                <line x1="16" y1="14" x2="16" y2="14.01"></line>
+                            </svg>
+                            <span>Schedule</span>
+                        </button>
+                    </div>
+                    <div class="nav-dropdown" id="nav-dropdown-operations">
+                        <button class="nav-btn nav-dropdown-trigger" type="button">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                            </svg>
+                            <span>Operations</span>
+                            <svg class="nav-dropdown-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <button class="nav-btn" data-view="sop">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 11l3 3L22 4"></path>
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                </svg>
+                                <span>SOP</span>
+                            </button>
+                            <button class="nav-btn" data-view="equipment">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                                </svg>
+                                <span>Equipment</span>
+                            </button>
+                            <button class="nav-btn" data-view="task-lists">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="16 3 16 8 21 8"></polyline>
+                                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                                    <line x1="8" y1="17" x2="12" y2="17"></line>
+                                </svg>
+                                <span>Task Lists</span>
+                            </button>
+                            <button class="nav-btn" data-view="admin-locations">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                <span>Locations</span>
+                            </button>
+                            <button class="nav-btn" data-view="inventory">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                                <span>Inventory</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown" id="nav-dropdown-business">
+                        <button class="nav-btn nav-dropdown-trigger" type="button">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                            <span>Business</span>
+                            <svg class="nav-dropdown-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <button class="nav-btn" data-view="admin-invoices">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                <span>Invoices</span>
+                            </button>
+                            <button class="nav-btn" data-view="settings">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
+                                <span>Settings</span>
+                            </button>
+                            <button class="nav-btn" data-view="storage">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                                </svg>
+                                <span>Storage</span>
+                            </button>
+                        </div>
+                    </div>
                     <button class="nav-btn nav-signout" id="admin-mobile-logout-btn">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -730,6 +948,77 @@
                             <span id="admin-total-hours">0.00 hrs</span>
                             <span id="admin-total-amount">$0.00</span>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Schedule View (Admin) -->
+                <section class="view" id="schedule-view">
+                    <div class="view-header">
+                        <h2>Team Schedule</h2>
+                        <div class="view-header-actions">
+                            <button class="btn btn-secondary" id="add-timeoff-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    <line x1="9" y1="14" x2="15" y2="14"></line>
+                                </svg>
+                                Time Off
+                            </button>
+                            <button class="btn btn-primary" id="add-scheduled-shift-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Schedule Shift
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel schedule-controls-panel">
+                        <div class="schedule-toolbar">
+                            <div class="schedule-view-toggle">
+                                <button class="btn btn-secondary btn-sm schedule-toggle-btn active" id="schedule-view-week" data-mode="week">Week</button>
+                                <button class="btn btn-secondary btn-sm schedule-toggle-btn" id="schedule-view-month" data-mode="month">Month</button>
+                            </div>
+                            <div class="schedule-nav">
+                                <button class="btn btn-secondary btn-sm" id="schedule-prev">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                                </button>
+                                <span class="schedule-period-label" id="schedule-period-label">Mar 3 – Mar 9, 2026</span>
+                                <button class="btn btn-secondary btn-sm" id="schedule-next">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                                </button>
+                            </div>
+                            <div class="schedule-toolbar-actions">
+                                <button class="btn btn-secondary btn-sm" id="schedule-today-btn">Today</button>
+                                <select id="schedule-shift-type-filter" class="schedule-filter-select">
+                                    <option value="both">Scheduled + Logged</option>
+                                    <option value="scheduled">Scheduled Only</option>
+                                    <option value="logged">Logged Only</option>
+                                </select>
+                                <select id="schedule-member-filter" class="schedule-filter-select">
+                                    <option value="">All Members</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel schedule-grid-panel" id="schedule-week-panel">
+                        <div class="schedule-grid" id="schedule-grid">
+                            <!-- Weekly schedule grid rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="panel schedule-month-panel" id="schedule-month-panel" style="display:none;">
+                        <div class="schedule-month-cal" id="schedule-month-cal">
+                            <!-- Monthly calendar rendered by JS -->
+                        </div>
+                    </div>
+
+                    <div class="panel" id="contractor-pay-summary">
+                        <!-- Contractor pay summary rendered by JS -->
                     </div>
                 </section>
 
@@ -897,6 +1186,266 @@
                     </div>
                 </section>
 
+                <!-- Task List Editor View (admin sub-view) -->
+                <section class="view" id="tl-editor-view">
+                    <div class="view-header editor-view-header">
+                        <button type="button" class="btn btn-back" id="tl-editor-back-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            Task Lists
+                        </button>
+                        <h2 id="tl-editor-title">Create Task List</h2>
+                    </div>
+                    <div class="editor-view-body">
+                        <form id="tl-editor-form">
+                            <input type="hidden" id="tl-editor-id">
+                            <div class="form-group">
+                                <label for="tl-editor-name">Task List Name</label>
+                                <input type="text" id="tl-editor-name" required placeholder="e.g. Onboard New Client">
+                            </div>
+                            <div class="form-group">
+                                <label for="tl-editor-description">Description (optional)</label>
+                                <textarea id="tl-editor-description" rows="2" placeholder="Brief description of this task list"></textarea>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="tl-editor-is-sop">
+                                        <span>Mark as SOP (Standard Operating Procedure)</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tl-editor-location">Location</label>
+                                    <select id="tl-editor-location">
+                                        <option value="">No location</option>
+                                        <optgroup label="Upstairs">
+                                            <option value="back-closet">Back Closet</option>
+                                            <option value="big-room">Big Room</option>
+                                            <option value="loft">Loft</option>
+                                        </optgroup>
+                                        <optgroup label="Downstairs">
+                                            <option value="office">Office</option>
+                                            <option value="av-closet">AV Closet</option>
+                                            <option value="sauna">Sauna</option>
+                                            <option value="basement">Basement</option>
+                                            <option value="lounge">Lounge</option>
+                                            <option value="lobby">Lobby</option>
+                                            <option value="bar-closet">Bar Closet</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="tl-editor-shareable">
+                                        <span>Shareable link (no account required)</span>
+                                    </label>
+                                    <p class="text-muted" style="font-size:0.85rem; margin-top:4px;">Anyone with the link can view the list and check items off.</p>
+                                </div>
+                            </div>
+
+                            <div class="tl-mode-tabs">
+                                <button type="button" class="tl-mode-tab active" data-mode="manual">Manual Entry</button>
+                                <button type="button" class="tl-mode-tab" data-mode="video">From Video</button>
+                            </div>
+
+                            <div class="tl-mode-content" id="tl-mode-manual">
+                                <div class="tl-items-editor">
+                                    <div class="tl-items-header">
+                                        <label>Tasks</label>
+                                        <div class="tl-items-header-actions">
+                                            <button type="button" class="btn btn-icon btn-sm copy-multi-toggle" id="tl-copy-multi-btn" title="Select multiple tasks to copy">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                            </button>
+                                            <button type="button" class="btn btn-secondary btn-sm" id="tl-add-header-btn">+ Header</button>
+                                            <button type="button" class="btn btn-primary btn-sm" id="tl-add-item-btn">+ Add Task</button>
+                                        </div>
+                                    </div>
+                                    <div class="copy-multi-bar" id="tl-copy-multi-bar" style="display:none;">
+                                        <span id="tl-copy-multi-count">0 selected</span>
+                                        <button type="button" class="btn btn-primary btn-sm" id="tl-copy-selected-btn">Copy Selected</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="tl-copy-cancel-btn">Cancel</button>
+                                    </div>
+                                    <div class="reorder-multi-bar" id="tl-reorder-multi-bar" style="display:none;">
+                                        <span id="tl-reorder-multi-count">0 selected to move</span>
+                                        <span class="text-muted">Drag any selected handle to move them together.</span>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="tl-reorder-clear-btn">Clear</button>
+                                    </div>
+                                    <p class="sop-items-hint">Check items to move as a group, or drag through the checkboxes to select several. Then drag a selected handle to reorder them together.</p>
+                                    <div class="tl-items-list" id="tl-items-list"></div>
+                                </div>
+                            </div>
+
+                            <div class="tl-mode-content" id="tl-mode-video" style="display:none;">
+                                <div class="tl-video-upload-area" id="tl-video-upload-area">
+                                    <div class="tl-video-dropzone" id="tl-video-dropzone">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                        </svg>
+                                        <p>Drag &amp; drop a video or click to browse</p>
+                                        <p class="text-muted">Max 25MB. Say "capture" during the video to auto-screenshot that moment.</p>
+                                        <input type="file" id="tl-video-input" accept="video/*" style="display:none;">
+                                        <button type="button" class="btn btn-secondary" id="tl-video-browse-btn">Choose Video</button>
+                                    </div>
+                                </div>
+                                <div class="tl-video-preview" id="tl-video-preview" style="display:none;">
+                                    <video id="tl-video-player" controls></video>
+                                    <div class="tl-video-info">
+                                        <span id="tl-video-filename"></span>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="tl-video-remove">Remove</button>
+                                    </div>
+                                </div>
+                                <div class="tl-video-processing" id="tl-video-processing" style="display:none;">
+                                    <div class="tl-processing-spinner"></div>
+                                    <p id="tl-processing-status">Processing video...</p>
+                                    <div class="tl-processing-steps">
+                                        <div class="tl-step" id="tl-step-extract">Extract audio</div>
+                                        <div class="tl-step" id="tl-step-transcribe">Transcribe audio</div>
+                                        <div class="tl-step" id="tl-step-generate">Generate tasks</div>
+                                        <div class="tl-step" id="tl-step-screenshots">Capture screenshots</div>
+                                    </div>
+                                </div>
+                                <div class="tl-compress-bg-status" id="tl-compress-status" style="display:none;"></div>
+                                <button type="button" class="btn btn-primary" id="tl-process-video-btn" style="display:none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                    </svg>
+                                    Process Video
+                                </button>
+                                <div class="tl-transcript-panel" id="tl-transcript-panel" style="display:none;">
+                                    <label>Transcript</label>
+                                    <div class="tl-transcript-text" id="tl-transcript-text"></div>
+                                </div>
+                                <div class="tl-generated-items" id="tl-generated-items" style="display:none;">
+                                    <div class="tl-items-header">
+                                        <label>Generated Tasks (edit as needed)</label>
+                                        <div class="tl-items-header-actions">
+                                            <button type="button" class="btn btn-secondary btn-sm" id="tl-video-add-header-btn">+ Header</button>
+                                            <button type="button" class="btn btn-primary btn-sm" id="tl-video-add-item-btn">+ Add Task</button>
+                                        </div>
+                                    </div>
+                                    <div class="tl-items-list" id="tl-generated-items-list"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="tl-editor-cancel">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Save Task List</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- SOP Editor View (admin sub-view) -->
+                <section class="view" id="sop-editor-view">
+                    <div class="view-header editor-view-header">
+                        <button type="button" class="btn btn-back" id="sop-editor-back-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            SOPs
+                        </button>
+                        <h2 id="sop-editor-title">Create SOP</h2>
+                    </div>
+                    <div class="editor-view-body">
+                        <form id="sop-editor-form">
+                            <input type="hidden" id="sop-editor-id">
+                            <div class="form-group">
+                                <label for="sop-editor-name">SOP Name</label>
+                                <input type="text" id="sop-editor-name" required placeholder="e.g. Opening Checklist">
+                            </div>
+                            <div class="form-group">
+                                <label for="sop-editor-description">Description (optional)</label>
+                                <textarea id="sop-editor-description" rows="2" placeholder="Brief description of this SOP"></textarea>
+                            </div>
+                            <div class="sop-items-editor">
+                                <div class="sop-items-header">
+                                    <label>Tasks &amp; sections</label>
+                                    <div class="sop-items-header-btns">
+                                        <button type="button" class="btn btn-icon btn-sm copy-multi-toggle" id="sop-copy-multi-btn" title="Select multiple tasks to copy">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="sop-add-section-btn">+ Section header</button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="sop-add-item-btn">+ Add task</button>
+                                    </div>
+                                </div>
+                                <div class="copy-multi-bar" id="sop-copy-multi-bar" style="display:none;">
+                                    <span id="sop-copy-multi-count">0 selected</span>
+                                    <button type="button" class="btn btn-primary btn-sm" id="sop-copy-selected-btn">Copy Selected</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="sop-copy-cancel-btn">Cancel</button>
+                                </div>
+                                <div class="reorder-multi-bar" id="sop-reorder-multi-bar" style="display:none;">
+                                    <span id="sop-reorder-multi-count">0 selected to move</span>
+                                    <span class="text-muted">Drag any selected handle to move them together.</span>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="sop-reorder-clear-btn">Clear</button>
+                                </div>
+                                <p class="sop-items-hint">Check items to move as a group, or drag through the checkboxes to select several. Then drag a selected handle to reorder them together.</p>
+                                <div class="sop-items-list" id="sop-items-list">
+                                    <div class="sop-drop-indicator" id="sop-drop-indicator" aria-hidden="true"></div>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="sop-editor-cancel">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Save SOP</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Admin Locations View -->
+                <section class="view" id="admin-locations-view">
+                    <div class="view-header">
+                        <h2>Locations</h2>
+                    </div>
+
+                    <div class="locations-tabs">
+                        <button class="locations-tab active" data-floor="upstairs">Upstairs</button>
+                        <button class="locations-tab" data-floor="downstairs">Downstairs</button>
+                    </div>
+
+                    <div class="locations-layout">
+                        <div class="locations-floorplan-wrap">
+                            <div class="locations-floorplan" id="admin-floorplan">
+                                <img src="images/locations/fp-up-default.png" alt="Floor plan" class="floorplan-img" id="admin-floorplan-img">
+                            </div>
+                        </div>
+                        <div class="locations-sidebar">
+                            <div class="locations-zone-list" id="admin-zone-list"></div>
+                            <div class="locations-photo-preview" id="admin-photo-preview">
+                                <div class="photo-placeholder">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    <p>Hover a zone to preview</p>
+                                </div>
+                            </div>
+                            <div class="locations-linked-tasks" id="admin-linked-tasks"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Inventory View (Admin) -->
+                <section class="view" id="inventory-view">
+                    <div class="view-header">
+                        <h2>Inventory</h2>
+                        <button class="btn btn-primary" id="add-inventory-item-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Item
+                        </button>
+                    </div>
+                    <div class="inventory-admin-tabs">
+                        <button class="inventory-admin-tab active" data-tab="items">Inventory Items</button>
+                        <button class="inventory-admin-tab" data-tab="last-run">Last Run</button>
+                    </div>
+                    <div id="inventory-tab-items">
+                        <div class="inventory-items-grid panel" id="inventory-items-list"></div>
+                    </div>
+                    <div id="inventory-tab-last-run" style="display:none;">
+                        <div id="inventory-last-run"></div>
+                    </div>
+                </section>
+
                 <!-- Business Settings View -->
                 <section class="view" id="settings-view">
                     <div class="view-header">
@@ -949,6 +1498,23 @@
                             </form>
                         </div>
                     </div>
+                </section>
+
+                <!-- Storage Browser View -->
+                <section class="view" id="storage-view">
+                    <div class="view-header">
+                        <h2>Storage Browser</h2>
+                        <button class="btn btn-primary" id="storage-refresh-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                    <p class="text-muted" style="margin-bottom:var(--space-md);">Browse and manage files in the <strong>sop-media</strong> storage bucket. Orphaned files are no longer referenced by any database record and are safe to delete.</p>
+                    <div id="storage-summary"></div>
+                    <div id="storage-file-list"></div>
                 </section>
             </main>
         </div>
@@ -1398,45 +1964,52 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="sop-editor-modal">
-        <div class="modal-container modal-lg">
+    <!-- Inventory Item Editor Modal -->
+    <div class="modal-overlay" id="inventory-item-editor-modal">
+        <div class="modal-container modal-sm">
             <div class="modal-header">
-                <h3 id="sop-editor-title">Create SOP</h3>
-                <button class="btn btn-close" id="close-sop-editor-modal">×</button>
+                <h3 id="inventory-item-editor-title">Add Inventory Item</h3>
+                <button class="btn btn-close" id="close-inventory-item-editor-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="sop-editor-form">
-                    <input type="hidden" id="sop-editor-id">
+                <form id="inventory-item-editor-form">
+                    <input type="hidden" id="inventory-item-editor-id">
                     <div class="form-group">
-                        <label for="sop-editor-name">SOP Name</label>
-                        <input type="text" id="sop-editor-name" required placeholder="e.g. Opening Checklist">
+                        <label for="inventory-item-editor-name">Item Name</label>
+                        <input type="text" id="inventory-item-editor-name" required placeholder="e.g. Paper Towels">
                     </div>
                     <div class="form-group">
-                        <label for="sop-editor-description">Description (optional)</label>
-                        <textarea id="sop-editor-description" rows="2" placeholder="Brief description of this SOP"></textarea>
+                        <label for="inventory-item-editor-description">Description (optional)</label>
+                        <textarea id="inventory-item-editor-description" rows="2" placeholder="Details about what to look for"></textarea>
                     </div>
-                    <div class="sop-items-editor">
-                        <div class="sop-items-header">
-                            <label>Tasks &amp; sections</label>
-                            <div class="sop-items-header-btns">
-                                <button type="button" class="btn btn-secondary btn-sm" id="sop-add-section-btn">+ Section header</button>
-                                <button type="button" class="btn btn-primary btn-sm" id="sop-add-item-btn">+ Add task</button>
-                            </div>
-                        </div>
-                        <p class="sop-items-hint">Drag the handle to reorder. Section headers group tasks.</p>
-                        <div class="sop-items-list" id="sop-items-list">
-                            <!-- Items added by JS -->
-                            <div class="sop-drop-indicator" id="sop-drop-indicator" aria-hidden="true"></div>
-                        </div>
+                    <div class="form-group">
+                        <label for="inventory-item-editor-location">Location</label>
+                        <select id="inventory-item-editor-location">
+                            <option value="">-- No location --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Image (optional)</label>
+                        <div class="equipment-image-preview" id="inventory-item-image-preview"></div>
+                        <input type="file" id="inventory-item-image-input" accept="image/*" style="display:none;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="inventory-item-image-btn">Upload Image</button>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="inventory-item-editor-active" checked>
+                            <span>Active (visible to team)</span>
+                        </label>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="sop-editor-cancel">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save SOP</button>
+                        <button type="button" class="btn btn-secondary" id="inventory-item-editor-cancel">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Item</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <!-- SOP Editor is now a full-page view inside the admin dashboard -->
 
     <!-- SOP Review Modal (admin reviews completed SOPs and adds per-task comments) -->
     <div class="modal-overlay" id="sop-review-modal">
@@ -1458,6 +2031,25 @@
         </div>
     </div>
 
+    <!-- Location Popup (tap From/To badge in task checklist) -->
+    <div class="modal-overlay" id="location-popup-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3 id="location-popup-title">Location</h3>
+                <button class="btn btn-close" id="close-location-popup">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <div id="location-popup-floorplan" style="position:relative; line-height:0;">
+                    <img id="location-popup-fp-img" src="" alt="" style="width:100%; display:block; border-radius: 0;">
+                    <div id="location-popup-zone-overlay" style="position:absolute; border: 2px solid var(--accent); background: rgba(99,102,241,0.18); border-radius: 4px; pointer-events:none; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); transition: all 0.15s;"></div>
+                </div>
+                <div id="location-popup-photo" style="line-height:0;">
+                    <img id="location-popup-photo-img" src="" alt="" style="width:100%; display:block; max-height: 220px; object-fit: cover;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Clock-in Task List Popup -->
     <div class="modal-overlay" id="tl-clockin-modal">
         <div class="modal-container" style="max-width: 500px;">
@@ -1474,134 +2066,29 @@
         </div>
     </div>
 
-    <!-- Employee Task Checklist Modal -->
-    <div class="modal-overlay" id="my-task-checklist-modal">
-        <div class="modal-container modal-lg">
+
+
+    <!-- Copy Items Destination Modal -->
+    <div class="modal-overlay" id="copy-items-modal">
+        <div class="modal-container modal-sm">
             <div class="modal-header">
-                <h3 id="my-task-checklist-title">Task Checklist</h3>
-                <button class="btn btn-close" id="close-my-task-checklist-modal">&times;</button>
+                <h3 id="copy-items-title">Copy Task To…</h3>
+                <button class="btn btn-close" id="close-copy-items-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="my-task-meta" id="my-task-meta"></div>
-                <div class="my-task-video" id="my-task-video" style="display:none;">
-                    <video id="my-task-video-player" controls></video>
+                <div class="copy-items-filters">
+                    <button type="button" class="copy-filter-btn active" data-filter="all">All</button>
+                    <button type="button" class="copy-filter-btn" data-filter="task">Task Lists</button>
+                    <button type="button" class="copy-filter-btn" data-filter="sop">SOPs</button>
                 </div>
-                <div class="sop-progress-bar" id="my-task-progress-bar">
-                    <div class="sop-progress-fill" id="my-task-progress-fill"></div>
-                </div>
-                <div class="sop-progress-text" id="my-task-progress-text"></div>
-                <div class="sop-checklist-items" id="my-task-checklist-items">
-                    <!-- Checklist items rendered by JS -->
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="my-task-checklist-close">Close</button>
+                <div class="copy-items-destination-list" id="copy-items-destination-list">
+                    <!-- Rendered by JS -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Task List Editor Modal (admin) -->
-    <div class="modal-overlay" id="tl-editor-modal">
-        <div class="modal-container modal-lg">
-            <div class="modal-header">
-                <h3 id="tl-editor-title">Create Task List</h3>
-                <button class="btn btn-close" id="close-tl-editor-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="tl-editor-form">
-                    <input type="hidden" id="tl-editor-id">
-                    <div class="form-group">
-                        <label for="tl-editor-name">Task List Name</label>
-                        <input type="text" id="tl-editor-name" required placeholder="e.g. Onboard New Client">
-                    </div>
-                    <div class="form-group">
-                        <label for="tl-editor-description">Description (optional)</label>
-                        <textarea id="tl-editor-description" rows="2" placeholder="Brief description of this task list"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="tl-editor-is-sop">
-                            <span>Mark as SOP (Standard Operating Procedure)</span>
-                        </label>
-                    </div>
-
-                    <!-- Creation mode tabs -->
-                    <div class="tl-mode-tabs">
-                        <button type="button" class="tl-mode-tab active" data-mode="manual">Manual Entry</button>
-                        <button type="button" class="tl-mode-tab" data-mode="video">From Video</button>
-                    </div>
-
-                    <!-- Manual entry mode -->
-                    <div class="tl-mode-content" id="tl-mode-manual">
-                        <div class="tl-items-editor">
-                            <div class="tl-items-header">
-                                <label>Tasks</label>
-                                <button type="button" class="btn btn-primary btn-sm" id="tl-add-item-btn">+ Add Task</button>
-                            </div>
-                            <div class="tl-items-list" id="tl-items-list">
-                                <!-- Items added by JS -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Video mode -->
-                    <div class="tl-mode-content" id="tl-mode-video" style="display:none;">
-                        <div class="tl-video-upload-area" id="tl-video-upload-area">
-                            <div class="tl-video-dropzone" id="tl-video-dropzone">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                                </svg>
-                                <p>Drag &amp; drop a video or click to browse</p>
-                                <p class="text-muted">Max 25MB. Say "capture" during the video to auto-screenshot that moment.</p>
-                                <input type="file" id="tl-video-input" accept="video/*" style="display:none;">
-                                <button type="button" class="btn btn-secondary" id="tl-video-browse-btn">Choose Video</button>
-                            </div>
-                        </div>
-                        <div class="tl-video-preview" id="tl-video-preview" style="display:none;">
-                            <video id="tl-video-player" controls></video>
-                            <div class="tl-video-info">
-                                <span id="tl-video-filename"></span>
-                                <button type="button" class="btn btn-secondary btn-sm" id="tl-video-remove">Remove</button>
-                            </div>
-                        </div>
-                        <div class="tl-video-processing" id="tl-video-processing" style="display:none;">
-                            <div class="tl-processing-spinner"></div>
-                            <p id="tl-processing-status">Uploading video...</p>
-                            <div class="tl-processing-steps">
-                                <div class="tl-step" id="tl-step-compress">Compress video</div>
-                                <div class="tl-step" id="tl-step-upload">Upload files</div>
-                                <div class="tl-step" id="tl-step-transcribe">Transcribe audio</div>
-                                <div class="tl-step" id="tl-step-generate">Generate tasks</div>
-                                <div class="tl-step" id="tl-step-screenshots">Capture screenshots</div>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-primary" id="tl-process-video-btn" style="display:none;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                            </svg>
-                            Process Video
-                        </button>
-                        <div class="tl-transcript-panel" id="tl-transcript-panel" style="display:none;">
-                            <label>Transcript</label>
-                            <div class="tl-transcript-text" id="tl-transcript-text"></div>
-                        </div>
-                        <div class="tl-generated-items" id="tl-generated-items" style="display:none;">
-                            <label>Generated Tasks (edit as needed)</label>
-                            <div class="tl-items-list" id="tl-generated-items-list">
-                                <!-- Generated items rendered by JS -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="tl-editor-cancel">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Task List</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    <!-- Task List Editor is now a full-page view inside the admin dashboard -->
 
     <!-- Task List Assignment Modal -->
     <div class="modal-overlay" id="tl-assign-modal">
@@ -1651,6 +2138,10 @@
                     <div id="tl-detail-assignment-list"></div>
                 </div>
                 <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="tl-detail-share-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        Copy Share Link
+                    </button>
                     <button type="button" class="btn btn-secondary" id="tl-detail-close">Close</button>
                 </div>
             </div>
@@ -1676,6 +2167,26 @@
                     <input type="file" class="sop-item-media-input" accept="image/*,video/*" multiple style="display: none;">
                     <button type="button" class="btn btn-secondary btn-sm sop-item-media-btn">Upload photo or video</button>
                 </div>
+                <div class="sop-item-location">
+                    <label>Location</label>
+                    <select class="sop-item-location-select">
+                        <option value="">No location</option>
+                        <optgroup label="Upstairs">
+                            <option value="back-closet">Back Closet</option>
+                            <option value="big-room">Big Room</option>
+                            <option value="loft">Loft</option>
+                        </optgroup>
+                        <optgroup label="Downstairs">
+                            <option value="office">Office</option>
+                            <option value="av-closet">AV Closet</option>
+                            <option value="sauna">Sauna</option>
+                            <option value="basement">Basement</option>
+                            <option value="lounge">Lounge</option>
+                            <option value="lobby">Lobby</option>
+                            <option value="bar-closet">Bar Closet</option>
+                        </optgroup>
+                    </select>
+                </div>
                 <div class="sop-item-equipment">
                     <label>Equipment <span class="text-muted">(max 5)</span></label>
                     <div class="sop-item-equipment-list"></div>
@@ -1686,7 +2197,12 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-close sop-item-remove" title="Remove task">×</button>
+            <div class="sop-item-row-actions">
+                <button type="button" class="btn btn-icon btn-sm copy-item-btn sop-copy-item-btn" title="Copy to another list">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+                <button type="button" class="btn btn-close sop-item-remove" title="Remove task">×</button>
+            </div>
         </div>
     </template>
     <!-- SOP Section Row Template -->
@@ -1825,6 +2341,226 @@
     <video id="tl-screenshot-video" style="display:none;" crossorigin="anonymous"></video>
     <canvas id="tl-screenshot-canvas" style="display:none;"></canvas>
 
+    <!-- Schedule Shift Modal (for admin) -->
+    <div class="modal-overlay" id="schedule-shift-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3 id="schedule-modal-title">Schedule Shift</h3>
+                <button class="btn btn-close" id="close-schedule-shift-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="schedule-shift-form">
+                    <input type="hidden" id="schedule-shift-id">
+                    <input type="hidden" id="schedule-shift-type" value="shift">
+                    <div class="form-group">
+                        <label for="schedule-shift-employee">Team Member</label>
+                        <select id="schedule-shift-employee" required>
+                            <option value="">Select team member</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="schedule-shift-date">Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" id="schedule-shift-date" required>
+                            <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                        </div>
+                    </div>
+                    <div id="schedule-time-fields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <div class="time-input-wrapper" id="sched-start-time-wrapper">
+                                    <input type="text" id="schedule-shift-start-display" class="time-input-display" readonly placeholder="Tap to set">
+                                    <input type="hidden" id="schedule-shift-start">
+                                    <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>End Time</label>
+                                <div class="time-input-wrapper" id="sched-end-time-wrapper">
+                                    <input type="text" id="schedule-shift-end-display" class="time-input-display" readonly placeholder="Tap to set">
+                                    <input type="hidden" id="schedule-shift-end">
+                                    <svg class="time-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="schedule-shift-note" id="schedule-shift-note-label">Note (optional)</label>
+                        <input type="text" id="schedule-shift-note" placeholder="e.g. Opening shift, Delivery run">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="schedule-shift-repeat">
+                            <span>Repeat weekly</span>
+                        </label>
+                    </div>
+                    <div class="form-group" id="schedule-repeat-weeks-group" style="display: none;">
+                        <label for="schedule-shift-repeat-weeks">Number of weeks</label>
+                        <select id="schedule-shift-repeat-weeks">
+                            <option value="2">2 weeks</option>
+                            <option value="3">3 weeks</option>
+                            <option value="4" selected>4 weeks</option>
+                            <option value="6">6 weeks</option>
+                            <option value="8">8 weeks</option>
+                            <option value="12">12 weeks</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-schedule-shift-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-schedule-shift-btn">Save Shift</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Off Modal -->
+    <div class="modal-overlay" id="timeoff-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3>Schedule Time Off</h3>
+                <button class="btn btn-close" id="close-timeoff-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="timeoff-form">
+                    <div class="form-group">
+                        <label for="timeoff-type">Type</label>
+                        <div class="timeoff-type-toggle">
+                            <button type="button" class="timeoff-type-btn active" data-type="time_off">
+                                <span>🏖</span> Time Off
+                            </button>
+                            <button type="button" class="timeoff-type-btn" data-type="out_of_town">
+                                <span>✈</span> Out of Town
+                            </button>
+                        </div>
+                        <input type="hidden" id="timeoff-type-value" value="time_off">
+                    </div>
+                    <div class="form-group">
+                        <label for="timeoff-employee">Team Member</label>
+                        <select id="timeoff-employee" required>
+                            <option value="">Select team member</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="timeoff-start-date">Start Date</label>
+                            <div class="date-input-wrapper">
+                                <input type="date" id="timeoff-start-date" required>
+                                <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="timeoff-end-date">End Date</label>
+                            <div class="date-input-wrapper">
+                                <input type="date" id="timeoff-end-date" required>
+                                <svg class="date-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="timeoff-day-count" id="timeoff-day-count"></div>
+                    <div class="form-group">
+                        <label for="timeoff-reason">Reason (optional)</label>
+                        <input type="text" id="timeoff-reason" placeholder="e.g. Vacation, Doctor appointment">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-timeoff-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-timeoff-btn">Save Time Off</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Lightbox -->
+    <div class="lightbox-overlay" id="lightbox-overlay">
+        <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+        <div class="lightbox-counter" id="lightbox-counter"></div>
+        <button class="lightbox-markup-btn" id="lightbox-markup" style="display:none;" aria-label="Mark up image">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
+            Mark Up
+        </button>
+        <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="lightbox-img-wrap" id="lightbox-img-wrap">
+            <img class="lightbox-img" id="lightbox-img" src="" alt="Full size image">
+        </div>
+        <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+    </div>
+
+    <!-- Image Markup Overlay -->
+    <div class="markup-overlay" id="markup-overlay">
+        <div class="markup-topbar">
+            <button class="markup-topbar-btn" id="markup-close" aria-label="Close">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+            <span class="markup-topbar-title">Mark Up Image</span>
+            <button class="markup-topbar-btn markup-save-btn" id="markup-save">Save</button>
+        </div>
+        <div class="markup-canvas-wrap" id="markup-canvas-wrap">
+            <canvas id="markup-canvas"></canvas>
+        </div>
+        <div class="markup-toolbar" id="markup-toolbar">
+            <div class="markup-tool-group">
+                <button class="markup-tool active" data-tool="pen" title="Draw">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                </button>
+                <button class="markup-tool" data-tool="arrow" title="Arrow">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <button class="markup-tool" data-tool="circle" title="Circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                </button>
+                <button class="markup-tool" data-tool="eraser" title="Eraser">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8l10-10c.8-.8 2-.8 2.8 0l6 6c.8.8.8 2 0 2.8L13 21"/><line x1="6" y1="20" x2="20" y2="20"/></svg>
+                </button>
+            </div>
+            <div class="markup-tool-group markup-colors">
+                <button class="markup-color active" data-color="#FF3B30" style="background:#FF3B30;" title="Red"></button>
+                <button class="markup-color" data-color="#FF9500" style="background:#FF9500;" title="Orange"></button>
+                <button class="markup-color" data-color="#FFCC00" style="background:#FFCC00;" title="Yellow"></button>
+                <button class="markup-color" data-color="#34C759" style="background:#34C759;" title="Green"></button>
+                <button class="markup-color" data-color="#007AFF" style="background:#007AFF;" title="Blue"></button>
+                <button class="markup-color" data-color="#FFFFFF" style="background:#FFFFFF;" title="White"></button>
+            </div>
+            <div class="markup-tool-group">
+                <button class="markup-tool" id="markup-undo" title="Undo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                </button>
+                <button class="markup-tool" id="markup-clear" title="Clear All">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div>
+            <div class="markup-tool-group markup-size-group">
+                <input type="range" id="markup-size" min="2" max="16" value="4" class="markup-size-slider">
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div class="toast" id="toast">
         <span class="toast-icon">✓</span>
@@ -1834,6 +2570,28 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
+
+    <!-- App modules (order matters: state & utils first, then features, events last, app.js boots) -->
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/employee-dashboard.js"></script>
+    <script src="js/admin-dashboard.js"></script>
+    <script src="js/spreadsheet.js"></script>
+    <script src="js/shift-modals.js"></script>
+    <script src="js/team.js"></script>
+    <script src="js/time-picker.js"></script>
+    <script src="js/calendar-picker.js"></script>
+    <script src="js/locations.js"></script>
+    <script src="js/equipment.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/sops.js"></script>
+    <script src="js/task-lists.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/schedule.js"></script>
+    <script src="js/lightbox.js"></script>
+    <script src="js/events.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

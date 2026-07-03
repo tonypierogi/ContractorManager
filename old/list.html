@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Task List - TimeTrack Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body.shared-list-page { padding: 1rem; max-width: 600px; margin: 0 auto; }
+        .shared-list-header { margin-bottom: 1.5rem; }
+        .shared-list-header h1 { font-size: 1.5rem; margin: 0 0 0.25rem 0; }
+        .shared-list-header p { color: var(--text-secondary); margin: 0; font-size: 0.95rem; }
+        .shared-list-error { background: var(--bg-panel); padding: 1.5rem; border-radius: 10px; text-align: center; color: var(--text-secondary); }
+        .shared-list-loading { text-align: center; padding: 2rem; color: var(--text-muted); }
+        .shared-list-items { display: flex; flex-direction: column; gap: 0.5rem; }
+        .shared-list-item { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--bg-panel); border-radius: 8px; cursor: pointer; transition: background 0.15s; border: 1px solid var(--border-color); }
+        .shared-list-item:hover { background: var(--bg-elevated); }
+        .shared-list-item.checked { opacity: 0.7; }
+        .shared-list-item.checked .shared-list-item-title { text-decoration: line-through; color: var(--text-muted); }
+        .shared-list-item-check { flex-shrink: 0; width: 24px; height: 24px; border: 2px solid var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); margin-top: 2px; }
+        .shared-list-item.checked .shared-list-item-check { background: var(--accent-primary); border-color: var(--accent-primary); }
+        .shared-list-item-check svg { width: 14px; height: 14px; }
+        .shared-list-item-body { flex: 1; min-width: 0; }
+        .shared-list-item-title { font-weight: 500; margin: 0 0 0.25rem 0; }
+        .shared-list-item-desc { font-size: 0.9rem; color: var(--text-secondary); margin: 0; }
+        .shared-list-item-media { margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .shared-list-item-media img { max-width: 80px; max-height: 80px; border-radius: 6px; object-fit: cover; cursor: zoom-in; }
+        .shared-list-section { font-weight: 600; font-size: 0.9rem; color: var(--text-secondary); margin: 1rem 0 0.5rem 0; padding-bottom: 0.25rem; }
+        .shared-list-progress { height: 4px; background: var(--bg-elevated); border-radius: 2px; margin-bottom: 1rem; overflow: hidden; }
+        .shared-list-progress-fill { height: 100%; background: var(--accent-primary); transition: width 0.2s; }
+    </style>
+</head>
+<body class="shared-list-page">
+    <div id="shared-list-app">
+        <div class="shared-list-loading" id="shared-list-loading">Loading task list...</div>
+        <div id="shared-list-content" style="display:none;">
+            <div class="shared-list-header">
+                <h1 id="shared-list-title"></h1>
+                <p id="shared-list-desc"></p>
+            </div>
+            <div class="shared-list-progress">
+                <div class="shared-list-progress-fill" id="shared-list-progress-fill" style="width:0%"></div>
+            </div>
+            <div class="shared-list-items" id="shared-list-items"></div>
+        </div>
+        <div class="shared-list-error" id="shared-list-error" style="display:none;">
+            <p id="shared-list-error-msg">This task list could not be found or is no longer shared.</p>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox-overlay">
+        <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+        <div class="lightbox-counter" id="lightbox-counter"></div>
+        <button class="lightbox-nav lightbox-prev" id="lightbox-prev" aria-label="Previous">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="lightbox-img-wrap" id="lightbox-img-wrap">
+            <img class="lightbox-img" id="lightbox-img" src="" alt="Full size image">
+        </div>
+        <button class="lightbox-nav lightbox-next" id="lightbox-next" aria-label="Next">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+    </div>
+
+    <!-- Location Popup -->
+    <div class="modal-overlay" id="location-popup-modal">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h3 id="location-popup-title">Location</h3>
+                <button class="btn btn-close" id="close-location-popup">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <div id="location-popup-floorplan" style="position:relative; line-height:0;">
+                    <img id="location-popup-fp-img" src="" alt="" style="width:100%; display:block; border-radius: 0;">
+                    <div id="location-popup-zone-overlay" style="position:absolute; border: 2px solid var(--accent); background: rgba(99,102,241,0.18); border-radius: 4px; pointer-events:none; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); transition: all 0.15s;"></div>
+                </div>
+                <div id="location-popup-photo" style="line-height:0;">
+                    <img id="location-popup-photo-img" src="" alt="" style="width:100%; display:block; max-height: 220px; object-fit: cover;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        // ---- Location data (mirrors locations.js) ----
+        const LOCATION_ZONES = {
+            upstairs: [
+                { id: 'back-closet', label: 'Back Closet' },
+                { id: 'big-room',    label: 'Big Room' },
+                { id: 'loft',        label: 'Loft' },
+            ],
+            downstairs: [
+                { id: 'office',      label: 'Office' },
+                { id: 'av-closet',   label: 'AV Closet' },
+                { id: 'sauna',       label: 'Sauna' },
+                { id: 'basement',    label: 'Basement' },
+                { id: 'lounge',      label: 'Lounge' },
+                { id: 'lobby',       label: 'Lobby' },
+                { id: 'bar-closet',  label: 'Bar Closet' },
+            ],
+        };
+        const ZONE_OVERLAYS = {
+            upstairs: [
+                { id: 'back-closet', top: 0,  left: 0,  width: 100, height: 24 },
+                { id: 'big-room',    top: 24, left: 0,  width: 100, height: 45 },
+                { id: 'loft',        top: 74, left: 0,  width: 100, height: 26 },
+            ],
+            downstairs: [
+                { id: 'office',      top: 1,  left: 55, width: 45,  height: 16 },
+                { id: 'av-closet',   top: 20, left: 62, width: 30,  height: 4 },
+                { id: 'sauna',       top: 40, left: 55, width: 38,  height: 8 },
+                { id: 'basement',    top: 0,  left: 0,  width: 65,  height: 45 },
+                { id: 'lounge',      top: 52, left: 0,  width: 100, height: 28 },
+                { id: 'lobby',       top: 80, left: 0,  width: 100,  height: 18 },
+                { id: 'bar-closet',  top: 94, left: 62, width: 38,  height: 10 },
+            ],
+        };
+
+        function getLocationLabel(zoneId) {
+            const all = [...LOCATION_ZONES.upstairs, ...LOCATION_ZONES.downstairs];
+            const z = all.find(z => z.id === zoneId);
+            return z ? z.label : zoneId;
+        }
+
+        function showLocationPopup(zoneId) {
+            const all = [...LOCATION_ZONES.upstairs, ...LOCATION_ZONES.downstairs];
+            const zone = all.find(z => z.id === zoneId);
+            if (!zone) return;
+
+            const isUpstairs = LOCATION_ZONES.upstairs.some(z => z.id === zoneId);
+            const floorPrefix = isUpstairs ? 'up' : 'down';
+            const overlays = ZONE_OVERLAYS[isUpstairs ? 'upstairs' : 'downstairs'];
+            const ov = overlays.find(o => o.id === zoneId);
+
+            document.getElementById('location-popup-title').textContent = zone.label;
+            document.getElementById('location-popup-fp-img').src = `images/locations/fp-${floorPrefix}-${zoneId}.png`;
+            document.getElementById('location-popup-photo-img').src = `images/locations/photo-${zoneId}.png`;
+
+            const overlayEl = document.getElementById('location-popup-zone-overlay');
+            if (ov) {
+                overlayEl.style.top = ov.top + '%';
+                overlayEl.style.left = ov.left + '%';
+                overlayEl.style.width = ov.width + '%';
+                overlayEl.style.height = ov.height + '%';
+                overlayEl.style.display = '';
+            } else {
+                overlayEl.style.display = 'none';
+            }
+
+            document.getElementById('location-popup-modal').classList.add('active');
+        }
+
+        document.getElementById('close-location-popup').addEventListener('click', () => {
+            document.getElementById('location-popup-modal').classList.remove('active');
+        });
+        document.getElementById('location-popup-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('location-popup-modal')) {
+                document.getElementById('location-popup-modal').classList.remove('active');
+            }
+        });
+
+        // ---- Lightbox ----
+        const lb = {
+            overlay: document.getElementById('lightbox-overlay'),
+            imgEl: document.getElementById('lightbox-img'),
+            counterEl: document.getElementById('lightbox-counter'),
+            prevBtn: document.getElementById('lightbox-prev'),
+            nextBtn: document.getElementById('lightbox-next'),
+            urls: [], index: 0, touchStartX: 0, touchStartY: 0, swiping: false,
+
+            open(urls, startIndex) {
+                this.urls = urls || [];
+                this.index = startIndex || 0;
+                this.render();
+                this.overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            },
+            close() {
+                this.overlay.classList.remove('active');
+                document.body.style.overflow = '';
+                this.imgEl.src = '';
+            },
+            render() {
+                if (!this.urls.length) return;
+                this.imgEl.classList.add('loading');
+                this.imgEl.src = this.urls[this.index];
+                this.imgEl.onload = () => this.imgEl.classList.remove('loading');
+                this.imgEl.onerror = () => this.imgEl.classList.remove('loading');
+                if (this.urls.length > 1) {
+                    this.counterEl.textContent = `${this.index + 1} / ${this.urls.length}`;
+                    this.counterEl.style.display = '';
+                } else {
+                    this.counterEl.style.display = 'none';
+                }
+                this.prevBtn.hidden = this.index <= 0;
+                this.nextBtn.hidden = this.index >= this.urls.length - 1;
+            },
+            prev() { if (this.index > 0) { this.index--; this.render(); } },
+            next() { if (this.index < this.urls.length - 1) { this.index++; this.render(); } },
+        };
+
+        document.getElementById('lightbox-close').addEventListener('click', () => lb.close());
+        lb.overlay.addEventListener('click', (e) => {
+            if (e.target === lb.overlay || e.target.classList.contains('lightbox-img-wrap')) lb.close();
+        });
+        lb.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); lb.prev(); });
+        lb.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); lb.next(); });
+        document.addEventListener('keydown', (e) => {
+            if (!lb.overlay.classList.contains('active')) return;
+            if (e.key === 'Escape') lb.close();
+            if (e.key === 'ArrowLeft') lb.prev();
+            if (e.key === 'ArrowRight') lb.next();
+        });
+        const lbWrap = document.getElementById('lightbox-img-wrap');
+        lbWrap.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            lb.touchStartX = e.touches[0].clientX;
+            lb.touchStartY = e.touches[0].clientY;
+            lb.swiping = true;
+        }, { passive: true });
+        lbWrap.addEventListener('touchend', (e) => {
+            if (!lb.swiping) return;
+            lb.swiping = false;
+            const touch = e.changedTouches[0];
+            const dx = touch.clientX - lb.touchStartX;
+            const dy = touch.clientY - lb.touchStartY;
+            if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+            if (dx < 0) lb.next(); else lb.prev();
+        }, { passive: true });
+
+        // ---- Shared list app ----
+        (async function() {
+            const params = new URLSearchParams(location.search);
+            const token = params.get('token');
+
+            if (!token) {
+                document.getElementById('shared-list-loading').style.display = 'none';
+                document.getElementById('shared-list-error').style.display = '';
+                document.getElementById('shared-list-error-msg').textContent = 'No share token provided. Use the link shared with you.';
+                return;
+            }
+
+            const supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+
+            const { data: tl, error: tlError } = await supabase
+                .from('task_lists')
+                .select('id, title, description')
+                .eq('share_token', token)
+                .single();
+
+            if (tlError || !tl) {
+                document.getElementById('shared-list-loading').style.display = 'none';
+                document.getElementById('shared-list-error').style.display = '';
+                return;
+            }
+
+            const [{ data: items }, { data: checks }, { data: equipment }] = await Promise.all([
+                supabase.from('task_list_items').select('*').eq('task_list_id', tl.id).order('sort_order'),
+                supabase.from('task_list_anonymous_checks').select('task_list_item_id').eq('task_list_id', tl.id),
+                supabase.from('equipment').select('id, name, image_url'),
+            ]);
+
+            const allEquipment = equipment || [];
+            const checkSet = new Set((checks || []).map(c => c.task_list_item_id));
+
+            document.getElementById('shared-list-loading').style.display = 'none';
+            document.getElementById('shared-list-content').style.display = '';
+
+            document.getElementById('shared-list-title').textContent = tl.title;
+            document.getElementById('shared-list-desc').textContent = tl.description || '';
+
+            function escapeHtml(str) {
+                if (str == null) return '';
+                const s = String(str);
+                const div = document.createElement('div');
+                div.textContent = s;
+                return div.innerHTML;
+            }
+
+            function renderItemExtras(item) {
+                let html = '';
+                const locFrom = item.location_from ? getLocationLabel(item.location_from) : null;
+                const locTo = item.location_to ? getLocationLabel(item.location_to) : null;
+                if (locFrom || locTo) {
+                    html += '<div class="tl-detail-item-locations">';
+                    if (locFrom) html += `<button type="button" class="tl-loc-badge from tl-loc-popup-btn" data-zone="${escapeHtml(item.location_from)}">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                        From: ${escapeHtml(locFrom)}</button>`;
+                    if (locTo) html += `<button type="button" class="tl-loc-badge to tl-loc-popup-btn" data-zone="${escapeHtml(item.location_to)}">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                        To: ${escapeHtml(locTo)}</button>`;
+                    html += '</div>';
+                }
+                const eqIds = item.equipment || [];
+                if (eqIds.length) {
+                    html += '<div class="tl-detail-item-equipment">';
+                    eqIds.forEach(eqId => {
+                        const eq = allEquipment.find(e => e.id === eqId);
+                        if (!eq) return;
+                        html += `<span class="equipment-tag">
+                            ${eq.image_url ? `<img src="${escapeHtml(eq.image_url)}" alt="">` : ''}
+                            <span>${escapeHtml(eq.name)}</span>
+                        </span>`;
+                    });
+                    html += '</div>';
+                }
+                return html;
+            }
+
+            const container = document.getElementById('shared-list-items');
+            const progressFill = document.getElementById('shared-list-progress-fill');
+            const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+            function updateProgress() {
+                const checked = container.querySelectorAll('.shared-list-item.checked').length;
+                const total = container.querySelectorAll('.shared-list-item:not(.shared-list-section)').length;
+                const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
+                progressFill.style.width = pct + '%';
+            }
+
+            let html = '';
+            for (const item of items || []) {
+                if (item.item_type === 'header') {
+                    html += `<div class="shared-list-section">${escapeHtml(item.title)}</div>`;
+                    continue;
+                }
+                const checked = checkSet.has(item.id);
+                html += `
+                <div class="shared-list-item ${checked ? 'checked' : ''}" data-item-id="${item.id}">
+                    <div class="shared-list-item-check">${checkSvg}</div>
+                    <div class="shared-list-item-body">
+                        <p class="shared-list-item-title">${escapeHtml(item.title)}</p>
+                        ${item.description ? `<p class="shared-list-item-desc">${escapeHtml(item.description)}</p>` : ''}
+                        ${renderItemExtras(item)}
+                        ${(item.media && item.media.length) ? `
+                            <div class="shared-list-item-media">
+                                ${item.media.map((m, mi) => `<img src="${escapeHtml(m.url)}" alt="" data-urls='${JSON.stringify(item.media.map(x => x.url))}' data-index="${mi}">`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>`;
+            }
+            container.innerHTML = html;
+
+            updateProgress();
+
+            // Image lightbox tap
+            container.querySelectorAll('.shared-list-item-media img').forEach(img => {
+                img.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const urls = JSON.parse(img.dataset.urls);
+                    lb.open(urls, parseInt(img.dataset.index, 10));
+                });
+            });
+
+            // Location popup tap
+            container.querySelectorAll('.tl-loc-popup-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showLocationPopup(btn.dataset.zone);
+                });
+            });
+
+            // Checkbox toggle
+            container.querySelectorAll('.shared-list-item').forEach(row => {
+                if (row.classList.contains('shared-list-section')) return;
+                row.addEventListener('click', async () => {
+                    if (row.dataset.busy) return;
+                    const itemId = row.dataset.itemId;
+                    const isChecked = row.classList.contains('checked');
+
+                    row.dataset.busy = '1';
+
+                    if (isChecked) {
+                        const { error } = await supabase
+                            .from('task_list_anonymous_checks')
+                            .delete()
+                            .eq('task_list_id', tl.id)
+                            .eq('task_list_item_id', itemId);
+
+                        if (!error) {
+                            row.classList.remove('checked');
+                            checkSet.delete(itemId);
+                        }
+                    } else {
+                        const { error } = await supabase
+                            .from('task_list_anonymous_checks')
+                            .insert({ task_list_id: tl.id, task_list_item_id: itemId });
+
+                        if (!error) {
+                            row.classList.add('checked');
+                            checkSet.add(itemId);
+                        }
+                    }
+
+                    delete row.dataset.busy;
+                    updateProgress();
+                });
+            });
+        })();
+    </script>
+</body>
+</html>
