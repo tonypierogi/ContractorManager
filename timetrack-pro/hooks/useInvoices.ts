@@ -97,7 +97,8 @@ export function useGenerateInvoice() {
           period_start: periodStart,
           period_end: periodEnd,
           subtotal,
-          tax,
+          tax_rate: taxRate,
+          tax_amount: tax,
           total,
         })
         .select()

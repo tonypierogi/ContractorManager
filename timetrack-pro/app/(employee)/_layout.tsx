@@ -1,6 +1,7 @@
-import { Slot } from 'expo-router';
+import { Redirect, Slot } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import TopNavBar, { NavItem } from '@/components/navigation/TopNavBar';
+import { useAuth } from '@/lib/auth-provider';
 import { Colors } from '@/constants/theme';
 
 const employeeNav: NavItem[] = [
@@ -13,6 +14,11 @@ const employeeNav: NavItem[] = [
 ];
 
 export default function EmployeeLayout() {
+  const { session, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (!session) return <Redirect href="/(auth)/login" />;
+
   return (
     <View style={styles.container}>
       <TopNavBar items={employeeNav} />

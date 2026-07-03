@@ -19,6 +19,12 @@ const ToastContext = createContext<ToastContextValue>({
   showToast: () => {},
 });
 
+// Imperative bridge so non-React code (e.g. the React Query mutation cache)
+// can fire toasts. Set while a ToastProvider is mounted.
+export const toastRef: { current: ToastContextValue['showToast'] | null } = {
+  current: null,
+};
+
 export function useToast() {
   return useContext(ToastContext);
 }
@@ -34,6 +40,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Date.now();
     setToast({ message, type, id });
   }, []);
+
+  useEffect(() => {
+    toastRef.current = showToast;
+    return () => {
+      toastRef.current = null;
+    };
+  }, [showToast]);
 
   useEffect(() => {
     if (!toast) return;

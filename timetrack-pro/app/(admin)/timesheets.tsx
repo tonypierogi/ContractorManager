@@ -15,22 +15,39 @@ import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAllShifts, useToggleShiftPaid } from '@/hooks/useShifts';
 import { useTeamMembers } from '@/hooks/useTeam';
+import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate, formatTime, formatCurrency } from '@/utils/format';
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export default function TimesheetsScreen() {
   const [employeeFilter, setEmployeeFilter] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Draft values track the inputs; applied values feed the query only when
+  // the Filter button commits them (typing must not fire queries).
+  const [startDraft, setStartDraft] = useState('');
+  const [endDraft, setEndDraft] = useState('');
+  const [appliedDates, setAppliedDates] = useState<{ start?: string; end?: string }>({});
   const [showEmployeePicker, setShowEmployeePicker] = useState(false);
+  const { showToast } = useToast();
 
   const { data: members } = useTeamMembers();
   const { data: shifts, isLoading, refetch } = useAllShifts({
     employeeId: employeeFilter || undefined,
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
+    startDate: appliedDates.start,
+    endDate: appliedDates.end,
   });
   const togglePaid = useToggleShiftPaid();
+
+  const applyFilters = () => {
+    const start = startDraft.trim();
+    const end = endDraft.trim();
+    if ((start && !DATE_RE.test(start)) || (end && !DATE_RE.test(end))) {
+      showToast('Dates must be in YYYY-MM-DD format', 'error');
+      return;
+    }
+    setAppliedDates({ start: start || undefined, end: end || undefined });
+  };
 
   const selectedMember = members?.find((m) => m.id === employeeFilter);
 
@@ -145,19 +162,19 @@ export default function TimesheetsScreen() {
           <View style={styles.dateField}>
             <Input
               placeholder="Start date"
-              value={startDate}
-              onChangeText={setStartDate}
+              value={startDraft}
+              onChangeText={setStartDraft}
             />
           </View>
           <Text style={styles.dateSeparator}>to</Text>
           <View style={styles.dateField}>
             <Input
               placeholder="End date"
-              value={endDate}
-              onChangeText={setEndDate}
+              value={endDraft}
+              onChangeText={setEndDraft}
             />
           </View>
-          <Button title="Filter" onPress={() => refetch()} variant="secondary" size="sm" />
+          <Button title="Filter" onPress={applyFilters} variant="secondary" size="sm" />
           <Button
             title="Copy to Spreadsheet"
             onPress={() => {}}

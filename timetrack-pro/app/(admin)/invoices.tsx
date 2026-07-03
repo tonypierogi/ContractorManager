@@ -14,6 +14,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useAllInvoices, useGenerateInvoice } from '@/hooks/useInvoices';
 import { useTeamMembers } from '@/hooks/useTeam';
+import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -47,30 +48,34 @@ export default function AdminInvoicesScreen() {
   const [showTermsPicker, setShowTermsPicker] = useState(false);
 
   const { data: members } = useTeamMembers();
-  const { data: invoices, isLoading, refetch } = useAllInvoices();
+  const { data: invoices, isLoading } = useAllInvoices();
   const generateInvoice = useGenerateInvoice();
+  const { showToast } = useToast();
 
   const selectedMember = members?.find((m) => m.id === selectedEmployee);
   const selectedTermsLabel =
     PAYMENT_TERMS.find((t) => t.value === paymentTerms)?.label ?? 'Net 30';
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!selectedEmployee || !startDate || !endDate) {
       Alert.alert('Missing Fields', 'Please select an employee and date range.');
       return;
     }
-    try {
-      await generateInvoice.mutateAsync({
+    generateInvoice.mutate(
+      {
         userId: selectedEmployee,
         periodStart: startDate,
         periodEnd: endDate,
-      });
-      setStartDate('');
-      setEndDate('');
-      refetch();
-    } catch {
-      // handled by mutation
-    }
+      },
+      {
+        onSuccess: (invoice) => {
+          setStartDate('');
+          setEndDate('');
+          showToast(`Invoice ${invoice.invoice_number} generated`);
+        },
+        // errors surface via the global mutation error toast
+      },
+    );
   };
 
   const getEmployeeName = useCallback((invoice: any) => {
