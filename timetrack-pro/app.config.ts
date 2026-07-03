@@ -32,7 +32,7 @@ const config: ExpoConfig = {
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
-  plugins: ['expo-router', 'expo-secure-store'],
+  plugins: ['expo-router'],
   experiments: {
     typedRoutes: true,
   },

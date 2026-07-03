@@ -1,15 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Env } from '@/lib/env';
 
 export const EDGE_FUNCTION_URL = `${Env.supabaseUrl}/functions/v1`;
-
-const SecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
-};
 
 const LocalStorageAdapter = {
   getItem: (key: string) => {
@@ -28,7 +22,9 @@ const LocalStorageAdapter = {
 
 export const supabase = createClient(Env.supabaseUrl, Env.supabaseAnonKey, {
   auth: {
-    storage: Platform.OS === 'web' ? LocalStorageAdapter : SecureStoreAdapter,
+    // AsyncStorage on native: Supabase session JSON exceeds SecureStore's 2048-byte
+    // per-value limit, which silently truncates and causes random logouts.
+    storage: Platform.OS === 'web' ? LocalStorageAdapter : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
