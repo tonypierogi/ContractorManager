@@ -5,16 +5,22 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import ShiftRow from '@/features/shifts/components/ShiftRow';
 import AddShiftModal from '@/features/shifts/components/AddShiftModal';
+import CopyToSpreadsheetButton, {
+  type SpreadsheetColumn,
+} from '@/features/shifts/components/CopyToSpreadsheetButton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useShifts, useAddShift, useDeleteShift } from '@/features/shifts/hooks';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '@/constants/theme';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatDate, formatTime } from '@/utils/format';
 import type { TimeEntry } from '@/types/database';
 
+// In-progress shifts count as 0 hours everywhere (rows, totals, export) —
+// legacy parity: hours accrue only once clocked out.
 function getShiftHours(clockIn: string, clockOut: string | null): number {
+  if (!clockOut) return 0;
   const start = new Date(clockIn).getTime();
-  const end = clockOut ? new Date(clockOut).getTime() : Date.now();
+  const end = new Date(clockOut).getTime();
   return (end - start) / 3600000;
 }
 
@@ -29,6 +35,30 @@ export default function ShiftsScreen() {
   const { data: shifts, isLoading, refetch } = useShifts(userId, { startDate, endDate });
   const addShift = useAddShift();
   const deleteShift = useDeleteShift();
+
+  // Exported hours for in-progress shifts are 0.00 (legacy parity); Rate is
+  // the CURRENT profile hourly_rate for every row, matching legacy behavior.
+  // Legacy quirk fixed intentionally: the old export wrote the Status text
+  // into the Amount column — here columns are clean and aligned.
+  const exportColumns: SpreadsheetColumn<TimeEntry>[] = [
+    { header: 'Date', value: (s) => formatDate(s.clock_in) },
+    { header: 'Clock In', value: (s) => formatTime(s.clock_in) },
+    {
+      header: 'Clock Out',
+      value: (s) => (s.clock_out ? formatTime(s.clock_out) : 'In progress'),
+    },
+    {
+      header: 'Hours',
+      value: (s) => getShiftHours(s.clock_in, s.clock_out).toFixed(2),
+    },
+    { header: 'Description', value: (s) => s.description || '-' },
+    { header: 'Rate', value: () => Number(hourlyRate).toFixed(2) },
+    {
+      header: 'Amount',
+      value: (s) => (getShiftHours(s.clock_in, s.clock_out) * hourlyRate).toFixed(2),
+    },
+    { header: 'Status', value: (s) => (s.paid ? 'Paid' : 'Pending') },
+  ];
 
   const totals = useMemo(() => {
     if (!shifts?.length) return { hours: 0, amount: 0 };
@@ -119,6 +149,7 @@ export default function ShiftsScreen() {
               size="sm"
               onPress={() => refetch()}
             />
+            <CopyToSpreadsheetButton rows={shifts ?? []} columns={exportColumns} />
           </View>
         </View>
 
@@ -179,6 +210,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    flexWrap: 'wrap',
   },
   dateField: {
     flex: 1,

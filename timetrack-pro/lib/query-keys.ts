@@ -65,4 +65,21 @@ export const qk = {
   equipment: {
     all: ['equipment'] as const,
   },
+  inventory: {
+    all: ['inventory'] as const,
+    items: ['inventory', 'items'] as const,
+    activeItems: ['inventory', 'items', 'active'] as const,
+    lastRun: ['inventory', 'lastRun'] as const,
+    runChecks: (runId: string) => ['inventory', 'runChecks', runId] as const,
+  },
+  schedule: {
+    all: ['schedule'] as const,
+    shifts: (filters?: unknown) => ['schedule', 'shifts', filters] as const,
+    mine: (userId: string | undefined, filters?: unknown) =>
+      ['schedule', 'mine', userId, filters] as const,
+  },
+  locations: {
+    all: ['locations'] as const,
+    linkedTasks: (zoneId: string) => ['locations', 'linkedTasks', zoneId] as const,
+  },
 } as const;

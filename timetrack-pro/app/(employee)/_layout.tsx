@@ -7,9 +7,12 @@ import { Colors } from '@/constants/theme';
 const employeeNav: NavItem[] = [
   { label: 'Time Clock', href: '/(employee)/timeclock', segment: 'timeclock', icon: 'timer-outline' },
   { label: 'Shifts', href: '/(employee)/shifts', segment: 'shifts', icon: 'calendar-outline' },
-  { label: 'Invoices', href: '/(employee)/invoices', segment: 'invoices', icon: 'document-text-outline' },
+  { label: 'My Schedule', href: '/(employee)/schedule', segment: 'schedule', icon: 'calendar-clear-outline' },
   { label: 'SOPs', href: '/(employee)/sops', segment: 'sops', icon: 'clipboard-outline' },
   { label: 'Tasks', href: '/(employee)/tasks', segment: 'tasks', icon: 'list-outline' },
+  { label: 'Locations', href: '/(employee)/locations', segment: 'locations', icon: 'map-outline' },
+  { label: 'Inventory', href: '/(employee)/inventory', segment: 'inventory', icon: 'cube-outline' },
+  { label: 'Invoices', href: '/(employee)/invoices', segment: 'invoices', icon: 'document-text-outline' },
   { label: 'Profile', href: '/(employee)/profile', segment: 'profile', icon: 'person-outline' },
 ];
 

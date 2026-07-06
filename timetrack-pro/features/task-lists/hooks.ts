@@ -38,6 +38,8 @@ export function useSaveTaskList() {
     mutationFn: saveTaskList,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
+      // the Locations screen's linked-tasks panel reads task_lists too
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
     },
   });
 }
@@ -49,6 +51,7 @@ export function useDeleteTaskList() {
     mutationFn: deleteTaskList,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
     },
   });
 }
@@ -68,6 +71,7 @@ export function useSaveAssignments() {
     mutationFn: saveAssignments,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
     },
   });
 }

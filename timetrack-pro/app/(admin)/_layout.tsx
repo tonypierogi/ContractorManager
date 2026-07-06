@@ -7,10 +7,13 @@ import { Colors } from '@/constants/theme';
 const adminNav: NavItem[] = [
   { label: 'Team', href: '/(admin)/team', segment: 'team', icon: 'people-outline' },
   { label: 'Timesheets', href: '/(admin)/timesheets', segment: 'timesheets', icon: 'time-outline' },
-  { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline' },
+  { label: 'Schedule', href: '/(admin)/schedule', segment: 'schedule', icon: 'calendar-outline' },
   { label: 'SOP', href: '/(admin)/sops', segment: 'sops', icon: 'clipboard-outline' },
   { label: 'Equipment', href: '/(admin)/equipment', segment: 'equipment', icon: 'construct-outline' },
   { label: 'Task Lists', href: '/(admin)/task-lists', segment: 'task-lists', icon: 'list-outline' },
+  { label: 'Locations', href: '/(admin)/locations', segment: 'locations', icon: 'map-outline' },
+  { label: 'Inventory', href: '/(admin)/inventory', segment: 'inventory', icon: 'cube-outline' },
+  { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline' },
   { label: 'Settings', href: '/(admin)/settings', segment: 'settings', icon: 'settings-outline' },
 ];
 

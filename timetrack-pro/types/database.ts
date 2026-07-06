@@ -153,6 +153,8 @@ export interface TaskList {
   title: string;
   description: string | null;
   is_sop: boolean;
+  location: string | null;
+  share_token: string | null;
   source_video_url: string | null;
   source_transcript: string | null;
   created_by: string | null;
@@ -166,7 +168,12 @@ export interface TaskListItem {
   sort_order: number;
   title: string;
   description: string | null;
+  item_type: string | null;
   media: MediaItem[];
+  location_from: string | null;
+  location_to: string | null;
+  equipment: string[];
+  video_timestamp: number | null;
   created_at: string;
 }
 

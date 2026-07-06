@@ -13,6 +13,9 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import CopyToSpreadsheetButton, {
+  type SpreadsheetColumn,
+} from '@/features/shifts/components/CopyToSpreadsheetButton';
 import { useAllShifts, useToggleShiftPaid } from '@/features/shifts/hooks';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useToast } from '@/components/ui/Toast';
@@ -68,9 +71,16 @@ export default function TimesheetsScreen() {
   }, [members]);
 
   const getMemberName = useCallback(
-    (userId: string) => {
-      const m = memberById.get(userId);
-      return m ? `${m.first_name} ${m.last_name}` : 'Unknown';
+    (item: any) => {
+      // Prefer the name joined onto the row — the members query can lag or
+      // fail independently, which showed 'Unknown' despite loaded rows.
+      const p = item.profiles;
+      if (p) {
+        const joined = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+        if (joined) return joined;
+      }
+      const m = memberById.get(item.user_id);
+      return m ? `${m.first_name} ${m.last_name}`.trim() || 'Unknown' : 'Unknown';
     },
     [memberById],
   );
@@ -87,6 +97,27 @@ export default function TimesheetsScreen() {
     if (!clockOut) return 0;
     return (new Date(clockOut).getTime() - new Date(clockIn).getTime()) / 3_600_000;
   };
+
+  // Export mirrors the rendered table (same helpers/formatters), but with
+  // clean aligned columns — the legacy admin export emitted 9 fields against
+  // a 7-column header (spreadsheet.js quirk), fixed intentionally here.
+  const exportColumns: SpreadsheetColumn<any>[] = [
+    { header: 'Employee', value: (item) => getMemberName(item) },
+    { header: 'Date', value: (item) => formatDate(item.clock_in) },
+    { header: 'Clock In', value: (item) => formatTime(item.clock_in) },
+    {
+      header: 'Clock Out',
+      value: (item) => (item.clock_out ? formatTime(item.clock_out) : 'In progress'),
+    },
+    { header: 'Hours', value: (item) => calcHours(item.clock_in, item.clock_out).toFixed(2) },
+    { header: 'Rate', value: (item) => Number(getHourlyRate(item)).toFixed(2) },
+    { header: 'Status', value: (item) => (item.paid ? 'Paid' : 'Pending') },
+    {
+      header: 'Amount',
+      value: (item) =>
+        (calcHours(item.clock_in, item.clock_out) * Number(getHourlyRate(item))).toFixed(2),
+    },
+  ];
 
   const totals = useMemo(() => {
     if (!shifts) return { hours: 0, amount: 0 };
@@ -110,7 +141,7 @@ export default function TimesheetsScreen() {
       return (
         <View style={styles.tableRow}>
           <Text style={[styles.cell, styles.cellEmployee]} numberOfLines={1}>
-            {getMemberName(item.user_id)}
+            {getMemberName(item)}
           </Text>
           <Text style={[styles.cell, styles.cellDate]}>
             {formatDate(item.clock_in)}
@@ -191,13 +222,7 @@ export default function TimesheetsScreen() {
             />
           </View>
           <Button title="Filter" onPress={applyFilters} variant="secondary" size="sm" />
-          <Button
-            title="Copy to Spreadsheet"
-            onPress={() => {}}
-            variant="secondary"
-            size="sm"
-            icon={<Ionicons name="copy-outline" size={14} color={Colors.text} />}
-          />
+          <CopyToSpreadsheetButton rows={shifts ?? []} columns={exportColumns} />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

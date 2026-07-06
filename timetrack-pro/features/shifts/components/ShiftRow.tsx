@@ -11,8 +11,11 @@ interface ShiftRowProps {
 }
 
 function getShiftHours(clockIn: string, clockOut: string | null): number {
+  // In-progress shifts show 0 hours until clocked out (legacy parity; keeps
+  // rows consistent with totals and the spreadsheet export).
+  if (!clockOut) return 0;
   const start = new Date(clockIn).getTime();
-  const end = clockOut ? new Date(clockOut).getTime() : Date.now();
+  const end = new Date(clockOut).getTime();
   return (end - start) / 3600000;
 }
 

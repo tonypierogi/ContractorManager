@@ -10,6 +10,7 @@ export interface SaveTaskListInput {
   title: string;
   description?: string;
   isSop?: boolean;
+  location?: string | null;
   sourceVideoUrl?: string | null;
   sourceTranscript?: string | null;
   createdBy?: string;
@@ -17,6 +18,11 @@ export interface SaveTaskListInput {
     title: string;
     description?: string;
     media?: unknown[];
+    item_type?: string | null;
+    location_from?: string | null;
+    location_to?: string | null;
+    equipment?: string[];
+    video_timestamp?: number | null;
   }>;
 }
 
@@ -55,6 +61,7 @@ export async function saveTaskList({
   title,
   description,
   isSop,
+  location,
   sourceVideoUrl,
   sourceTranscript,
   createdBy,
@@ -64,6 +71,7 @@ export async function saveTaskList({
     title,
     description: description || null,
     is_sop: isSop ?? false,
+    location: location ?? null,
     source_video_url: sourceVideoUrl || null,
     source_transcript: sourceTranscript || null,
   };
@@ -96,6 +104,11 @@ export async function saveTaskList({
       title: it.title.trim(),
       description: it.description?.trim() || null,
       media: it.media || [],
+      item_type: it.item_type || 'task',
+      location_from: it.location_from ?? null,
+      location_to: it.location_to ?? null,
+      equipment: it.equipment ?? [],
+      video_timestamp: it.video_timestamp ?? null,
     }));
     const { error } = await supabase.from('task_list_items').insert(rows);
     if (error) throw error;
