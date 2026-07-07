@@ -1,5 +1,5 @@
-import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '@/lib/supabase';
+import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
 
 const INVENTORY_STORAGE_BUCKET = 'sop-media';
 
@@ -101,61 +101,14 @@ export async function deleteInventoryItem(id: string): Promise<void> {
 
 // ==================== STORAGE UPLOADS ====================
 
-const MAX_IMAGE_DIM = 1920;
-
-/**
- * Legacy compressImage parity (utils.js:78-108): fit within 1920x1920,
- * re-encode JPEG q0.8, never upscale. Falls back to the original file when
- * the picker didn't report dimensions or the image already fits.
- */
-async function downscaleForUpload(
-  uri: string,
-  width?: number,
-  height?: number,
-): Promise<string> {
-  if (!width || !height) return uri;
-  const ratio = Math.min(MAX_IMAGE_DIM / width, MAX_IMAGE_DIM / height, 1);
-  if (ratio >= 1) return uri;
-  const result = await ImageManipulator.manipulateAsync(
-    uri,
-    [{ resize: { width: Math.round(width * ratio) } }],
-    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
-  );
-  return result.uri;
-}
-
-export interface UploadImageInput {
-  userId: string;
-  uri: string;
-  width?: number;
-  height?: number;
-}
-
-async function uploadImageToBucket(
-  subdir: 'inventory' | 'inventory-checks',
-  { userId, uri, width, height }: UploadImageInput,
-): Promise<string> {
-  const finalUri = await downscaleForUpload(uri, width, height);
-  const rawName = finalUri.split('/').pop() || 'photo.jpg';
-  // Legacy filename sanitization (inventory.js:140)
-  const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${userId}/${subdir}/${Date.now()}-${safeName}`;
-  const res = await fetch(finalUri);
-  const body = await res.arrayBuffer();
-  const { error } = await supabase.storage
-    .from(INVENTORY_STORAGE_BUCKET)
-    .upload(path, body, { contentType: 'image/jpeg', upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from(INVENTORY_STORAGE_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-}
+export type { UploadImageInput };
 
 export function uploadInventoryImage(params: UploadImageInput): Promise<string> {
-  return uploadImageToBucket('inventory', params);
+  return uploadImageToMediaBucket('inventory', params);
 }
 
 export function uploadInventoryCheckPhoto(params: UploadImageInput): Promise<string> {
-  return uploadImageToBucket('inventory-checks', params);
+  return uploadImageToMediaBucket('inventory-checks', params);
 }
 
 // ==================== RUNS ====================

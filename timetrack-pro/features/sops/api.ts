@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
 import type {
   SopTemplate,
   SopItem,
@@ -30,6 +31,12 @@ export interface SaveSopTemplateInput {
     equipment?: string[];
     sort_order: number;
   }>;
+}
+
+/** SOP item media goes to the bucket root under the uploader's user id
+ * (`{userId}/{ts}-{name}`), matching legacy media paths. */
+export function uploadSopMedia(params: UploadImageInput): Promise<string> {
+  return uploadImageToMediaBucket('', params);
 }
 
 export async function fetchSopTemplates(): Promise<SopTemplate[]> {

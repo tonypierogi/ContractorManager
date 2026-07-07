@@ -56,6 +56,16 @@ export const ZONE_OVERLAYS: Record<Floor, ZoneOverlay[]> = {
   ],
 };
 
+/**
+ * Intrinsic aspect ratio (width/height) of the bundled floor-plan PNGs —
+ * both floors are 311x1024. Hardcoded at build time because
+ * Image.resolveAssetSource does not exist on react-native-web.
+ */
+export const FLOOR_PLAN_ASPECT: Record<Floor, number> = {
+  upstairs: 311 / 1024,
+  downstairs: 311 / 1024,
+};
+
 export const FLOOR_PLAN_DEFAULT: Record<Floor, ImageSourcePropType> = {
   upstairs: require('../../assets/locations/fp-up-default.png'),
   downstairs: require('../../assets/locations/fp-down-default.png'),

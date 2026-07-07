@@ -11,8 +11,13 @@ import {
   saveAssignments,
   saveTaskList,
   toggleTaskCheck,
+  uploadTaskListMedia,
   type TaskChecklistItemWithCheck,
 } from './api';
+
+export function useUploadTaskListMedia() {
+  return useMutation({ mutationFn: uploadTaskListMedia });
+}
 
 export type { TaskChecklistItemWithCheck };
 

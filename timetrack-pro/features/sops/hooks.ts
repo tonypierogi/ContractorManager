@@ -16,11 +16,16 @@ import {
   saveSopTemplate,
   toggleAdHocTask,
   toggleSopCheck,
+  uploadSopMedia,
   type DailySopWithTemplate,
   type SopChecklistItem,
 } from './api';
 
 export type { DailySopWithTemplate, SopChecklistItem };
+
+export function useUploadSopMedia() {
+  return useMutation({ mutationFn: uploadSopMedia });
+}
 
 export function useSopTemplates() {
   return useQuery({

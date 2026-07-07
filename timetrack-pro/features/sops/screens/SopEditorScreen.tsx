@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   ScrollView,
@@ -9,18 +10,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import { useSopTemplate, useSaveSopTemplate } from '@/features/sops/hooks';
+import MediaRow from '@/components/ui/MediaRow';
+import {
+  EquipmentBox,
+  EquipmentPickerModal,
+} from '@/features/equipment/components/EquipmentTagging';
+import { useAuth } from '@/features/auth/auth-provider';
+import { useEquipment } from '@/features/equipment/hooks';
+import {
+  useSopTemplate,
+  useSaveSopTemplate,
+  useUploadSopMedia,
+} from '@/features/sops/hooks';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
-import type { SopItemType } from '@/types/database';
+import type { MediaItem, SopItemType } from '@/types/database';
 
 interface ItemDraft {
   id: string;
   title: string;
   description: string;
   item_type: SopItemType;
+  media: MediaItem[];
+  equipment: string[];
 }
 
 let nextItemId = 0;
@@ -28,34 +43,113 @@ const makeId = () => `draft-${++nextItemId}`;
 
 export default function SopEditorScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const { user } = useAuth();
   const { data: existing } = useSopTemplate(id ?? '');
   const saveSop = useSaveSopTemplate();
+  const uploadMedia = useUploadSopMedia();
+  const { data: equipment } = useEquipment();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<ItemDraft[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [equipmentPickerFor, setEquipmentPickerFor] = useState<string | null>(null);
 
+  const equipmentById = useMemo(
+    () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
+    [equipment],
+  );
+
+  // One-shot hydration: a focus refetch must not clobber in-progress edits,
+  // and item media/equipment must round-trip so editing never strips them.
   useEffect(() => {
-    if (existing) {
-      setName(existing.template.name);
-      setDescription(existing.template.description ?? '');
-      setItems(
-        existing.items.map((i) => ({
-          id: i.id,
-          title: i.title,
-          description: i.description ?? '',
-          item_type: i.item_type,
-        })),
-      );
-    }
-  }, [existing]);
+    if (!id || !existing || hydrated) return;
+    setName(existing.template.name);
+    setDescription(existing.template.description ?? '');
+    setItems(
+      existing.items.map((i) => ({
+        id: i.id,
+        title: i.title,
+        description: i.description ?? '',
+        item_type: i.item_type,
+        media: i.media ?? [],
+        equipment: i.equipment ?? [],
+      })),
+    );
+    setHydrated(true);
+  }, [id, existing, hydrated]);
 
   const addItem = (type: SopItemType) => {
     setItems((prev) => [
       ...prev,
-      { id: makeId(), title: '', description: '', item_type: type },
+      {
+        id: makeId(),
+        title: '',
+        description: '',
+        item_type: type,
+        media: [],
+        equipment: [],
+      },
     ]);
   };
+
+  // Upload immediately on selection (legacy parity); removing an image only
+  // clears it from the draft — uploaded files are never deleted.
+  const handleAddImage = async (itemId: string) => {
+    if (!user) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    const asset = picked.assets[0];
+    setUploadingItemId(itemId);
+    try {
+      const url = await uploadMedia.mutateAsync({
+        userId: user.id,
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === itemId ? { ...i, media: [...i.media, { url, type: 'image' }] } : i,
+        ),
+      );
+    } catch {
+      // surfaced by the global mutation error toast
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const removeImage = (itemId: string, mediaIndex: number) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, media: i.media.filter((_, mi) => mi !== mediaIndex) }
+          : i,
+      ),
+    );
+  };
+
+  const toggleEquipment = (itemId: string, equipmentId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? {
+              ...i,
+              equipment: i.equipment.includes(equipmentId)
+                ? i.equipment.filter((e) => e !== equipmentId)
+                : [...i.equipment, equipmentId],
+            }
+          : i,
+      ),
+    );
+  };
+
+  const equipmentPickerItem = items.find((i) => i.id === equipmentPickerFor) ?? null;
 
   const updateItem = (itemId: string, field: keyof ItemDraft, value: string) => {
     setItems((prev) =>
@@ -88,15 +182,29 @@ export default function SopEditorScreen() {
         name,
         description,
         items: items.map((i, idx) => ({
-          ...i,
+          title: i.title,
+          description: i.description,
+          item_type: i.item_type,
+          media: i.media,
+          equipment: i.equipment,
           sort_order: idx,
         })),
       });
       router.back();
     } catch {
-      Alert.alert('Error', 'Failed to save SOP');
+      // surfaced by the global mutation error toast
     }
   };
+
+  if (id && !hydrated) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={Colors.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -180,6 +288,24 @@ export default function SopEditorScreen() {
               value={item.description}
               onChangeText={(v) => updateItem(item.id, 'description', v)}
             />
+            {item.item_type === 'task' && (
+              <>
+                <Text style={styles.fieldLabel}>Images</Text>
+                <MediaRow
+                  media={item.media}
+                  uploading={uploadingItemId === item.id}
+                  onAdd={() => handleAddImage(item.id)}
+                  onRemove={(mi) => removeImage(item.id, mi)}
+                />
+                <Text style={styles.fieldLabel}>Equipment</Text>
+                <EquipmentBox
+                  labels={item.equipment.map(
+                    (eqId) => equipmentById.get(eqId) ?? 'Unknown',
+                  )}
+                  onPress={() => setEquipmentPickerFor(item.id)}
+                />
+              </>
+            )}
           </Card>
         ))}
 
@@ -199,6 +325,16 @@ export default function SopEditorScreen() {
         </View>
 
       </ScrollView>
+
+      <EquipmentPickerModal
+        visible={equipmentPickerFor != null}
+        equipment={equipment}
+        selectedIds={equipmentPickerItem?.equipment ?? []}
+        onToggle={(equipmentId) =>
+          equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
+        }
+        onClose={() => setEquipmentPickerFor(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -207,6 +343,20 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: Colors.bgPrimary,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.xs,
   },
   topBar: {
     flexDirection: 'row',

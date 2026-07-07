@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   View,
@@ -11,47 +11,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import { useSaveTaskList, useTaskList } from '@/features/task-lists/hooks';
+import { useAuth } from '@/features/auth/auth-provider';
+import { useEquipment } from '@/features/equipment/hooks';
+import { EquipmentPickerModal } from '@/features/equipment/components/EquipmentTagging';
+import {
+  useSaveTaskList,
+  useTaskList,
+  useUploadTaskListMedia,
+} from '@/features/task-lists/hooks';
+import ItemEditorCard, {
+  makeDraft,
+  type ItemDraft,
+} from '@/features/task-lists/components/ItemEditorCard';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
-import type { MediaItem } from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
-
-interface ItemDraft {
-  id: string;
-  title: string;
-  description: string;
-  // Carried through the editor untouched (no UI yet) so editing a list the
-  // legacy app created never strips these columns on save.
-  item_type: string | null;
-  media: MediaItem[];
-  location_from: string | null;
-  location_to: string | null;
-  equipment: string[];
-  video_timestamp: number | null;
-}
-
-let nextId = 0;
-const makeId = () => `draft-${++nextId}`;
-
-const makeDraft = (): ItemDraft => ({
-  id: makeId(),
-  title: '',
-  description: '',
-  item_type: 'task',
-  media: [],
-  location_from: null,
-  location_to: null,
-  equipment: [],
-  video_timestamp: null,
-});
 
 export default function TaskListEditorScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const { user } = useAuth();
   const saveTaskList = useSaveTaskList();
+  const uploadMedia = useUploadTaskListMedia();
   const { data: existing } = useTaskList(id ?? '');
+  const { data: equipment } = useEquipment();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -62,6 +47,13 @@ export default function TaskListEditorScreen() {
   const [videoMode, setVideoMode] = useState(false);
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [equipmentPickerFor, setEquipmentPickerFor] = useState<string | null>(null);
+
+  const equipmentById = useMemo(
+    () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
+    [equipment],
+  );
 
   // Editing: populate the form from the existing list exactly once. Without
   // this, saving an edit overwrote the list with the blank form.
@@ -104,6 +96,67 @@ export default function TaskListEditorScreen() {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
   };
 
+  const patchItem = (itemId: string, patch: Partial<ItemDraft>) => {
+    setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...patch } : i)));
+  };
+
+  // Upload immediately on selection (legacy parity); removing an image only
+  // clears it from the draft — uploaded files are never deleted.
+  const handleAddImage = async (itemId: string) => {
+    if (!user) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    const asset = picked.assets[0];
+    setUploadingItemId(itemId);
+    try {
+      const url = await uploadMedia.mutateAsync({
+        userId: user.id,
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === itemId ? { ...i, media: [...i.media, { url, type: 'image' }] } : i,
+        ),
+      );
+    } catch {
+      // surfaced by the global mutation error toast
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const removeImage = (itemId: string, mediaIndex: number) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, media: i.media.filter((_, mi) => mi !== mediaIndex) }
+          : i,
+      ),
+    );
+  };
+
+  const toggleEquipment = (itemId: string, equipmentId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? {
+              ...i,
+              equipment: i.equipment.includes(equipmentId)
+                ? i.equipment.filter((e) => e !== equipmentId)
+                : [...i.equipment, equipmentId],
+            }
+          : i,
+      ),
+    );
+  };
+
+  const equipmentPickerItem = items.find((i) => i.id === equipmentPickerFor) ?? null;
+
   const moveItem = (index: number, direction: 'up' | 'down') => {
     setItems((prev) => {
       const arr = [...prev];
@@ -126,6 +179,7 @@ export default function TaskListEditorScreen() {
         description,
         isSop,
         location,
+        createdBy: user?.id,
         sourceVideoUrl,
         sourceTranscript,
         items: items.map((i) => ({
@@ -219,49 +273,21 @@ export default function TaskListEditorScreen() {
           <>
             <Text style={styles.subheading}>Items</Text>
             {items.map((item, index) => (
-              <Card key={item.id} style={styles.itemCard}>
-                <View style={styles.itemHeader}>
-                  <Text style={styles.itemNumber}>#{index + 1}</Text>
-                  <View style={styles.itemControls}>
-                    <TouchableOpacity
-                      onPress={() => moveItem(index, 'up')}
-                      disabled={index === 0}
-                      style={styles.arrowBtn}
-                    >
-                      <Text style={[styles.arrow, index === 0 && styles.arrowDisabled]}>
-                        ↑
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => moveItem(index, 'down')}
-                      disabled={index === items.length - 1}
-                      style={styles.arrowBtn}
-                    >
-                      <Text
-                        style={[
-                          styles.arrow,
-                          index === items.length - 1 && styles.arrowDisabled,
-                        ]}
-                      >
-                        ↓
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeItem(item.id)}>
-                      <Text style={styles.removeBtn}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <Input
-                  placeholder="Task title"
-                  value={item.title}
-                  onChangeText={(v) => updateItem(item.id, 'title', v)}
-                />
-                <Input
-                  placeholder="Description (optional)"
-                  value={item.description}
-                  onChangeText={(v) => updateItem(item.id, 'description', v)}
-                />
-              </Card>
+              <ItemEditorCard
+                key={item.id}
+                item={item}
+                index={index}
+                count={items.length}
+                equipmentById={equipmentById}
+                uploading={uploadingItemId === item.id}
+                onUpdateField={(field, value) => updateItem(item.id, field, value)}
+                onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
+                onAddImage={() => handleAddImage(item.id)}
+                onRemoveImage={(mi) => removeImage(item.id, mi)}
+                onEditEquipment={() => setEquipmentPickerFor(item.id)}
+                onMove={(direction) => moveItem(index, direction)}
+                onRemove={() => removeItem(item.id)}
+              />
             ))}
             <Button
               title="Add Item"
@@ -273,6 +299,16 @@ export default function TaskListEditorScreen() {
         )}
 
       </ScrollView>
+
+      <EquipmentPickerModal
+        visible={equipmentPickerFor != null}
+        equipment={equipment}
+        selectedIds={equipmentPickerItem?.equipment ?? []}
+        onToggle={(equipmentId) =>
+          equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
+        }
+        onClose={() => setEquipmentPickerFor(null)}
+      />
     </SafeAreaView>
   );
 }

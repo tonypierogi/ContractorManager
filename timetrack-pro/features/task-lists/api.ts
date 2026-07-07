@@ -1,5 +1,12 @@
 import { supabase } from '@/lib/supabase';
+import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
 import type { TaskList, TaskListItem } from '@/types/database';
+
+/** Item media images go to the bucket root under the uploader's user id
+ * (`{userId}/{ts}-{name}`), matching legacy SOP/task-list media paths. */
+export function uploadTaskListMedia(params: UploadImageInput): Promise<string> {
+  return uploadImageToMediaBucket('', params);
+}
 
 export interface TaskChecklistItemWithCheck extends TaskListItem {
   checked: boolean;

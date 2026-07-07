@@ -18,6 +18,7 @@ import { useLinkedTaskLists } from '@/features/locations/hooks';
 import {
   LOCATION_ZONES,
   ZONE_OVERLAYS,
+  FLOOR_PLAN_ASPECT,
   FLOOR_PLAN_DEFAULT,
   FLOOR_PLAN_HIGHLIGHT,
   ZONE_PHOTOS,
@@ -51,12 +52,8 @@ export default function LocationsScreen() {
 
   // Preserve the bundled image's intrinsic aspect ratio so the
   // percentage-positioned overlays line up with the drawing.
-  const aspectRatio = useMemo(() => {
-    const resolved = Image.resolveAssetSource(floorPlanSource);
-    return resolved && resolved.width && resolved.height
-      ? resolved.width / resolved.height
-      : 1;
-  }, [floorPlanSource]);
+  // (Build-time constant — Image.resolveAssetSource crashes on web.)
+  const aspectRatio = FLOOR_PLAN_ASPECT[floor];
 
   const activeLabel = activeZone ? getLocationLabel(activeZone) : null;
   const activePhoto = activeZone ? ZONE_PHOTOS[activeZone] : undefined;

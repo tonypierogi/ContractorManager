@@ -1,36 +1,159 @@
-import React from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  Pressable,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth/auth-provider';
-import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 
 export interface NavItem {
   label: string;
   href: string;
   segment: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Items sharing a group collapse into a labeled dropdown on wide screens
+   * (legacy grouped nav: 'Operations' for admin, 'Work' for employees). */
+  group?: string;
 }
 
 interface TopNavBarProps {
   items: NavItem[];
 }
 
+type NavEntry =
+  | { type: 'item'; item: NavItem }
+  | { type: 'group'; name: string; items: NavItem[] };
+
+const WIDE_BREAKPOINT = 768;
+
 export default function TopNavBar({ items }: TopNavBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { profile, signOut } = useAuth();
+  const { width } = useWindowDimensions();
+  const isWide = width >= WIDE_BREAKPOINT;
+
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const triggerRefs = useRef<Record<string, View | null>>({});
 
   const isActive = (item: NavItem) => pathname.includes(`/${item.segment}`);
   const isAdmin = profile?.role === 'admin';
+
+  // Collapse grouped items into a dropdown entry at the first item's position.
+  const entries = useMemo<NavEntry[]>(() => {
+    const out: NavEntry[] = [];
+    const groupIndex = new Map<string, number>();
+    for (const item of items) {
+      if (!isWide || !item.group) {
+        out.push({ type: 'item', item });
+        continue;
+      }
+      const existing = groupIndex.get(item.group);
+      if (existing == null) {
+        groupIndex.set(item.group, out.length);
+        out.push({ type: 'group', name: item.group, items: [item] });
+      } else {
+        (out[existing] as Extract<NavEntry, { type: 'group' }>).items.push(item);
+      }
+    }
+    return out;
+  }, [items, isWide]);
+
+  const openMenu = (name: string) => {
+    const node = triggerRefs.current[name];
+    if (!node) {
+      setMenuPos(null);
+      setOpenGroup(name);
+      return;
+    }
+    node.measureInWindow((x, y, _w, h) => {
+      setMenuPos({ x, y: y + h + 4 });
+      setOpenGroup(name);
+    });
+  };
+
+  const closeMenu = () => setOpenGroup(null);
+
+  const navigate = (item: NavItem) => {
+    closeMenu();
+    router.push(item.href as any);
+  };
+
+  const renderPill = (item: NavItem) => {
+    const active = isActive(item);
+    return (
+      <TouchableOpacity
+        key={item.href}
+        onPress={() => navigate(item)}
+        style={[styles.navButton, active && styles.navButtonActive]}
+        activeOpacity={0.7}
+      >
+        {item.icon && (
+          <Ionicons
+            name={item.icon}
+            size={16}
+            color={active ? Colors.accent : Colors.textSecondary}
+            style={styles.navIcon}
+          />
+        )}
+        <Text style={[styles.navLabel, active && styles.navLabelActive]}>
+          {item.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderGroupTrigger = (entry: Extract<NavEntry, { type: 'group' }>) => {
+    const active = entry.items.some(isActive);
+    const open = openGroup === entry.name;
+    return (
+      <View
+        key={`group-${entry.name}`}
+        ref={(node) => {
+          triggerRefs.current[entry.name] = node;
+        }}
+        collapsable={false}
+      >
+        <TouchableOpacity
+          onPress={() => (open ? closeMenu() : openMenu(entry.name))}
+          style={[styles.navButton, active && styles.navButtonActive]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.navLabel, active && styles.navLabelActive]}>
+            {entry.name}
+          </Text>
+          <Ionicons
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={14}
+            color={active ? Colors.accent : Colors.textSecondary}
+            style={styles.chevron}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const openEntry =
+    openGroup != null
+      ? (entries.find(
+          (e) => e.type === 'group' && e.name === openGroup,
+        ) as Extract<NavEntry, { type: 'group' }> | undefined)
+      : undefined;
+
+  const navContent = entries.map((entry) =>
+    entry.type === 'item' ? renderPill(entry.item) : renderGroupTrigger(entry),
+  );
 
   return (
     <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
@@ -44,36 +167,18 @@ export default function TopNavBar({ items }: TopNavBarProps) {
         )}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.nav}
-        style={styles.navScroll}
-      >
-        {items.map((item) => {
-          const active = isActive(item);
-          return (
-            <TouchableOpacity
-              key={item.href}
-              onPress={() => router.push(item.href as any)}
-              style={[styles.navButton, active && styles.navButtonActive]}
-              activeOpacity={0.7}
-            >
-              {item.icon && (
-                <Ionicons
-                  name={item.icon}
-                  size={16}
-                  color={active ? Colors.accent : Colors.textSecondary}
-                  style={styles.navIcon}
-                />
-              )}
-              <Text style={[styles.navLabel, active && styles.navLabelActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {isWide ? (
+        <View style={styles.navWide}>{navContent}</View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.nav}
+          style={styles.navScroll}
+        >
+          {navContent}
+        </ScrollView>
+      )}
 
       <View style={styles.userSection}>
         {profile && (
@@ -85,6 +190,45 @@ export default function TopNavBar({ items }: TopNavBarProps) {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={openEntry != null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={closeMenu}>
+          <View
+            style={[
+              styles.menuPanel,
+              menuPos ? { left: menuPos.x, top: menuPos.y } : styles.menuFallback,
+            ]}
+          >
+            {openEntry?.items.map((item) => {
+              const active = isActive(item);
+              return (
+                <TouchableOpacity
+                  key={item.href}
+                  onPress={() => navigate(item)}
+                  style={[styles.menuItem, active && styles.menuItemActive]}
+                  activeOpacity={0.7}
+                >
+                  {item.icon && (
+                    <Ionicons
+                      name={item.icon}
+                      size={16}
+                      color={active ? Colors.accent : Colors.textSecondary}
+                    />
+                  )}
+                  <Text style={[styles.menuItemLabel, active && styles.navLabelActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -132,6 +276,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
+  navWide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -153,6 +304,9 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: Colors.accent,
   },
+  chevron: {
+    marginLeft: 4,
+  },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -173,6 +327,39 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   signOutText: {
+    fontSize: FontSize.sm,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  menuBackdrop: {
+    flex: 1,
+  },
+  menuPanel: {
+    position: 'absolute',
+    minWidth: 210,
+    backgroundColor: Colors.bgPanel,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: Spacing.xs,
+    ...Shadows.md,
+  },
+  menuFallback: {
+    top: 64,
+    left: Spacing.lg,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
+    minHeight: 44,
+  },
+  menuItemActive: {
+    backgroundColor: Colors.accentGlow,
+  },
+  menuItemLabel: {
     fontSize: FontSize.sm,
     fontWeight: '500',
     color: Colors.text,
