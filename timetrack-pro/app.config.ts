@@ -16,6 +16,11 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.tonypierogi.timetrackpro',
+    config: {
+      // App only talks HTTPS to Supabase — exempt from export compliance.
+      // Without this, every TestFlight build stalls awaiting a manual answer.
+      usesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'com.tonypierogi.timetrackpro',
@@ -32,7 +37,20 @@ const config: ExpoConfig = {
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router',
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Allow TimeTrack Pro to access your photos so you can attach images to inventory checks and SOPs.',
+        cameraPermission:
+          'Allow TimeTrack Pro to use the camera so you can photograph inventory items and job sites.',
+        // App captures stills only — no video, so no microphone access needed.
+        microphonePermission: false,
+      },
+    ],
+  ],
   experiments: {
     typedRoutes: true,
   },

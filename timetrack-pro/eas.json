@@ -26,6 +26,9 @@
   },
   "submit": {
     "production": {
+      "ios": {
+        "appleId": "apierotti39@gmail.com"
+      },
       "android": {
         "track": "internal"
       }
