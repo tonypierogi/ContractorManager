@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import {
   useSopTemplates,
   useDeleteSopTemplate,
+  useDuplicateSopTemplate,
   useCompletedDailySops,
 } from '@/features/sops/hooks';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -16,6 +17,19 @@ export default function SopsScreen() {
   const { data: templates, isLoading } = useSopTemplates();
   const { data: completedSops } = useCompletedDailySops();
   const deleteSop = useDeleteSopTemplate();
+  const duplicateSop = useDuplicateSopTemplate();
+
+  const handleDuplicate = useCallback(
+    async (id: string) => {
+      try {
+        const newId = await duplicateSop.mutateAsync(id);
+        router.push(`/(admin)/sops/editor?id=${newId}`);
+      } catch {
+        Alert.alert('Error', 'Failed to duplicate SOP');
+      }
+    },
+    [duplicateSop],
+  );
 
   const handleDelete = (id: string, name: string) => {
     Alert.alert('Delete SOP', `Delete "${name}"?`, [
@@ -55,6 +69,12 @@ export default function SopsScreen() {
                   {item.name}
                 </Text>
                 <View style={styles.templateActions}>
+                  <Button
+                    title="Duplicate"
+                    onPress={() => handleDuplicate(item.id)}
+                    variant="secondary"
+                    size="sm"
+                  />
                   <Button
                     title="Edit"
                     onPress={() =>

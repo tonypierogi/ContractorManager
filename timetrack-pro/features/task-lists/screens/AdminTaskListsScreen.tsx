@@ -3,14 +3,21 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Button from '@/components/ui/Button';
-import { useTaskLists, useDeleteTaskList } from '@/features/task-lists/hooks';
+import {
+  useTaskLists,
+  useDeleteTaskList,
+  useDuplicateTaskList,
+} from '@/features/task-lists/hooks';
+import { useAuth } from '@/features/auth/auth-provider';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 type FilterTab = 'all' | 'sop' | 'task';
 
 export default function TaskListsScreen() {
   const { data: taskLists, isLoading } = useTaskLists();
+  const { user } = useAuth();
   const deleteTaskList = useDeleteTaskList();
+  const duplicateTaskList = useDuplicateTaskList();
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
   const filteredLists = useMemo(() => {
@@ -32,6 +39,22 @@ export default function TaskListsScreen() {
       ]);
     },
     [deleteTaskList],
+  );
+
+  // Land in the editor on the fresh copy so tweak-and-reassign is one flow.
+  const handleDuplicate = useCallback(
+    async (id: string) => {
+      try {
+        const newId = await duplicateTaskList.mutateAsync({
+          id,
+          createdBy: user?.id ?? '',
+        });
+        router.push(`/(admin)/task-lists/editor?id=${newId}` as any);
+      } catch {
+        Alert.alert('Error', 'Failed to duplicate task list');
+      }
+    },
+    [duplicateTaskList, user?.id],
   );
 
   const filters: { key: FilterTab; label: string }[] = [
@@ -86,6 +109,12 @@ export default function TaskListsScreen() {
             variant="secondary"
             size="sm"
             onPress={() => router.push(`/(admin)/task-lists/editor?id=${item.id}` as any)}
+          />
+          <Button
+            title="Duplicate"
+            variant="secondary"
+            size="sm"
+            onPress={() => handleDuplicate(item.id)}
           />
           <Button
             title="Delete"
@@ -276,6 +305,7 @@ const s = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     marginTop: Spacing.md,
   },
