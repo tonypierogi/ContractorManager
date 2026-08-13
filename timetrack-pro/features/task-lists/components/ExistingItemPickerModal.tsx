@@ -6,13 +6,14 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Modal from '@/components/ui/Modal';
 import { useAllTemplateItems } from '@/features/task-lists/hooks';
 import type { TemplateItemRef } from '@/features/task-lists/api';
-import { getLocationLabel } from '@/features/locations/zones';
+import { ALL_ZONES, getLocationLabel } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 const MAX_RESULTS = 50;
@@ -31,11 +32,43 @@ export default function ExistingItemPickerModal({
   onPick,
 }: ExistingItemPickerModalProps) {
   const [search, setSearch] = useState('');
+  const [roomFilter, setRoomFilter] = useState<string | null>(null);
+  const [listFilter, setListFilter] = useState<string | null>(null);
   const { data: items, isLoading } = useAllTemplateItems(visible);
+
+  // Only offer chips for rooms/lists that actually appear in the data.
+  const rooms = useMemo(() => {
+    const present = new Set<string>();
+    (items ?? []).forEach((it) => {
+      [it.location_from, it.location_to, it.sourceLocation].forEach((z) => {
+        if (z) present.add(z);
+      });
+    });
+    return ALL_ZONES.filter((z) => present.has(z.id));
+  }, [items]);
+
+  const lists = useMemo(() => {
+    const titles = new Set<string>();
+    (items ?? []).forEach((it) => {
+      if (it.sourceTitle) titles.add(it.sourceTitle);
+    });
+    return [...titles].sort((a, b) => a.localeCompare(b));
+  }, [items]);
 
   const query = search.trim().toLowerCase();
   const filtered = useMemo(() => {
-    const all = items ?? [];
+    let all = items ?? [];
+    if (roomFilter) {
+      all = all.filter(
+        (it) =>
+          it.location_from === roomFilter ||
+          it.location_to === roomFilter ||
+          it.sourceLocation === roomFilter,
+      );
+    }
+    if (listFilter) {
+      all = all.filter((it) => it.sourceTitle === listFilter);
+    }
     if (!query) return all;
     return all.filter((it) => {
       const locationLabels = [it.location_from, it.location_to, it.sourceLocation]
@@ -48,15 +81,21 @@ export default function ExistingItemPickerModal({
         locationLabels.some((l) => l.includes(query))
       );
     });
-  }, [items, query]);
+  }, [items, query, roomFilter, listFilter]);
+
+  const resetFilters = () => {
+    setSearch('');
+    setRoomFilter(null);
+    setListFilter(null);
+  };
 
   const close = () => {
-    setSearch('');
+    resetFilters();
     onClose();
   };
 
   const pick = (it: TemplateItemRef) => {
-    setSearch('');
+    resetFilters();
     onPick(it);
   };
 
@@ -78,10 +117,70 @@ export default function ExistingItemPickerModal({
         )}
       </View>
 
+      {rooms.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.chipRow}
+          contentContainerStyle={s.chipRowContent}
+        >
+          {rooms.map((z) => {
+            const active = roomFilter === z.id;
+            return (
+              <TouchableOpacity
+                key={z.id}
+                style={[s.chip, active && s.chipActive]}
+                onPress={() => setRoomFilter(active ? null : z.id)}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={12}
+                  color={active ? Colors.bgPrimary : Colors.textSecondary}
+                />
+                <Text style={[s.chipText, active && s.chipTextActive]}>{z.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {lists.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.chipRow}
+          contentContainerStyle={s.chipRowContent}
+        >
+          {lists.map((title) => {
+            const active = listFilter === title;
+            return (
+              <TouchableOpacity
+                key={title}
+                style={[s.chip, active && s.chipActive]}
+                onPress={() => setListFilter(active ? null : title)}
+                accessibilityRole="button"
+              >
+                <Ionicons
+                  name="list-outline"
+                  size={12}
+                  color={active ? Colors.bgPrimary : Colors.textSecondary}
+                />
+                <Text style={[s.chipText, active && s.chipTextActive]} numberOfLines={1}>
+                  {title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
       {isLoading ? (
         <ActivityIndicator color={Colors.accent} style={s.loading} />
       ) : filtered.length === 0 ? (
-        <Text style={s.empty}>{query ? 'No matching tasks.' : 'No tasks to copy yet.'}</Text>
+        <Text style={s.empty}>
+          {query || roomFilter || listFilter ? 'No matching tasks.' : 'No tasks to copy yet.'}
+        </Text>
       ) : (
         <>
           {filtered.slice(0, MAX_RESULTS).map((it) => {
@@ -148,6 +247,36 @@ const s = StyleSheet.create({
     color: Colors.text,
     fontSize: FontSize.sm,
     paddingVertical: Spacing.sm,
+  },
+  chipRow: {
+    flexGrow: 0,
+    marginBottom: Spacing.sm,
+  },
+  chipRowContent: {
+    gap: Spacing.xs,
+    paddingRight: Spacing.md,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.full,
+    paddingVertical: Spacing.xs + 1,
+    paddingHorizontal: Spacing.sm + 2,
+    maxWidth: 200,
+  },
+  chipActive: {
+    backgroundColor: Colors.accent,
+  },
+  chipText: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  chipTextActive: {
+    color: Colors.bgPrimary,
+    fontWeight: '600',
   },
   loading: {
     paddingVertical: Spacing.xl,
