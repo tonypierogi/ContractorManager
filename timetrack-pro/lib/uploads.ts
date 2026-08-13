@@ -38,10 +38,10 @@ async function downscaleForUpload(
  * Downscale + upload an image into the shared bucket and return its public
  * URL. `subdir` follows the legacy path conventions: '' for SOP/task-list
  * media (`{userId}/{ts}-{name}`), 'inventory' / 'inventory-checks' for the
- * inventory feature.
+ * inventory feature, 'equipment' for equipment photos.
  */
 export async function uploadImageToMediaBucket(
-  subdir: '' | 'inventory' | 'inventory-checks',
+  subdir: '' | 'inventory' | 'inventory-checks' | 'equipment',
   { userId, uri, width, height }: UploadImageInput,
 ): Promise<string> {
   const finalUri = await downscaleForUpload(uri, width, height);

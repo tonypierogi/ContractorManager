@@ -11,8 +11,8 @@ const employeeNav: NavItem[] = [
   { label: 'My Work', href: '/(employee)/work', segment: 'work', icon: 'clipboard-outline' },
   { label: 'Shifts', href: '/(employee)/shifts', segment: 'shifts', icon: 'calendar-outline' },
   { label: 'My Schedule', href: '/(employee)/schedule', segment: 'schedule', icon: 'calendar-clear-outline' },
-  { label: 'Locations', href: '/(employee)/locations', segment: 'locations', icon: 'map-outline', group: 'Site' },
-  { label: 'Inventory', href: '/(employee)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Site' },
+  { label: 'Venue', href: '/(employee)/venue', segment: 'venue', icon: 'business-outline', group: 'Venue' },
+  { label: 'Inventory', href: '/(employee)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Venue' },
   { label: 'Invoices', href: '/(employee)/invoices', segment: 'invoices', icon: 'document-text-outline' },
   { label: 'Profile', href: '/(employee)/profile', segment: 'profile', icon: 'person-outline' },
 ];
