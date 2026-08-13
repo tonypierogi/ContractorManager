@@ -15,6 +15,9 @@ import Badge from '@/components/ui/Badge';
 import Lightbox from '@/components/ui/Lightbox';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useLinkedTaskLists } from '@/features/locations/hooks';
+import ZoneItemSearch, {
+  type FoundItem,
+} from '@/features/locations/components/ZoneItemSearch';
 import {
   LOCATION_ZONES,
   ZONE_OVERLAYS,
@@ -23,6 +26,7 @@ import {
   FLOOR_PLAN_HIGHLIGHT,
   ZONE_PHOTOS,
   getLocationLabel,
+  zoneFloor,
   type Floor,
 } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
@@ -41,6 +45,7 @@ export default function LocationsScreen() {
   const [floor, setFloor] = useState<Floor>('upstairs');
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [foundItem, setFoundItem] = useState<FoundItem | null>(null);
 
   const zones = LOCATION_ZONES[floor];
   const overlays = ZONE_OVERLAYS[floor];
@@ -64,10 +69,24 @@ export default function LocationsScreen() {
     setFloor(f);
     // Switching floors clears the active zone (legacy parity).
     setActiveZone(null);
+    setFoundItem(null);
   };
 
   const toggleZone = (zoneId: string) => {
     setActiveZone((prev) => (prev === zoneId ? null : zoneId));
+    // Manually browsing zones means the search result is no longer the focus.
+    setFoundItem(null);
+  };
+
+  const handleFoundItem = (item: FoundItem) => {
+    setFoundItem(item);
+    if (item.location) {
+      const itemFloor = zoneFloor(item.location);
+      if (itemFloor) setFloor(itemFloor);
+      setActiveZone(item.location);
+    } else {
+      setActiveZone(null);
+    }
   };
 
   const openTaskList = (id: string) => {
@@ -120,6 +139,72 @@ export default function LocationsScreen() {
 
   const sidebar = (
     <View style={styles.sidebar}>
+      {/* Found item card (from search) */}
+      {foundItem && (
+        <View style={[styles.panel, styles.foundCard]}>
+          <View style={styles.foundHeader}>
+            <Badge
+              label={foundItem.kind === 'equipment' ? 'Equipment' : 'Inventory'}
+              variant={foundItem.kind === 'equipment' ? 'default' : 'info'}
+            />
+            <Pressable
+              onPress={() => setFoundItem(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss found item"
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={18} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+          <View style={styles.foundBody}>
+            {foundItem.imageUrl ? (
+              <Image
+                source={{ uri: foundItem.imageUrl }}
+                style={styles.foundImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.foundImage, styles.foundImagePlaceholder]}>
+                <Ionicons
+                  name={
+                    foundItem.kind === 'equipment'
+                      ? 'construct-outline'
+                      : 'cube-outline'
+                  }
+                  size={24}
+                  color={Colors.textMuted}
+                />
+              </View>
+            )}
+            <View style={styles.foundInfo}>
+              <Text style={styles.foundName}>{foundItem.name}</Text>
+              <View style={styles.foundZoneRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={13}
+                  color={foundItem.location ? Colors.accent : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.foundZone,
+                    !foundItem.location && styles.foundZoneMissing,
+                  ]}
+                >
+                  {foundItem.location
+                    ? getLocationLabel(foundItem.location)
+                    : 'No location recorded'}
+                </Text>
+              </View>
+              {foundItem.description ? (
+                <Text style={styles.foundDesc} numberOfLines={3}>
+                  {foundItem.description}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Zone buttons */}
       <View style={styles.zoneList}>
         {zones.map((zone) => {
@@ -216,6 +301,8 @@ export default function LocationsScreen() {
         <View style={styles.header}>
           <Text style={styles.heading}>Locations</Text>
         </View>
+
+        <ZoneItemSearch onSelect={handleFoundItem} />
 
         {/* Floor tabs */}
         <View style={styles.tabs}>
@@ -352,6 +439,57 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     gap: Spacing.md,
+  },
+  foundCard: {
+    padding: Spacing.md,
+  },
+  foundHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  foundBody: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  foundImage: {
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.bgElevated,
+  },
+  foundImagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foundInfo: {
+    flex: 1,
+  },
+  foundName: {
+    fontSize: FontSize.md,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  foundZoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.xs,
+  },
+  foundZone: {
+    fontSize: FontSize.sm,
+    fontWeight: '500',
+    color: Colors.accent,
+  },
+  foundZoneMissing: {
+    color: Colors.textMuted,
+    fontWeight: '400',
+  },
+  foundDesc: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
   },
   zoneList: {
     gap: Spacing.sm,

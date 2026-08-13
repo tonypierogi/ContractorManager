@@ -85,7 +85,7 @@ export default function TeamMemberDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <ScrollView contentContainerStyle={styles.content}>
         <Button title="← Back" onPress={() => router.back()} variant="ghost" size="sm" />
 

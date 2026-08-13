@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import SopCheckItem from '@/features/sops/components/SopCheckItem';
 import { useAuth } from '@/features/auth/auth-provider';
 import {
@@ -11,33 +10,39 @@ import {
   useCompletedDailySops,
   useSopTemplates,
   useCreateDailySop,
+  useAddAdHocTask,
+  useToggleAdHocTask,
 } from '@/features/sops/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate } from '@/utils/format';
 
-function formatFullDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-export default function SopsScreen() {
+/**
+ * Today's shared SOP checklist, extracted from the old standalone SOPs screen
+ * so the unified My Work page can render it beneath assigned task lists.
+ * Owns its own data fetching; the host screen supplies the scroll container.
+ */
+export default function DailySopSection() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { data: todaySop, isLoading: loadingTodaySop, refetch: refetchTodaySop } = useTodayDailySop();
-  const { data: checklist, isLoading: loadingChecklist, refetch: refetchChecklist } = useSopChecklist(
-    todaySop?.id ?? '',
-    todaySop?.sop_template_id,
-  );
+  const {
+    data: todaySop,
+    isLoading: loadingTodaySop,
+    refetch: refetchTodaySop,
+  } = useTodayDailySop();
+  const {
+    data: checklist,
+    isLoading: loadingChecklist,
+    refetch: refetchChecklist,
+  } = useSopChecklist(todaySop?.id ?? '', todaySop?.sop_template_id);
   const { data: completedSops } = useCompletedDailySops();
   const { data: templates, isLoading: loadingTemplates } = useSopTemplates();
   const toggleCheck = useToggleSopCheck();
   const completeDailySop = useCompleteDailySop();
   const createDailySop = useCreateDailySop();
+  const addAdHocTask = useAddAdHocTask();
+  const toggleAdHocTask = useToggleAdHocTask();
+  const [newAdHocTitle, setNewAdHocTitle] = useState('');
 
   const dailySopId = todaySop?.id;
   const userId = user?.id;
@@ -64,8 +69,29 @@ export default function SopsScreen() {
     createDailySop.mutate({ sopTemplateId: templateId, createdBy: user.id });
   };
 
-  const totalItems = checklist?.templateItems.filter((i) => i.item_type !== 'section').length ?? 0;
-  const checkedItems = checklist?.templateItems.filter((i) => i.item_type !== 'section' && i.checked).length ?? 0;
+  const handleAddAdHoc = () => {
+    const title = newAdHocTitle.trim();
+    if (!title || !dailySopId || !userId) return;
+    addAdHocTask.mutate(
+      { dailySopId, title, createdBy: userId },
+      {
+        onSuccess: () => setNewAdHocTitle(''),
+        onError: () => showToast('Failed to add task. Please try again.', 'error'),
+      },
+    );
+  };
+
+  const handleToggleAdHoc = (taskId: string) => {
+    if (!dailySopId || !userId) return;
+    toggleAdHocTask.mutate({ taskId, dailySopId, completedBy: userId });
+  };
+
+  const totalItems =
+    checklist?.templateItems.filter((i) => i.item_type !== 'section').length ?? 0;
+  const checkedItems =
+    checklist?.templateItems.filter(
+      (i) => i.item_type !== 'section' && i.checked,
+    ).length ?? 0;
   const percentage = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
   const allChecked = totalItems > 0 && checkedItems === totalItems;
   const isComplete = !!todaySop?.completed_at || completeDailySop.isSuccess;
@@ -74,7 +100,8 @@ export default function SopsScreen() {
     if (!todaySop) return;
     completeDailySop.mutate(todaySop.id, {
       onSuccess: () => showToast('SOP marked as complete!'),
-      onError: () => showToast('Failed to mark SOP as done. Please try again.', 'error'),
+      onError: () =>
+        showToast('Failed to mark SOP as done. Please try again.', 'error'),
     });
   };
 
@@ -103,6 +130,50 @@ export default function SopsScreen() {
         {checklist?.templateItems.map((item) => (
           <SopCheckItem key={item.id} item={item} onToggle={handleToggle} />
         ))}
+      </View>
+
+      {(checklist?.adHocItems.length ?? 0) > 0 && (
+        <View style={s.adHocSection}>
+          <Text style={s.adHocTitle}>Added today</Text>
+          {checklist!.adHocItems.map((task) => {
+            const done = !!task.completed_at;
+            return (
+              <TouchableOpacity
+                key={task.id}
+                style={s.adHocRow}
+                onPress={() => handleToggleAdHoc(task.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[s.adHocBox, done && s.adHocBoxChecked]}>
+                  {done && <Text style={s.adHocCheckmark}>✓</Text>}
+                </View>
+                <Text style={[s.adHocText, done && s.adHocTextChecked]}>
+                  {task.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      <View style={s.addRow}>
+        <TextInput
+          style={s.addInput}
+          value={newAdHocTitle}
+          onChangeText={setNewAdHocTitle}
+          placeholder="Add a task for today..."
+          placeholderTextColor={Colors.textMuted}
+          onSubmitEditing={handleAddAdHoc}
+          returnKeyType="done"
+        />
+        <TouchableOpacity
+          style={[s.addBtn, !newAdHocTitle.trim() && s.addBtnDisabled]}
+          onPress={handleAddAdHoc}
+          disabled={!newAdHocTitle.trim() || addAdHocTask.isPending}
+          activeOpacity={0.7}
+        >
+          <Text style={s.addBtnText}>{addAdHocTask.isPending ? '...' : 'Add'}</Text>
+        </TouchableOpacity>
       </View>
 
       {allChecked && (
@@ -164,7 +235,11 @@ export default function SopsScreen() {
   );
 
   const renderMainContent = () => {
-    if (loadingTodaySop || (todaySop && loadingChecklist) || (!todaySop && loadingTemplates)) {
+    if (
+      loadingTodaySop ||
+      (todaySop && loadingChecklist) ||
+      (!todaySop && loadingTemplates)
+    ) {
       return (
         <View style={s.centeredState}>
           <Text style={s.stateDesc}>Loading...</Text>
@@ -184,64 +259,30 @@ export default function SopsScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
-      <View style={s.header}>
-        <Text style={s.heading}>SOPs</Text>
-        <Text style={s.subtitle}>{formatFullDate(new Date())}</Text>
-      </View>
+    <View>
+      {renderMainContent()}
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
-        {renderMainContent()}
-
-        {(completedSops?.length ?? 0) > 0 && (
-          <View style={s.completedSection}>
-            <Text style={s.sectionTitle}>Completed SOPs</Text>
-            {completedSops!.map((sop: any) => (
-              <View key={sop.id} style={s.completedCard}>
-                <Text style={s.completedName}>
-                  {sop.sop_templates?.name ?? 'SOP'}
-                </Text>
-                <Text style={s.completedDate}>{formatDate(sop.date)}</Text>
-                <Text style={s.completedLabel}>
-                  Completed {formatDate(sop.completed_at)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      {(completedSops?.length ?? 0) > 0 && (
+        <View style={s.completedSection}>
+          <Text style={s.sectionTitle}>Completed SOPs</Text>
+          {completedSops!.map((sop: any) => (
+            <View key={sop.id} style={s.completedCard}>
+              <Text style={s.completedName}>
+                {sop.sop_templates?.name ?? 'SOP'}
+              </Text>
+              <Text style={s.completedDate}>{formatDate(sop.date)}</Text>
+              <Text style={s.completedLabel}>
+                Completed {formatDate(sop.completed_at)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.bgPrimary,
-  },
-  header: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  heading: {
-    fontSize: FontSize.xl,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  subtitle: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: Spacing.lg,
-    paddingTop: 0,
-  },
-
-  // Active checklist panel
   panel: {
     backgroundColor: Colors.bgPanel,
     borderRadius: BorderRadius.lg,
@@ -294,6 +335,79 @@ const s = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.md,
   },
+  adHocSection: {
+    marginTop: Spacing.lg,
+  },
+  adHocTitle: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+  },
+  adHocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  adHocBox: {
+    width: 22,
+    height: 22,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adHocBoxChecked: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  adHocCheckmark: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  adHocText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.text,
+  },
+  adHocTextChecked: {
+    textDecorationLine: 'line-through',
+    color: Colors.textMuted,
+  },
+  addRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  addInput: {
+    flex: 1,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: FontSize.sm,
+    color: Colors.text,
+  },
+  addBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    justifyContent: 'center',
+  },
+  addBtnDisabled: {
+    opacity: 0.5,
+  },
+  addBtnText: {
+    color: '#fff',
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
   markDoneBtn: {
     backgroundColor: Colors.accent,
     borderRadius: BorderRadius.md,
@@ -306,8 +420,6 @@ const s = StyleSheet.create({
     fontSize: FontSize.md,
     fontWeight: '600',
   },
-
-  // Centered states (complete / no templates)
   centeredState: {
     alignItems: 'center',
     paddingVertical: Spacing.xxl,
@@ -329,8 +441,6 @@ const s = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: Spacing.lg,
   },
-
-  // Pick template
   pickTitle: {
     fontSize: FontSize.md,
     fontWeight: '600',
@@ -373,8 +483,6 @@ const s = StyleSheet.create({
     marginTop: Spacing.xs,
     marginLeft: Spacing.lg + Spacing.xs,
   },
-
-  // Completed SOPs section
   completedSection: {
     marginTop: Spacing.xl,
   },

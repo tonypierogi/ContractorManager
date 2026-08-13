@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useUpdateProfile } from '@/features/profile/hooks';
+import { isProfileIncomplete } from '@/features/profile/utils';
 import { formatCurrency } from '@/utils/format';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '@/constants/theme';
 
@@ -33,6 +35,14 @@ export default function ProfileScreen() {
   const { profile, user, refreshProfile } = useAuth();
   const updateProfile = useUpdateProfile();
   const { width } = useWindowDimensions();
+
+  // The root index route parks users here when their profile is incomplete.
+  // Remember how we arrived so a first-time save can continue into the app,
+  // while a later edit just stays put.
+  const arrivedIncomplete = useRef<boolean | null>(null);
+  if (arrivedIncomplete.current === null && profile) {
+    arrivedIncomplete.current = isProfileIncomplete(profile);
+  }
 
   const { control, handleSubmit, reset } = useForm<ProfileForm>({
     defaultValues: {
@@ -67,6 +77,13 @@ export default function ProfileScreen() {
     try {
       await updateProfile.mutateAsync({ userId: user.id, updates: data });
       await refreshProfile();
+      if (arrivedIncomplete.current) {
+        // Onboarding just completed — let the index route send them to their
+        // real landing screen instead of stranding them on this form.
+        arrivedIncomplete.current = false;
+        router.replace('/');
+        return;
+      }
       Alert.alert('Success', 'Profile updated');
     } catch {
       Alert.alert('Error', 'Failed to update profile');

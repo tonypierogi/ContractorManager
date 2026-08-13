@@ -201,7 +201,7 @@ export default function TaskListEditorScreen() {
 
   if (id && !hydrated) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe} edges={[]}>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={Colors.accent} />
         </View>
@@ -210,7 +210,7 @@ export default function TaskListEditorScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.topBar}>
         <Button title="← Back" onPress={() => router.back()} variant="ghost" size="sm" />
         <Button

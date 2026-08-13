@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   Modal,
   Pressable,
   StyleSheet,
@@ -43,6 +42,7 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const triggerRefs = useRef<Record<string, View | null>>({});
@@ -87,6 +87,7 @@ export default function TopNavBar({ items }: TopNavBarProps) {
 
   const navigate = (item: NavItem) => {
     closeMenu();
+    setMobileMenuOpen(false);
     router.push(item.href as any);
   };
 
@@ -156,40 +157,95 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   );
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
-      <View style={styles.brandGroup}>
-        <Ionicons name="diamond" size={20} color={Colors.accent} />
-        <Text style={styles.logo}>TimeTrackPro</Text>
-        {isAdmin && (
-          <View style={styles.adminBadge}>
-            <Text style={styles.adminBadgeText}>ADMIN</Text>
-          </View>
+    <View style={[styles.container, { paddingTop: insets.top + Spacing.sm }]}>
+      <View style={styles.topRow}>
+        {!isWide && (
+          <TouchableOpacity
+            onPress={() => setMobileMenuOpen(true)}
+            style={styles.hamburger}
+            accessibilityRole="button"
+            accessibilityLabel="Open navigation menu"
+          >
+            <Ionicons name="menu" size={24} color={Colors.text} />
+          </TouchableOpacity>
         )}
+
+        <View style={styles.brandGroup}>
+          <Ionicons name="diamond" size={20} color={Colors.accent} />
+          <Text style={styles.logo}>TimeTrackPro</Text>
+          {isAdmin && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>ADMIN</Text>
+            </View>
+          )}
+        </View>
+
+        {isWide && <View style={styles.navWide}>{navContent}</View>}
+
+        <View style={styles.userSection}>
+          {profile && isWide && (
+            <Text style={styles.greeting} numberOfLines={1}>
+              Hello, {profile.first_name ?? 'User'}!
+            </Text>
+          )}
+          <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {isWide ? (
-        <View style={styles.navWide}>{navContent}</View>
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.nav}
-          style={styles.navScroll}
+      <Modal
+        visible={mobileMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMobileMenuOpen(false)}
+      >
+        <Pressable
+          style={styles.menuBackdrop}
+          onPress={() => setMobileMenuOpen(false)}
         >
-          {navContent}
-        </ScrollView>
-      )}
-
-      <View style={styles.userSection}>
-        {profile && (
-          <Text style={styles.greeting} numberOfLines={1}>
-            Hello, {profile.first_name ?? 'User'}!
-          </Text>
-        )}
-        <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
+          <View
+            style={[
+              styles.mobileMenuPanel,
+              { paddingTop: insets.top + Spacing.md },
+            ]}
+          >
+            {items.map((item, idx) => {
+              const active = isActive(item);
+              const showGroupLabel =
+                !!item.group && item.group !== items[idx - 1]?.group;
+              return (
+                <View key={item.href}>
+                  {showGroupLabel && (
+                    <Text style={styles.menuSectionLabel}>{item.group}</Text>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => navigate(item)}
+                    style={[styles.menuItem, active && styles.menuItemActive]}
+                    activeOpacity={0.7}
+                  >
+                    {item.icon && (
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={active ? Colors.accent : Colors.textSecondary}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.menuItemLabel,
+                        active && styles.navLabelActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={openEntry != null}
@@ -234,14 +290,16 @@ export default function TopNavBar({ items }: TopNavBarProps) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  container: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.sm,
     backgroundColor: Colors.bgSecondary,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.lg,
   },
   brandGroup: {
@@ -268,8 +326,28 @@ const styles = StyleSheet.create({
     color: Colors.bgPrimary,
     letterSpacing: 0.5,
   },
-  navScroll: {
-    flex: 1,
+  // Phone layout: destinations live behind the hamburger. Inline pills either
+  // got squeezed to zero width or hid most items off-screen with no affordance.
+  hamburger: {
+    padding: Spacing.xs,
+    marginLeft: -Spacing.xs,
+    flexShrink: 0,
+  },
+  mobileMenuPanel: {
+    backgroundColor: Colors.bgPanel,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    ...Shadows.md,
+  },
+  menuSectionLabel: {
+    fontSize: FontSize.xxs,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
   },
   nav: {
     flexDirection: 'row',

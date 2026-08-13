@@ -49,14 +49,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user.id, fetchProfile]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user.id) {
-        fetchProfile(s.user.id).finally(() => setIsLoading(false));
-      } else {
-        setIsLoading(false);
-      }
-    });
+    let cancelled = false;
+
+    // Restoring a session hits the network whenever the stored access token has
+    // expired. Without a catch or a deadline, a rejected or hanging refresh
+    // never reaches setIsLoading(false) and the app sits on a spinner forever.
+    // Fail open to signed-out instead: the login screen is recoverable, an
+    // infinite spinner is not.
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('getSession timed out')), 10000),
+      ),
+    ])
+      .then(({ data: { session: s } }) => {
+        if (cancelled) return;
+        setSession(s);
+        if (s?.user.id) return fetchProfile(s.user.id);
+      })
+      .catch((error) => {
+        console.error('Error restoring session:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -69,7 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {

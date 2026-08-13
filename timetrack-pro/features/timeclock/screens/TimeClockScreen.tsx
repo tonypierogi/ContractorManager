@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useCurrentClockIn, useClockIn, useClockOut, useTodayStats } from '@/features/timeclock/hooks';
 import ClockButton from '@/features/timeclock/components/ClockButton';
@@ -66,7 +67,10 @@ export default function TimeClockScreen() {
     if (isClockedIn && currentClockIn) {
       clockOut.mutate({ entryId: currentClockIn.id, userId });
     } else {
-      clockIn.mutate(userId);
+      // Clocking in hands off to My Work: the shift starts with today's list.
+      clockIn.mutate(userId, {
+        onSuccess: () => router.push('/(employee)/work' as any),
+      });
     }
   };
 
@@ -81,7 +85,13 @@ export default function TimeClockScreen() {
         <View style={styles.clockContainer}>
           <View style={styles.clockDisplay}>
             <Text style={styles.clockLabel}>CURRENT TIME</Text>
-            <Text style={styles.clockTime}>{formatClockTime(now)}</Text>
+            <Text
+              style={styles.clockTime}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {formatClockTime(now)}
+            </Text>
             <Text style={[styles.statusText, isClockedIn && styles.statusActive]}>
               {isClockedIn ? 'Currently clocked in' : 'Not clocked in'}
             </Text>
@@ -102,18 +112,28 @@ export default function TimeClockScreen() {
           </View>
 
           {isClockedIn && currentClockIn && (
-            <View style={styles.sessionInfo}>
-              <View style={styles.sessionStat}>
-                <Text style={styles.sessionLabel}>Clocked in at</Text>
-                <Text style={styles.sessionValue}>{formatTime(currentClockIn.clock_in)}</Text>
+            <>
+              <View style={styles.sessionInfo}>
+                <View style={styles.sessionStat}>
+                  <Text style={styles.sessionLabel}>Clocked in at</Text>
+                  <Text style={styles.sessionValue}>{formatTime(currentClockIn.clock_in)}</Text>
+                </View>
+                <View style={styles.sessionStat}>
+                  <Text style={styles.sessionLabel}>Time worked</Text>
+                  <Text style={[styles.sessionValue, styles.sessionAccent]}>
+                    {formatElapsedDuration(currentClockIn.clock_in)}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.sessionStat}>
-                <Text style={styles.sessionLabel}>Time worked</Text>
-                <Text style={[styles.sessionValue, styles.sessionAccent]}>
-                  {formatElapsedDuration(currentClockIn.clock_in)}
-                </Text>
-              </View>
-            </View>
+              <TouchableOpacity
+                style={styles.workLink}
+                onPress={() => router.push('/(employee)/work' as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.workLinkText}>View Today's Work</Text>
+                <Text style={styles.workLinkChevron}>›</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
@@ -214,6 +234,26 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   sessionAccent: {
+    color: Colors.accent,
+  },
+  workLink: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    width: '100%',
+    marginTop: Spacing.md,
+  },
+  workLinkText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.medium,
+    color: Colors.accent,
+  },
+  workLinkChevron: {
+    fontSize: FontSize.xl,
     color: Colors.accent,
   },
 });
