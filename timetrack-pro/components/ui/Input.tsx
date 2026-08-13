@@ -1,0 +1,96 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  KeyboardTypeOptions,
+} from 'react-native';
+import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+
+interface InputProps {
+  label?: string;
+  placeholder?: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  error?: string;
+  secureTextEntry?: boolean;
+  keyboardType?: KeyboardTypeOptions;
+  multiline?: boolean;
+  editable?: boolean;
+}
+
+export default function Input({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  error,
+  secureTextEntry,
+  keyboardType,
+  multiline = false,
+  editable = true,
+}: InputProps) {
+  return (
+    <View style={styles.container}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <TextInput
+        style={[
+          styles.input,
+          multiline && styles.multiline,
+          error ? styles.inputError : undefined,
+          !editable && styles.disabled,
+        ]}
+        placeholder={placeholder}
+        placeholderTextColor={Colors.textMuted}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        multiline={multiline}
+        editable={editable}
+        textAlignVertical={multiline ? 'top' : 'center'}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: Spacing.md,
+  },
+  label: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    fontSize: FontSize.md,
+    color: Colors.text,
+    backgroundColor: Colors.bgSecondary,
+  },
+  multiline: {
+    minHeight: 100,
+    paddingTop: Spacing.md,
+  },
+  inputError: {
+    borderColor: Colors.danger,
+  },
+  disabled: {
+    opacity: 0.7,
+  },
+  error: {
+    fontSize: FontSize.xs,
+    color: Colors.danger,
+    marginTop: Spacing.xs,
+  },
+});

@@ -1,0 +1,9 @@
+.DS_Store
+**/node_modules/
+**/.expo/
+.env
+secrets/
+dist/
+web-build/
+.claude/settings.local.json
+timetrack-pro/.claude/

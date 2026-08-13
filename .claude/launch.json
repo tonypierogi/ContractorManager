@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "timetrack-pro-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "timetrack-pro", "run", "web", "--", "--clear"],
+      "port": 8081
+    }
+  ]
+}
