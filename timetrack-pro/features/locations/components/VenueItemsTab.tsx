@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { ImageSourcePropType } from 'react-native';
 import Modal from '@/components/ui/Modal';
 import Lightbox from '@/components/ui/Lightbox';
 import Button from '@/components/ui/Button';
@@ -18,6 +19,7 @@ import { useEquipment } from '@/features/equipment/hooks';
 import {
   LOCATION_ZONES,
   FLOOR_PLAN_HIGHLIGHT,
+  ZONE_PHOTOS,
   getLocationLabel,
   zoneFloor,
 } from '@/features/locations/zones';
@@ -52,6 +54,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Equipment | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorItem, setEditorItem] = useState<Equipment | null>(null);
 
@@ -78,6 +81,26 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
   const selectedFloor = selected?.location ? zoneFloor(selected.location) : null;
   const selectedPlan =
     selected?.location != null ? FLOOR_PLAN_HIGHLIGHT[selected.location] : undefined;
+  const selectedZonePhoto =
+    selected?.location != null ? ZONE_PHOTOS[selected.location] : undefined;
+  const selectedZoneLabel = selected?.location ? getLocationLabel(selected.location) : '';
+
+  // Item photo first, then the location shots, so tapping any of them opens
+  // the lightbox on that image and swipes through the rest.
+  const lightboxImages = useMemo(() => {
+    const images: (string | ImageSourcePropType)[] = [];
+    if (selected?.image_url) images.push(selected.image_url);
+    if (selectedZonePhoto) images.push(selectedZonePhoto);
+    if (selectedPlan) images.push(selectedPlan);
+    return images;
+  }, [selected?.image_url, selectedZonePhoto, selectedPlan]);
+
+  const openLightbox = (image: string | ImageSourcePropType | undefined) => {
+    const index = image ? lightboxImages.indexOf(image) : -1;
+    if (index < 0) return;
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const listHeader = (
     <View>
@@ -214,7 +237,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
           <View>
             {selected.image_url ? (
               <Pressable
-                onPress={() => setLightboxOpen(true)}
+                onPress={() => openLightbox(selected.image_url!)}
                 accessibilityRole="imagebutton"
                 accessibilityLabel={selected.name}
               >
@@ -240,9 +263,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
               <Text
                 style={[s.detailZone, !selected.location && s.detailZoneMissing]}
               >
-                {selected.location
-                  ? getLocationLabel(selected.location)
-                  : 'No location recorded'}
+                {selected.location ? selectedZoneLabel : 'No location recorded'}
               </Text>
               {selectedFloor && (
                 <Text style={s.detailFloor}>
@@ -251,14 +272,49 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
               )}
             </View>
 
-            {selectedPlan && (
-              <Image
-                source={selectedPlan}
-                style={s.detailPlan}
-                resizeMode="contain"
-                accessibilityLabel={`Floor plan showing ${getLocationLabel(selected.location!)}`}
-              />
-            )}
+            {/* Go-find-it panel: what the spot looks like, plus where it sits
+                in the building. */}
+            {selected.location ? (
+              <View style={s.locationCard}>
+                {selectedZonePhoto ? (
+                  <Pressable
+                    onPress={() => openLightbox(selectedZonePhoto)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Photo of ${selectedZoneLabel}`}
+                    style={s.locationPhotoWrap}
+                  >
+                    <Image
+                      source={selectedZonePhoto}
+                      style={s.locationPhoto}
+                      resizeMode="cover"
+                    />
+                    <Text style={s.locationCaption} numberOfLines={1}>
+                      {selectedZoneLabel}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View style={[s.locationPhoto, s.locationPhotoPlaceholder]}>
+                    <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
+                    <Text style={s.detailNoPhoto}>No photo for this location</Text>
+                  </View>
+                )}
+
+                {selectedPlan ? (
+                  <Pressable
+                    onPress={() => openLightbox(selectedPlan)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Floor plan showing ${selectedZoneLabel}`}
+                    style={s.detailPlanWrap}
+                  >
+                    <Image
+                      source={selectedPlan}
+                      style={s.detailPlan}
+                      resizeMode="contain"
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
 
             {canEdit && (
               <View style={s.detailEditRow}>
@@ -283,9 +339,10 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
         />
       )}
 
-      {selected?.image_url ? (
+      {lightboxImages.length > 0 ? (
         <Lightbox
-          images={[selected.image_url]}
+          images={lightboxImages}
+          startIndex={lightboxIndex}
           visible={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
         />
@@ -463,11 +520,51 @@ const s = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
   },
+  locationCard: {
+    gap: Spacing.md,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgSecondary,
+  },
+  locationPhotoWrap: {
+    borderRadius: BorderRadius.sm,
+    overflow: 'hidden',
+    backgroundColor: Colors.bgElevated,
+  },
+  locationPhoto: {
+    width: '100%',
+    height: 180,
+    backgroundColor: Colors.bgElevated,
+  },
+  locationPhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  locationCaption: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.text,
+    backgroundColor: 'rgba(10, 15, 26, 0.72)',
+  },
+  detailPlanWrap: {
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
   detailPlan: {
     width: '100%',
     height: 320,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.bgSecondary,
+    backgroundColor: Colors.bgPanel,
     borderWidth: 1,
     borderColor: Colors.border,
   },
