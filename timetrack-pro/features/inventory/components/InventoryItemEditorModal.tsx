@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +17,15 @@ interface InventoryItemEditorModalProps {
   /** null = add mode */
   item: InventoryItem | null;
   onClose: () => void;
+  /** Add mode only: open the camera immediately so the flow is photo → name → location. */
+  autoLaunchCamera?: boolean;
 }
 
 export default function InventoryItemEditorModal({
   visible,
   item,
   onClose,
+  autoLaunchCamera = false,
 }: InventoryItemEditorModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -34,6 +37,7 @@ export default function InventoryItemEditorModal({
   const [location, setLocation] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const cameraLaunchedRef = useRef(false);
 
   // Opening always resets fields, then populates from the item when editing
   // (legacy parity, inventory.js:79-112).
@@ -44,19 +48,15 @@ export default function InventoryItemEditorModal({
       setLocation(item?.location ?? null);
       setImageUrl(item?.image_url ?? null);
       setIsActive(item ? item.is_active !== false : true);
+    } else {
+      cameraLaunchedRef.current = false;
     }
   }, [visible, item]);
 
-  const handlePickImage = async () => {
+  const uploadAsset = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!user) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (picked.canceled || !picked.assets?.length) return;
     try {
       // Upload immediately on selection (legacy parity).
-      const asset = picked.assets[0];
       const url = await uploadImage.mutateAsync({
         userId: user.id,
         uri: asset.uri,
@@ -68,6 +68,41 @@ export default function InventoryItemEditorModal({
       // Error surfaced by the global mutation error toast.
     }
   };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    await uploadAsset(picked.assets[0]);
+  };
+
+  const handleTakePhoto = async () => {
+    if (!user) return;
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      showToast('Camera access denied — pick from library instead', 'error');
+      return;
+    }
+    const picked = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    await uploadAsset(picked.assets[0]);
+  };
+
+  // Camera-first add flow: opening the modal in add mode jumps straight to
+  // the camera, then the user fills in name and location below.
+  useEffect(() => {
+    if (visible && !item && autoLaunchCamera && user && !cameraLaunchedRef.current) {
+      cameraLaunchedRef.current = true;
+      handleTakePhoto();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, item, autoLaunchCamera, user]);
 
   const handleSave = async () => {
     const trimmedName = name.trim();
@@ -104,12 +139,54 @@ export default function InventoryItemEditorModal({
       title={item ? 'Edit Inventory Item' : 'Add Inventory Item'}
       size="sm"
     >
+      <Text style={s.sectionLabel}>Photo</Text>
+      {imageUrl ? (
+        <View style={s.imagePreviewRow}>
+          <Image source={{ uri: imageUrl }} style={s.imagePreview} resizeMode="cover" />
+          <View style={s.imageActions}>
+            <Button
+              title="Retake"
+              variant="secondary"
+              size="sm"
+              icon={<Ionicons name="camera-outline" size={16} color={Colors.text} />}
+              onPress={handleTakePhoto}
+              loading={uploadImage.isPending}
+            />
+            <Button
+              title="Remove"
+              variant="ghost"
+              size="sm"
+              onPress={() => setImageUrl(null)}
+            />
+          </View>
+        </View>
+      ) : (
+        <View style={s.uploadRow}>
+          <Button
+            title="Take Photo"
+            size="sm"
+            icon={<Ionicons name="camera" size={16} color={Colors.bgPrimary} />}
+            onPress={handleTakePhoto}
+            loading={uploadImage.isPending}
+          />
+          <Button
+            title="Library"
+            variant="secondary"
+            size="sm"
+            icon={<Ionicons name="image-outline" size={16} color={Colors.text} />}
+            onPress={handlePickImage}
+            loading={uploadImage.isPending}
+          />
+        </View>
+      )}
+
       <Input
         label="Item Name"
         placeholder="e.g. Paper Towels"
         value={name}
         onChangeText={setName}
       />
+      <LocationZonePicker value={location} onChange={setLocation} allowNone={false} />
       <Input
         label="Description (optional)"
         placeholder="Details about what to look for"
@@ -117,30 +194,6 @@ export default function InventoryItemEditorModal({
         onChangeText={setDescription}
         multiline
       />
-      <LocationZonePicker value={location} onChange={setLocation} allowNone={false} />
-
-      <Text style={s.sectionLabel}>Image (optional)</Text>
-      {imageUrl ? (
-        <View style={s.imagePreviewRow}>
-          <Image source={{ uri: imageUrl }} style={s.imagePreview} resizeMode="cover" />
-          <Button
-            title="Remove"
-            variant="secondary"
-            size="sm"
-            onPress={() => setImageUrl(null)}
-          />
-        </View>
-      ) : (
-        <View style={s.uploadRow}>
-          <Button
-            title="Upload Image"
-            variant="secondary"
-            size="sm"
-            onPress={handlePickImage}
-            loading={uploadImage.isPending}
-          />
-        </View>
-      )}
 
       <TouchableOpacity
         style={s.checkboxRow}
@@ -174,7 +227,11 @@ const s = StyleSheet.create({
   },
   uploadRow: {
     flexDirection: 'row',
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
+  },
+  imageActions: {
+    gap: Spacing.sm,
   },
   imagePreviewRow: {
     flexDirection: 'row',
