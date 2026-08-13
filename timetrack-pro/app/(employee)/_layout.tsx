@@ -4,17 +4,13 @@ import TopNavBar, { NavItem } from '@/components/navigation/TopNavBar';
 import { useAuth } from '@/features/auth/auth-provider';
 import { Colors } from '@/constants/theme';
 
+// Two-hub nav: everything about the day's work (Time Clock, My Work,
+// Locations, Inventory) previews on Home; everything about the person
+// (Profile, Invoices, Shifts, Schedule) previews on My Page. The full pages
+// stay routable — the hubs link into them.
 const employeeNav: NavItem[] = [
-  { label: 'Time Clock', href: '/(employee)/timeclock', segment: 'timeclock', icon: 'timer-outline' },
-  // Assigned task lists and today's SOP live on one page — contractors don't
-  // distinguish between them, and two destinations meant two places to check.
-  { label: 'My Work', href: '/(employee)/work', segment: 'work', icon: 'clipboard-outline' },
-  { label: 'Shifts', href: '/(employee)/shifts', segment: 'shifts', icon: 'calendar-outline' },
-  { label: 'My Schedule', href: '/(employee)/schedule', segment: 'schedule', icon: 'calendar-clear-outline' },
-  { label: 'Locations', href: '/(employee)/locations', segment: 'locations', icon: 'map-outline', group: 'Site' },
-  { label: 'Inventory', href: '/(employee)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Site' },
-  { label: 'Invoices', href: '/(employee)/invoices', segment: 'invoices', icon: 'document-text-outline' },
-  { label: 'Profile', href: '/(employee)/profile', segment: 'profile', icon: 'person-outline' },
+  { label: 'Home', href: '/(employee)/home', segment: 'home', icon: 'home-outline' },
+  { label: 'My Page', href: '/(employee)/me', segment: 'me', icon: 'person-circle-outline' },
 ];
 
 export default function EmployeeLayout() {
