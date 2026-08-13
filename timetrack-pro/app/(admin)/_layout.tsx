@@ -8,13 +8,14 @@ const adminNav: NavItem[] = [
   { label: 'Team', href: '/(admin)/team', segment: 'team', icon: 'people-outline' },
   { label: 'Timesheets', href: '/(admin)/timesheets', segment: 'timesheets', icon: 'time-outline' },
   { label: 'Schedule', href: '/(admin)/schedule', segment: 'schedule', icon: 'calendar-outline' },
-  { label: 'SOP', href: '/(admin)/sops', segment: 'sops', icon: 'clipboard-outline', group: 'Operations' },
-  { label: 'Equipment', href: '/(admin)/equipment', segment: 'equipment', icon: 'construct-outline', group: 'Operations' },
-  { label: 'Task Lists', href: '/(admin)/task-lists', segment: 'task-lists', icon: 'list-outline', group: 'Operations' },
-  { label: 'Venue', href: '/(admin)/venue', segment: 'venue', icon: 'business-outline', group: 'Operations' },
+  // Operations: the day-to-day tools. Work bundles SOPs + task lists.
+  { label: 'Work', href: '/(admin)/work', segment: 'work', icon: 'briefcase-outline', group: 'Operations' },
+  { label: 'Locations', href: '/(admin)/locations', segment: 'locations', icon: 'map-outline', group: 'Operations' },
   { label: 'Inventory', href: '/(admin)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Operations' },
-  { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline' },
-  { label: 'Settings', href: '/(admin)/settings', segment: 'settings', icon: 'settings-outline' },
+  { label: 'Equipment', href: '/(admin)/equipment', segment: 'equipment', icon: 'construct-outline', group: 'Operations' },
+  // Manage: business/admin chores, separate from operations.
+  { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline', group: 'Manage' },
+  { label: 'Settings', href: '/(admin)/settings', segment: 'settings', icon: 'settings-outline', group: 'Manage' },
 ];
 
 export default function AdminLayout() {

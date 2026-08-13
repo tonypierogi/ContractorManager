@@ -22,6 +22,9 @@ export interface Profile {
   address_zip: string | null;
   role: UserRole;
   hourly_rate: number;
+  /** Soft-deactivation: inactive members keep history but are hidden from
+   * schedules, timesheets, and assignment pickers. */
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

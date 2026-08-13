@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -98,6 +99,30 @@ export default function TeamMemberDetailScreen() {
             {member?.first_name} {member?.last_name}
           </Text>
           <Text style={styles.email}>{member?.email}</Text>
+        </View>
+
+        {/* Active Status */}
+        <View style={styles.panel}>
+          <View style={styles.statusRow}>
+            <View style={styles.statusText}>
+              <Text style={styles.sectionTitleTight}>Active Team Member</Text>
+              <Text style={styles.statusDesc}>
+                Inactive members keep their history but are hidden from
+                schedules, timesheets, and assignment pickers.
+              </Text>
+            </View>
+            <Switch
+              value={member?.is_active !== false}
+              onValueChange={(value) =>
+                updateProfile.mutate({
+                  userId: memberId,
+                  updates: { is_active: value },
+                })
+              }
+              trackColor={{ false: Colors.bgElevated, true: Colors.accent }}
+              thumbColor="#ffffff"
+            />
+          </View>
         </View>
 
         {/* Contact Information */}
@@ -265,6 +290,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
     marginBottom: Spacing.md,
+  },
+  sectionTitleTight: {
+    fontSize: FontSize.md,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  statusText: {
+    flex: 1,
+  },
+  statusDesc: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   infoGrid: {
     flexDirection: 'row',

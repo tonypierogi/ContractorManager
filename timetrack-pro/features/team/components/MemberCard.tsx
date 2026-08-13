@@ -26,12 +26,13 @@ function getDisplayName(profile: Profile): string {
 }
 
 export default function MemberCard({ member, onPress, onRemove, isCurrentUser }: MemberCardProps) {
+  const inactive = member.is_active === false;
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={!onPress}
       activeOpacity={onPress ? 0.7 : 1}
-      style={styles.container}
+      style={[styles.container, inactive && styles.containerInactive]}
     >
       {isCurrentUser && (
         <View style={styles.youBadge}>
@@ -44,9 +45,16 @@ export default function MemberCard({ member, onPress, onRemove, isCurrentUser }:
           <Text style={styles.initials}>{getInitials(member)}</Text>
         </View>
         <View style={styles.nameGroup}>
-          <Text style={styles.name} numberOfLines={1}>
-            {getDisplayName(member)}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {getDisplayName(member)}
+            </Text>
+            {inactive && (
+              <View style={styles.inactivePill}>
+                <Text style={styles.inactivePillText}>INACTIVE</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.email} numberOfLines={1}>
             {member.email}
           </Text>
@@ -78,6 +86,26 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.lg,
     ...Shadows.sm,
+  },
+  containerInactive: {
+    opacity: 0.55,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  inactivePill: {
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  inactivePillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
   },
   youBadge: {
     position: 'absolute',
