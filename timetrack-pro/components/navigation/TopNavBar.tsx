@@ -5,10 +5,11 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth/auth-provider';
@@ -36,10 +37,11 @@ const WIDE_BREAKPOINT = 768;
 
 export default function TopNavBar({ items }: TopNavBarProps) {
   const router = useRouter();
+  const segments = useSegments();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { profile, signOut } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,7 +50,9 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   const triggerRefs = useRef<Record<string, View | null>>({});
 
   const isAdmin = profile?.role === 'admin';
-  const isInAdminView = pathname.startsWith('/(admin)');
+  // usePathname() strips route-group segments like (admin), so match on
+  // useSegments(), which keeps them.
+  const isInAdminView = segments[0] === '(admin)';
 
   const isActive = (item: NavItem) => pathname.includes(`/${item.segment}`);
 
@@ -243,9 +247,11 @@ export default function TopNavBar({ items }: TopNavBarProps) {
               </TouchableOpacity>
             </View>
           )}
-          <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+          {isWide && (
+            <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -262,9 +268,13 @@ export default function TopNavBar({ items }: TopNavBarProps) {
           <View
             style={[
               styles.mobileMenuPanel,
-              { paddingTop: insets.top + Spacing.md },
+              {
+                paddingTop: insets.top + Spacing.md,
+                maxHeight: height - Spacing.xl,
+              },
             ]}
           >
+            <ScrollView bounces={false}>
             {isAdmin && (
               <View style={styles.roleToggleContainer}>
                 <Text style={styles.roleLabel}>View as:</Text>
@@ -353,6 +363,7 @@ export default function TopNavBar({ items }: TopNavBarProps) {
               />
               <Text style={styles.signOutMenuItemLabel}>Sign Out</Text>
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </Pressable>
       </Modal>
