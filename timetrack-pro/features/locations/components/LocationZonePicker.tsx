@@ -14,6 +14,8 @@ interface LocationZonePickerProps {
   onChange: (zoneId: string | null) => void;
   /** When false, hides the '-- No location --' option (zone is required). */
   allowNone?: boolean;
+  /** Field label; pass null to hide it (caller renders its own). */
+  label?: string | null;
 }
 
 const NO_LOCATION_LABEL = '-- No location --';
@@ -27,6 +29,7 @@ export default function LocationZonePicker({
   value,
   onChange,
   allowNone = true,
+  label = 'Location',
 }: LocationZonePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -39,7 +42,7 @@ export default function LocationZonePicker({
 
   return (
     <View style={s.container}>
-      <Text style={s.label}>Location</Text>
+      {label ? <Text style={s.label}>{label}</Text> : null}
       <TouchableOpacity
         style={s.field}
         onPress={() => setOpen((o) => !o)}
