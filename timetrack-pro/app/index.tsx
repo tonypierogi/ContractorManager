@@ -27,7 +27,7 @@ export default function IndexRedirect() {
     return <Redirect href="/(admin)/team" />;
   }
 
-  return <Redirect href="/(employee)/timeclock" />;
+  return <Redirect href="/(employee)/home" />;
 }
 
 const styles = StyleSheet.create({
