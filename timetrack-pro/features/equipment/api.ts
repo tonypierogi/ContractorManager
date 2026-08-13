@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
 import type { Equipment } from '@/types/database';
 
 export type SaveEquipmentInput = {
@@ -38,6 +39,10 @@ export async function saveEquipment(equipment: SaveEquipmentInput): Promise<Equi
     .single();
   if (error) throw error;
   return data as Equipment;
+}
+
+export function uploadEquipmentImage(params: UploadImageInput): Promise<string> {
+  return uploadImageToMediaBucket('equipment', params);
 }
 
 export async function deleteEquipment(id: string): Promise<void> {

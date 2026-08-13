@@ -9,42 +9,74 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import { useAuth } from '@/features/auth/auth-provider';
+import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
+import { getLocationLabel } from '@/features/locations/zones';
 import {
   useEquipment,
   useSaveEquipment,
   useDeleteEquipment,
+  useUploadEquipmentImage,
 } from '@/features/equipment/hooks';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import type { Equipment } from '@/types/database';
 
 export default function EquipmentScreen() {
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
   const { data: equipment, isLoading, refetch } = useEquipment();
   const saveEquipment = useSaveEquipment();
   const deleteEquipment = useDeleteEquipment();
+  const uploadImage = useUploadEquipmentImage();
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const numColumns = width >= 900 ? 3 : width >= 600 ? 2 : 1;
 
   const openAdd = () => {
     setEditingId(null);
     setName('');
-    setLocation('');
+    setLocation(null);
+    setImageUrl(null);
     setShowModal(true);
   };
 
   const openEdit = (item: Equipment) => {
     setEditingId(item.id);
     setName(item.name);
-    setLocation(item.location ?? '');
+    setLocation(item.location ?? null);
+    setImageUrl(item.image_url ?? null);
     setShowModal(true);
+  };
+
+  const handlePickImage = async () => {
+    if (!user) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    try {
+      // Upload immediately on selection (same flow as the inventory editor).
+      const asset = picked.assets[0];
+      const url = await uploadImage.mutateAsync({
+        userId: user.id,
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
+      setImageUrl(url);
+    } catch {
+      Alert.alert('Error', 'Failed to upload image');
+    }
   };
 
   const handleSave = async () => {
@@ -54,6 +86,8 @@ export default function EquipmentScreen() {
         id: editingId ?? undefined,
         name,
         location: location || null,
+        // Always the editor's current value — Remove + Save clears the image.
+        image_url: imageUrl || null,
       });
       setShowModal(false);
     } catch {
@@ -93,7 +127,7 @@ export default function EquipmentScreen() {
             </Text>
             {item.location ? (
               <Text style={styles.cardLocation} numberOfLines={1}>
-                {item.location}
+                {getLocationLabel(item.location)}
               </Text>
             ) : null}
             <View style={styles.actionsRow}>
@@ -163,12 +197,31 @@ export default function EquipmentScreen() {
           value={name}
           onChangeText={setName}
         />
-        <Input
-          label="Location"
-          placeholder="e.g. Garage A"
-          value={location}
-          onChangeText={setLocation}
-        />
+        <LocationZonePicker value={location} onChange={setLocation} />
+
+        <Text style={styles.sectionLabel}>Photo</Text>
+        {imageUrl ? (
+          <View style={styles.imagePreviewRow}>
+            <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
+            <Button
+              title="Remove"
+              variant="danger"
+              size="sm"
+              onPress={() => setImageUrl(null)}
+            />
+          </View>
+        ) : (
+          <View style={styles.uploadRow}>
+            <Button
+              title="Upload Image"
+              variant="secondary"
+              size="sm"
+              onPress={handlePickImage}
+              loading={uploadImage.isPending}
+            />
+          </View>
+        )}
+
         <Button
           title="Save"
           onPress={handleSave}
@@ -272,5 +325,31 @@ const styles = StyleSheet.create({
   },
   emptyAction: {
     marginTop: Spacing.sm,
+  },
+  sectionLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  uploadRow: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+  },
+  imagePreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  imagePreview: {
+    width: 96,
+    height: 96,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 });
