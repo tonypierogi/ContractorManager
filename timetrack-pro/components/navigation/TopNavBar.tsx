@@ -26,6 +26,10 @@ export interface NavItem {
 
 interface TopNavBarProps {
   items: NavItem[];
+  /** Admins can hop between the admin and employee experiences (e.g. author
+   * inventory as admin, then run it in the employee UI). Rendered only when
+   * provided; employee layout passes it only for admin profiles. */
+  viewSwitch?: { label: string; href: string };
 }
 
 type NavEntry =
@@ -34,7 +38,7 @@ type NavEntry =
 
 const WIDE_BREAKPOINT = 768;
 
-export default function TopNavBar({ items }: TopNavBarProps) {
+export default function TopNavBar({ items, viewSwitch }: TopNavBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -187,6 +191,19 @@ export default function TopNavBar({ items }: TopNavBarProps) {
             <Text style={styles.greeting} numberOfLines={1}>
               Hello, {profile.first_name ?? 'User'}!
             </Text>
+          )}
+          {viewSwitch && (
+            <TouchableOpacity
+              onPress={() => router.push(viewSwitch.href as any)}
+              style={styles.viewSwitchButton}
+              accessibilityRole="button"
+              accessibilityLabel={viewSwitch.label}
+            >
+              <Ionicons name="swap-horizontal" size={16} color={Colors.accent} />
+              {isWide && (
+                <Text style={styles.viewSwitchText}>{viewSwitch.label}</Text>
+              )}
+            </TouchableOpacity>
           )}
           <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
             <Text style={styles.signOutText}>Sign Out</Text>
@@ -395,6 +412,22 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
     maxWidth: 120,
+  },
+  viewSwitchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.accentGlow,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  viewSwitchText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.accent,
   },
   signOutButton: {
     paddingVertical: Spacing.xs + 2,

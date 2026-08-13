@@ -114,6 +114,38 @@ export async function saveSopTemplate({
   return templateId!;
 }
 
+/** Copies a template and its items (media, equipment) for tweak-and-reuse. */
+export async function duplicateSopTemplate(id: string): Promise<string> {
+  const { template, items } = await fetchSopTemplate(id);
+
+  const { data, error } = await supabase
+    .from('sop_templates')
+    .insert({
+      name: `${template.name} (Copy)`,
+      description: template.description,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  const newId = data.id as string;
+
+  if (items.length > 0) {
+    const rows = items.map((it) => ({
+      sop_template_id: newId,
+      sort_order: it.sort_order,
+      title: it.title,
+      description: it.description,
+      item_type: it.item_type ?? 'task',
+      media: it.media ?? [],
+      equipment: it.equipment ?? [],
+    }));
+    const { error: itemsError } = await supabase.from('sop_items').insert(rows);
+    if (itemsError) throw itemsError;
+  }
+
+  return newId;
+}
+
 export async function deleteSopTemplate(id: string): Promise<void> {
   const { error } = await supabase.from('sop_templates').delete().eq('id', id);
   if (error) throw error;
