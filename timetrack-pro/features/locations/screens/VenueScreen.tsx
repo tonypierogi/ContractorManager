@@ -14,9 +14,9 @@ const TABS: { key: VenueTab; label: string; icon: keyof typeof Ionicons.glyphMap
 ];
 
 /**
- * The venue hub: "Items" is the where-is-the-vacuum finder over the
- * equipment table; "Floor Plans" is the spatial browse view. Both tabs
- * manage their own scrolling so lists stay virtualized.
+ * The locations hub (formerly "Venue"): "Items" is the where-is-the-vacuum
+ * finder over the equipment table; "Floor Plans" is the spatial browse view.
+ * Both tabs manage their own scrolling so lists stay virtualized.
  */
 export default function VenueScreen() {
   const [tab, setTab] = useState<VenueTab>('items');
@@ -24,7 +24,7 @@ export default function VenueScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Venue</Text>
+        <Text style={styles.heading}>Locations</Text>
       </View>
 
       <View style={styles.tabs}>

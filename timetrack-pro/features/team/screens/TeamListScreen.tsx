@@ -12,7 +12,7 @@ import type { Profile } from '@/types/database';
 
 export default function TeamScreen() {
   const { user } = useAuth();
-  const { data: members, isLoading, refetch } = useTeamMembers();
+  const { data: members, isLoading, refetch } = useTeamMembers({ includeInactive: true });
   const deleteMember = useDeleteTeamMember();
   const { width } = useWindowDimensions();
   const numColumns = width >= 900 ? 3 : width >= 600 ? 2 : 1;
