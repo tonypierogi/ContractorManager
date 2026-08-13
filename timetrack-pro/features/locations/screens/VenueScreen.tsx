@@ -4,27 +4,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import VenueItemsTab from '@/features/locations/components/VenueItemsTab';
 import VenueFloorPlansTab from '@/features/locations/components/VenueFloorPlansTab';
+import { useAuth } from '@/features/auth/auth-provider';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 type VenueTab = 'items' | 'floorplans';
 
 const TABS: { key: VenueTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'items', label: 'Items', icon: 'construct-outline' },
+  { key: 'items', label: 'Equipment', icon: 'construct-outline' },
   { key: 'floorplans', label: 'Floor Plans', icon: 'map-outline' },
 ];
 
 /**
- * The locations hub (formerly "Venue"): "Items" is the where-is-the-vacuum
- * finder over the equipment table; "Floor Plans" is the spatial browse view.
+ * The locations hub (formerly "Venue"): "Equipment" is the where-is-the-vacuum
+ * finder over the equipment table (admins can add/edit items in place);
+ * "Floor Plans" is the spatial browse view.
  * Both tabs manage their own scrolling so lists stay virtualized.
  */
 export default function VenueScreen() {
+  const { role } = useAuth();
   const [tab, setTab] = useState<VenueTab>('items');
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Locations</Text>
+        <Text style={styles.heading}>Locations & Equipment</Text>
       </View>
 
       <View style={styles.tabs}>
@@ -51,7 +54,7 @@ export default function VenueScreen() {
         })}
       </View>
 
-      {tab === 'items' ? <VenueItemsTab /> : <VenueFloorPlansTab />}
+      {tab === 'items' ? <VenueItemsTab canEdit={role === 'admin'} /> : <VenueFloorPlansTab />}
     </SafeAreaView>
   );
 }
