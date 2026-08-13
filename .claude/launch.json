@@ -27,6 +27,13 @@
       "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/admin-work-section-reorganize-a23643/timetrack-pro && npx expo start --web --port ${PORT:-8083}"],
       "port": 8083,
       "autoPort": true
+    },
+    {
+      "name": "expo-web-worktree-admin-home",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/admin-home-team-members-d57e7a/timetrack-pro && npx expo start --web --port ${PORT:-8085}"],
+      "port": 8085,
+      "autoPort": true
     }
   ]
 }

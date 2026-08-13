@@ -59,18 +59,9 @@ export default function MemberCard({ member, onPress, onRemove, isCurrentUser }:
             {member.email}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{formatCurrency(member.hourly_rate)}</Text>
-          <Text style={styles.statLabel}>HOURLY RATE</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={[styles.statValue, member.role === 'admin' ? styles.accentText : styles.accentText]}>
-            {member.role === 'admin' ? 'Admin' : 'Contractor'}
-          </Text>
-          <Text style={styles.statLabel}>ROLE</Text>
+        <View style={styles.metaGroup}>
+          <Text style={styles.metaValue}>{formatCurrency(member.hourly_rate)}/hr</Text>
+          <Text style={styles.metaLabel}>{member.role === 'admin' ? 'ADMIN' : 'CONTRACTOR'}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -84,7 +75,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
     ...Shadows.sm,
   },
   containerInactive: {
@@ -109,8 +101,8 @@ const styles = StyleSheet.create({
   },
   youBadge: {
     position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
+    top: Spacing.sm,
+    right: Spacing.sm,
     backgroundColor: Colors.accent,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: 8,
@@ -127,11 +119,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    marginBottom: Spacing.lg,
   },
   avatar: {
-    width: 48,
-    height: 48,
+    width: 34,
+    height: 34,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.accent,
     alignItems: 'center',
@@ -140,7 +131,7 @@ const styles = StyleSheet.create({
   },
   initials: {
     color: Colors.bgPrimary,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.sm,
     fontWeight: FontWeight.bold,
   },
   nameGroup: {
@@ -157,31 +148,20 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  metaGroup: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
   },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.sm,
-  },
-  statValue: {
+  metaValue: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.accent,
   },
-  statLabel: {
+  metaLabel: {
     fontSize: 9,
     fontWeight: FontWeight.medium,
     color: Colors.textMuted,
-    marginTop: 4,
+    marginTop: 2,
     letterSpacing: 0.5,
-  },
-  accentText: {
-    color: Colors.accent,
   },
 });

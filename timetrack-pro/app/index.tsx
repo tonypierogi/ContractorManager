@@ -24,7 +24,7 @@ export default function IndexRedirect() {
   }
 
   if (role === 'admin') {
-    return <Redirect href="/(admin)/team" />;
+    return <Redirect href="/(admin)/home" />;
   }
 
   return <Redirect href="/(employee)/home" />;
