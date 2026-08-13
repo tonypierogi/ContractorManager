@@ -3,6 +3,7 @@ import { qk } from '@/lib/query-keys';
 import {
   deleteTaskList,
   duplicateTaskList,
+  fetchAllTemplateItems,
   fetchMyTaskAssignments,
   fetchPendingTaskAssignments,
   fetchTaskChecklist,
@@ -21,6 +22,16 @@ export function useUploadTaskListMedia() {
 }
 
 export type { TaskChecklistItemWithCheck };
+
+/** Every task across all task lists and SOPs, for the "add from existing"
+ * picker. Gated on `enabled` so it only fetches while the picker is open. */
+export function useAllTemplateItems(enabled = true) {
+  return useQuery({
+    queryKey: qk.taskLists.templateItems,
+    queryFn: fetchAllTemplateItems,
+    enabled,
+  });
+}
 
 export function useTaskLists() {
   return useQuery({

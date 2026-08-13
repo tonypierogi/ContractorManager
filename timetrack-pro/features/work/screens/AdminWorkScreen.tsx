@@ -42,6 +42,11 @@ export default function AdminWorkScreen() {
   const [tab, setTab] = useState<WorkTab>(params.tab === 'sops' ? 'sops' : 'tasks');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [createSearch, setCreateSearch] = useState('');
+  const [menuFor, setMenuFor] = useState<{ kind: WorkTab; id: string; name: string } | null>(
+    null,
+  );
+  const [earlierOpen, setEarlierOpen] = useState(false);
 
   const { user } = useAuth();
   const { data: taskLists, isLoading: tasksLoading } = useTaskLists();
@@ -66,10 +71,29 @@ export default function AdminWorkScreen() {
     return sops.filter((s) => s.name?.toLowerCase().includes(query));
   }, [sopTemplates, query]);
 
+  // completedSops arrives newest-first; the latest gets pinned on top of the
+  // SOPs tab, the rest live in a collapsed section.
+  const lastCompleted = (completedSops?.[0] ?? null) as any;
+  const earlierCompleted = ((completedSops ?? []) as any[]).slice(1);
+
+  const createQuery = createSearch.trim().toLowerCase();
+  const createTaskLists = ((taskLists ?? []) as any[]).filter(
+    (t) => !createQuery || t.title?.toLowerCase().includes(createQuery),
+  );
+  const createSops = ((sopTemplates ?? []) as SopTemplate[]).filter(
+    (t) => !createQuery || t.name?.toLowerCase().includes(createQuery),
+  );
+
+  const closeCreate = () => {
+    setCreateOpen(false);
+    setCreateSearch('');
+  };
+
   // Duplicate-and-edit: land in the editor on the fresh copy.
   const handleDuplicateTaskList = useCallback(
     async (id: string) => {
       setCreateOpen(false);
+      setCreateSearch('');
       try {
         const newId = await duplicateTaskList.mutateAsync({ id, createdBy: user?.id ?? '' });
         router.push(`/(admin)/task-lists/editor?id=${newId}` as any);
@@ -83,6 +107,7 @@ export default function AdminWorkScreen() {
   const handleDuplicateSop = useCallback(
     async (id: string) => {
       setCreateOpen(false);
+      setCreateSearch('');
       try {
         const newId = await duplicateSop.mutateAsync(id);
         router.push(`/(admin)/sops/editor?id=${newId}` as any);
@@ -110,13 +135,13 @@ export default function AdminWorkScreen() {
   };
 
   const startBlank = () => {
-    setCreateOpen(false);
+    closeCreate();
     router.push(
       (tab === 'sops' ? '/(admin)/sops/editor' : '/(admin)/task-lists/editor') as any,
     );
   };
 
-  const iconAction = (
+  const menuRow = (
     icon: keyof typeof Ionicons.glyphMap,
     label: string,
     onPress: () => void,
@@ -124,17 +149,13 @@ export default function AdminWorkScreen() {
   ) => (
     <TouchableOpacity
       key={label}
+      style={styles.menuRow}
       onPress={onPress}
-      style={styles.iconAction}
       accessibilityRole="button"
-      accessibilityLabel={label}
       activeOpacity={0.7}
     >
-      <Ionicons
-        name={icon}
-        size={17}
-        color={danger ? Colors.danger : Colors.textSecondary}
-      />
+      <Ionicons name={icon} size={18} color={danger ? Colors.danger : Colors.textSecondary} />
+      <Text style={[styles.menuRowText, danger && { color: Colors.danger }]}>{label}</Text>
     </TouchableOpacity>
   );
 
@@ -143,6 +164,13 @@ export default function AdminWorkScreen() {
     const assignmentCount = item.task_list_assignments?.length ?? 0;
     const completedCount =
       item.task_list_assignments?.filter((a: any) => a.status === 'completed').length ?? 0;
+    const meta = [
+      `${itemCount} ${itemCount === 1 ? 'task' : 'tasks'}`,
+      assignmentCount > 0 ? `${assignmentCount} assigned` : null,
+      completedCount > 0 ? `${completedCount} done` : null,
+    ]
+      .filter(Boolean)
+      .join('  ·  ');
     return (
       <TouchableOpacity
         key={item.id}
@@ -154,35 +182,31 @@ export default function AdminWorkScreen() {
           <Ionicons name="list-outline" size={20} color={Colors.accent} />
         </View>
         <View style={styles.cardBody}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            {item.is_sop ? (
-              <View style={styles.sopBadge}>
-                <Text style={styles.sopBadgeText}>SOP</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.cardMeta}>
-            {itemCount} {itemCount === 1 ? 'task' : 'tasks'}
-            {'  ·  '}
-            {assignmentCount} assigned
-            {'  ·  '}
-            {completedCount} completed
-            {item.source_video_url ? '  ·  video' : ''}
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            {meta}
           </Text>
         </View>
-        <View style={styles.cardActions}>
-          {iconAction('person-add-outline', 'Assign', () =>
-            router.push(`/(admin)/task-lists/${item.id}?assign=true` as any),
-          )}
-          {iconAction('pencil-outline', 'Edit', () =>
-            router.push(`/(admin)/task-lists/editor?id=${item.id}` as any),
-          )}
-          {iconAction('copy-outline', 'Duplicate', () => handleDuplicateTaskList(item.id))}
-          {iconAction('trash-outline', 'Delete', () =>
-            confirmDelete('tasks', item.id, item.title), true)}
+        <View style={styles.cardRight}>
+          {item.is_sop ? (
+            <View style={styles.sopBadge}>
+              <Text style={styles.sopBadgeText}>SOP</Text>
+            </View>
+          ) : null}
+          {item.source_video_url ? (
+            <Ionicons name="videocam-outline" size={14} color={Colors.textMuted} />
+          ) : null}
+          <TouchableOpacity
+            style={styles.moreBtn}
+            onPress={() => setMenuFor({ kind: 'tasks', id: item.id, name: item.title })}
+            accessibilityRole="button"
+            accessibilityLabel={`Actions for ${item.title}`}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -208,20 +232,22 @@ export default function AdminWorkScreen() {
           </Text>
         ) : null}
       </View>
-      <View style={styles.cardActions}>
-        {iconAction('pencil-outline', 'Edit', () =>
-          router.push(`/(admin)/sops/editor?id=${item.id}` as any),
-        )}
-        {iconAction('copy-outline', 'Duplicate', () => handleDuplicateSop(item.id))}
-        {iconAction('trash-outline', 'Delete', () =>
-          confirmDelete('sops', item.id, item.name), true)}
+      <View style={styles.cardRight}>
+        <TouchableOpacity
+          style={styles.moreBtn}
+          onPress={() => setMenuFor({ kind: 'sops', id: item.id, name: item.name })}
+          accessibilityRole="button"
+          accessibilityLabel={`Actions for ${item.name}`}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="ellipsis-vertical" size={18} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
   const isLoading = tab === 'tasks' ? tasksLoading : sopsLoading;
   const listEmpty = tab === 'tasks' ? filteredTaskLists.length === 0 : filteredSops.length === 0;
-  const templates = tab === 'tasks' ? filteredTaskLists : filteredSops;
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
@@ -289,6 +315,27 @@ export default function AdminWorkScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {/* Most recently finished checklist stays pinned on top */}
+        {tab === 'sops' && lastCompleted && (
+          <View style={styles.lastCompletedCard}>
+            <View style={styles.lastCompletedIcon}>
+              <Ionicons name="checkmark-done" size={20} color={Colors.success} />
+            </View>
+            <View style={styles.cardBody}>
+              <Text style={styles.lastCompletedLabel}>Last completed</Text>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {lastCompleted.sop_templates?.name ?? 'Checklist'}
+              </Text>
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                {formatDate(lastCompleted.date)}
+                {lastCompleted.completed_at
+                  ? `  ·  ${new Date(lastCompleted.completed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                  : ''}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {!listEmpty ? (
           <View style={styles.cardList}>
             {tab === 'tasks'
@@ -325,18 +372,28 @@ export default function AdminWorkScreen() {
           </View>
         ) : null}
 
-        {/* Completed daily checklists live with SOPs */}
-        {tab === 'sops' && (
+        {/* Earlier completed checklists, collapsed by default */}
+        {tab === 'sops' && earlierCompleted.length > 0 && (
           <View style={styles.completedPanel}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.accentDot} />
-              <Text style={styles.sectionTitle}>Completed Checklists</Text>
-            </View>
-            <Text style={styles.sectionSubtitle}>
-              Daily checklists that have been fully completed.
-            </Text>
-            {completedSops && completedSops.length > 0 ? (
-              completedSops.map((sop: any) => {
+            <TouchableOpacity
+              style={styles.completedToggle}
+              onPress={() => setEarlierOpen((o) => !o)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: earlierOpen }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionTitle}>Completed checklists</Text>
+              <View style={styles.completedToggleRight}>
+                <Text style={styles.completedCount}>{earlierCompleted.length}</Text>
+                <Ionicons
+                  name={earlierOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={Colors.textSecondary}
+                />
+              </View>
+            </TouchableOpacity>
+            {earlierOpen &&
+              earlierCompleted.map((sop: any) => {
                 const sopName = sop.sop_templates?.name ?? 'Checklist';
                 const completedDate = sop.completed_at
                   ? new Date(sop.completed_at).toLocaleString()
@@ -347,23 +404,20 @@ export default function AdminWorkScreen() {
                       <Text style={styles.completedName}>{sopName}</Text>
                       <Text style={styles.completedMeta}>
                         {formatDate(sop.date)}
-                        {completedDate ? `  Completed ${completedDate}` : ''}
+                        {completedDate ? `  ·  ${completedDate}` : ''}
                       </Text>
                     </View>
                   </View>
                 );
-              })
-            ) : (
-              <Text style={styles.completedEmpty}>No completed checklists yet.</Text>
-            )}
+              })}
           </View>
         )}
       </ScrollView>
 
-      {/* Create: blank or duplicate a template */}
+      {/* Create: blank, or start from any existing template (both kinds) */}
       <Modal
         visible={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={closeCreate}
         title={tab === 'sops' ? 'New SOP' : 'New Task List'}
       >
         <TouchableOpacity style={styles.createOption} onPress={startBlank} activeOpacity={0.7}>
@@ -377,31 +431,117 @@ export default function AdminWorkScreen() {
           <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
         </TouchableOpacity>
 
-        {templates.length > 0 && (
-          <>
-            <Text style={styles.createDivider}>Or duplicate a template</Text>
-            {templates.map((t: any) => (
-              <TouchableOpacity
-                key={t.id}
-                style={styles.createOption}
-                activeOpacity={0.7}
-                onPress={() =>
-                  tab === 'sops' ? handleDuplicateSop(t.id) : handleDuplicateTaskList(t.id)
-                }
-              >
-                <View style={styles.createOptionIcon}>
-                  <Ionicons name="copy-outline" size={18} color={Colors.textSecondary} />
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.createOptionTitle} numberOfLines={1}>
-                    {tab === 'sops' ? t.name : t.title}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-              </TouchableOpacity>
-            ))}
-          </>
+        <View style={styles.createSearchBox}>
+          <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+          <TextInput
+            value={createSearch}
+            onChangeText={setCreateSearch}
+            placeholder="Search templates…"
+            placeholderTextColor={Colors.textMuted}
+            style={styles.createSearchInput}
+          />
+          {createSearch.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setCreateSearch('')}
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {(tab === 'sops'
+          ? [
+              { label: 'Duplicate an SOP', kind: 'sops' as const, items: createSops },
+              { label: 'Duplicate a task list', kind: 'tasks' as const, items: createTaskLists },
+            ]
+          : [
+              { label: 'Duplicate a task list', kind: 'tasks' as const, items: createTaskLists },
+              { label: 'Duplicate an SOP', kind: 'sops' as const, items: createSops },
+            ]
+        ).map(
+          (section) =>
+            section.items.length > 0 && (
+              <View key={section.kind}>
+                <Text style={styles.createDivider}>{section.label}</Text>
+                {section.items.map((t: any) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={styles.createOption}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      section.kind === 'sops'
+                        ? handleDuplicateSop(t.id)
+                        : handleDuplicateTaskList(t.id)
+                    }
+                  >
+                    <View style={styles.createOptionIcon}>
+                      <Ionicons
+                        name={section.kind === 'sops' ? 'clipboard-outline' : 'list-outline'}
+                        size={18}
+                        color={Colors.textSecondary}
+                      />
+                    </View>
+                    <View style={styles.cardBody}>
+                      <Text style={styles.createOptionTitle} numberOfLines={1}>
+                        {section.kind === 'sops' ? t.name : t.title}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ),
         )}
+        {createQuery.length > 0 &&
+          createSops.length === 0 &&
+          createTaskLists.length === 0 && (
+            <Text style={styles.createEmpty}>No templates match your search.</Text>
+          )}
+      </Modal>
+
+      {/* Per-card actions */}
+      <Modal
+        visible={menuFor != null}
+        onClose={() => setMenuFor(null)}
+        title={menuFor?.name ?? ''}
+        size="sm"
+      >
+        {menuFor != null &&
+          (() => {
+            const { kind, id, name } = menuFor;
+            return (
+              <>
+                {kind === 'tasks' &&
+                  menuRow('person-add-outline', 'Assign', () => {
+                    setMenuFor(null);
+                    router.push(`/(admin)/task-lists/${id}?assign=true` as any);
+                  })}
+                {menuRow('pencil-outline', 'Edit', () => {
+                  setMenuFor(null);
+                  router.push(
+                    (kind === 'sops'
+                      ? `/(admin)/sops/editor?id=${id}`
+                      : `/(admin)/task-lists/editor?id=${id}`) as any,
+                  );
+                })}
+                {menuRow('copy-outline', 'Duplicate', () => {
+                  setMenuFor(null);
+                  if (kind === 'sops') handleDuplicateSop(id);
+                  else handleDuplicateTaskList(id);
+                })}
+                {menuRow(
+                  'trash-outline',
+                  'Delete',
+                  () => {
+                    setMenuFor(null);
+                    confirmDelete(kind, id, name);
+                  },
+                  true,
+                )}
+              </>
+            );
+          })()}
       </Modal>
     </SafeAreaView>
   );
@@ -527,11 +667,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
   cardTitle: {
     fontSize: FontSize.md,
     fontWeight: '600',
@@ -555,17 +690,61 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
-  cardActions: {
+  cardRight: {
     flexDirection: 'row',
-    gap: 2,
+    alignItems: 'center',
+    gap: Spacing.sm,
     flexShrink: 0,
   },
-  iconAction: {
-    width: 34,
-    height: 34,
+  moreBtn: {
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    minHeight: 48,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  menuRowText: {
+    fontSize: FontSize.md,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  lastCompletedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.bgPanel,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  lastCompletedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  lastCompletedLabel: {
+    fontSize: FontSize.xxs,
+    fontWeight: '700',
+    color: Colors.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   emptyState: {
     alignItems: 'center',
@@ -591,30 +770,33 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     overflow: 'hidden',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xs,
-  },
-  accentDot: {
-    width: 8,
-    height: 8,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.accent,
-  },
   sectionTitle: {
     fontSize: FontSize.md,
     fontWeight: '600',
     color: Colors.text,
   },
-  sectionSubtitle: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+  completedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
+    paddingVertical: Spacing.md,
+    minHeight: 48,
+  },
+  completedToggleRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  completedCount: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   completedRow: {
     flexDirection: 'row',
@@ -638,12 +820,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
     marginTop: 2,
-  },
-  completedEmpty: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    padding: Spacing.xl,
   },
   createOption: {
     flexDirection: 'row',
@@ -676,5 +852,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
+  },
+  createSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+    minHeight: 40,
+  },
+  createSearchInput: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: FontSize.sm,
+    paddingVertical: Spacing.sm,
+  },
+  createEmpty: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
   },
 });

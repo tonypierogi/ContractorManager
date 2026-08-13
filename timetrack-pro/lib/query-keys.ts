@@ -36,6 +36,7 @@ export const qk = {
   taskLists: {
     all: ['taskLists'] as const,
     list: ['taskLists', 'list'] as const,
+    templateItems: ['taskLists', 'templateItems'] as const,
     details: ['taskLists', 'detail'] as const,
     detail: (id: string) => ['taskLists', 'detail', id] as const,
     assignments: (taskListId: string) =>

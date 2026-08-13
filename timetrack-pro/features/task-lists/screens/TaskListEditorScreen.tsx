@@ -27,6 +27,8 @@ import ItemEditorCard, {
   makeDraft,
   type ItemDraft,
 } from '@/features/task-lists/components/ItemEditorCard';
+import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
+import type { TemplateItemRef } from '@/features/task-lists/api';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -49,6 +51,7 @@ export default function TaskListEditorScreen() {
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [equipmentPickerFor, setEquipmentPickerFor] = useState<string | null>(null);
+  const [existingPickerOpen, setExistingPickerOpen] = useState(false);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -84,6 +87,25 @@ export default function TaskListEditorScreen() {
 
   const addItem = () => {
     setItems((prev) => [...prev, makeDraft()]);
+  };
+
+  // Copy a task from another list or SOP into this draft (title, description,
+  // photos, equipment, zones — media URLs are shared, not re-uploaded).
+  const addFromExisting = (tpl: TemplateItemRef) => {
+    setItems((prev) => [
+      ...prev,
+      {
+        ...makeDraft(),
+        title: tpl.title,
+        description: tpl.description ?? '',
+        item_type: tpl.item_type ?? 'task',
+        media: [...tpl.media],
+        location_from: tpl.location_from,
+        location_to: tpl.location_to,
+        equipment: [...tpl.equipment],
+      },
+    ]);
+    setExistingPickerOpen(false);
   };
 
   const updateItem = (itemId: string, field: keyof ItemDraft, value: string) => {
@@ -249,7 +271,6 @@ export default function TaskListEditorScreen() {
           />
         </View>
 
-        <Text style={styles.pickerLabel}>Location</Text>
         <LocationZonePicker value={location} onChange={setLocation} />
 
         <View style={styles.switchRow}>
@@ -289,12 +310,26 @@ export default function TaskListEditorScreen() {
                 onRemove={() => removeItem(item.id)}
               />
             ))}
-            <Button
-              title="Add Item"
-              onPress={addItem}
-              variant="secondary"
-              size="sm"
-            />
+            <View style={styles.addRow}>
+              <View style={styles.addRowBtn}>
+                <Button
+                  title="New Item"
+                  onPress={addItem}
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
+                />
+              </View>
+              <View style={styles.addRowBtn}>
+                <Button
+                  title="From Existing"
+                  onPress={() => setExistingPickerOpen(true)}
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
+                />
+              </View>
+            </View>
           </>
         )}
 
@@ -309,6 +344,12 @@ export default function TaskListEditorScreen() {
         }
         onClose={() => setEquipmentPickerFor(null)}
       />
+
+      <ExistingItemPickerModal
+        visible={existingPickerOpen}
+        onClose={() => setExistingPickerOpen(false)}
+        onPick={addFromExisting}
+      />
     </SafeAreaView>
   );
 }
@@ -319,11 +360,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickerLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+  addRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  addRowBtn: {
+    flex: 1,
   },
   safe: {
     flex: 1,

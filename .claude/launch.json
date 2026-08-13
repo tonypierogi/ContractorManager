@@ -15,6 +15,13 @@
       "autoPort": true
     },
     {
+      "name": "expo-web-worktree-sop-ui",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/task-sop-ui-redesign-73e239/timetrack-pro && npx expo start --web --port ${PORT:-8085}"],
+      "port": 8085,
+      "autoPort": true
+    },
+    {
       "name": "expo-web-worktree-ops-tabs",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/operations-tabs-consolidation-306c41/timetrack-pro && npx expo start --web --port ${PORT:-8084}"],

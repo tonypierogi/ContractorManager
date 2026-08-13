@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
-import type { TaskList, TaskListItem } from '@/types/database';
+import type { MediaItem, TaskList, TaskListItem } from '@/types/database';
 
 /** Item media images go to the bucket root under the uploader's user id
  * (`{userId}/{ts}-{name}`), matching legacy SOP/task-list media paths. */
@@ -44,6 +44,69 @@ export async function fetchTaskLists() {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
+}
+
+/** A task from any task list or SOP, normalized so the editor's
+ * "add from existing" picker can search and copy across both systems. */
+export interface TemplateItemRef {
+  key: string;
+  source: 'task_list' | 'sop';
+  sourceTitle: string;
+  sourceLocation: string | null;
+  title: string;
+  description: string | null;
+  item_type: string | null;
+  media: MediaItem[];
+  location_from: string | null;
+  location_to: string | null;
+  equipment: string[];
+}
+
+export async function fetchAllTemplateItems(): Promise<TemplateItemRef[]> {
+  const [taskItems, sopItems] = await Promise.all([
+    supabase
+      .from('task_list_items')
+      .select(
+        'id, title, description, item_type, media, location_from, location_to, equipment, task_lists(title, location)',
+      )
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('sop_items')
+      .select('id, title, description, item_type, media, equipment, sop_templates(name)')
+      .order('created_at', { ascending: false }),
+  ]);
+  if (taskItems.error) throw taskItems.error;
+  if (sopItems.error) throw sopItems.error;
+
+  const fromLists: TemplateItemRef[] = (taskItems.data ?? []).map((it: any) => ({
+    key: `tl-${it.id}`,
+    source: 'task_list',
+    sourceTitle: it.task_lists?.title ?? 'Task list',
+    sourceLocation: it.task_lists?.location ?? null,
+    title: it.title,
+    description: it.description,
+    item_type: it.item_type,
+    media: it.media ?? [],
+    location_from: it.location_from,
+    location_to: it.location_to,
+    equipment: it.equipment ?? [],
+  }));
+  const fromSops: TemplateItemRef[] = (sopItems.data ?? [])
+    .filter((it: any) => it.item_type !== 'section')
+    .map((it: any) => ({
+      key: `sop-${it.id}`,
+      source: 'sop',
+      sourceTitle: it.sop_templates?.name ?? 'SOP',
+      sourceLocation: null,
+      title: it.title,
+      description: it.description,
+      item_type: 'task',
+      media: it.media ?? [],
+      location_from: null,
+      location_to: null,
+      equipment: it.equipment ?? [],
+    }));
+  return [...fromLists, ...fromSops];
 }
 
 export async function fetchTaskList(id: string) {
