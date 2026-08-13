@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/auth-provider';
 import { Colors } from '@/constants/theme';
 
 const adminNav: NavItem[] = [
+  { label: 'Home', href: '/(admin)/home', segment: 'home', icon: 'home-outline' },
   { label: 'Team', href: '/(admin)/team', segment: 'team', icon: 'people-outline' },
   { label: 'Timesheets', href: '/(admin)/timesheets', segment: 'timesheets', icon: 'time-outline' },
   { label: 'Schedule', href: '/(admin)/schedule', segment: 'schedule', icon: 'calendar-outline' },

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,6 +16,16 @@ export default function TeamScreen() {
   const deleteMember = useDeleteTeamMember();
   const { width } = useWindowDimensions();
   const numColumns = width >= 900 ? 3 : width >= 600 ? 2 : 1;
+
+  // Active members first; inactive sink to the bottom.
+  const sortedMembers = useMemo(() => {
+    if (!members) return [];
+    return [...members].sort((a, b) => {
+      const aInactive = a.is_active === false ? 1 : 0;
+      const bInactive = b.is_active === false ? 1 : 0;
+      return aInactive - bInactive;
+    });
+  }, [members]);
 
   const handleRemove = useCallback(
     (member: Profile) => {
@@ -60,7 +70,7 @@ export default function TeamScreen() {
       </View>
       <FlatList
         key={numColumns}
-        data={members ?? []}
+        data={sortedMembers}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
@@ -102,11 +112,11 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   row: {
-    gap: Spacing.lg,
-    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   separator: {
-    height: Spacing.lg,
+    height: Spacing.sm,
   },
   empty: {
     flex: 1,
