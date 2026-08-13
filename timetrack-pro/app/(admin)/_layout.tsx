@@ -10,9 +10,8 @@ const adminNav: NavItem[] = [
   { label: 'Schedule', href: '/(admin)/schedule', segment: 'schedule', icon: 'calendar-outline' },
   // Operations: the day-to-day tools. Work bundles SOPs + task lists.
   { label: 'Work', href: '/(admin)/work', segment: 'work', icon: 'briefcase-outline', group: 'Operations' },
-  { label: 'Locations', href: '/(admin)/locations', segment: 'locations', icon: 'map-outline', group: 'Operations' },
+  { label: 'Locations & Equipment', href: '/(admin)/locations', segment: 'locations', icon: 'map-outline', group: 'Operations' },
   { label: 'Inventory', href: '/(admin)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Operations' },
-  { label: 'Equipment', href: '/(admin)/equipment', segment: 'equipment', icon: 'construct-outline', group: 'Operations' },
   // Manage: business/admin chores, separate from operations.
   { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline', group: 'Manage' },
   { label: 'Settings', href: '/(admin)/settings', segment: 'settings', icon: 'settings-outline', group: 'Manage' },

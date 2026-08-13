@@ -12,6 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Modal from '@/components/ui/Modal';
 import Lightbox from '@/components/ui/Lightbox';
+import Button from '@/components/ui/Button';
+import EquipmentEditorModal from '@/features/equipment/components/EquipmentEditorModal';
 import { useEquipment } from '@/features/equipment/hooks';
 import {
   LOCATION_ZONES,
@@ -34,17 +36,35 @@ const ZONE_CHIPS: ZoneChip[] = [
   ...LOCATION_ZONES.downstairs.map((z) => ({ id: z.id as string | null, label: z.label })),
 ];
 
+interface Props {
+  /** Admins get add/edit/delete on equipment items. */
+  canEdit?: boolean;
+}
+
 /**
  * "Where's the vacuum?" finder over the equipment table: search by name,
  * narrow by zone, tap an item for its photo and location.
  */
-export default function VenueItemsTab() {
+export default function VenueItemsTab({ canEdit = false }: Props) {
   const { data: equipment, isLoading, refetch } = useEquipment();
 
   const [query, setQuery] = useState('');
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Equipment | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorItem, setEditorItem] = useState<Equipment | null>(null);
+
+  const openAdd = () => {
+    setEditorItem(null);
+    setEditorOpen(true);
+  };
+
+  const openEdit = (item: Equipment) => {
+    setSelected(null);
+    setEditorItem(item);
+    setEditorOpen(true);
+  };
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,7 +81,8 @@ export default function VenueItemsTab() {
 
   const listHeader = (
     <View>
-      <View style={s.searchWrap}>
+      <View style={s.searchRow}>
+        <View style={s.searchWrap}>
         <Ionicons name="search" size={16} color={Colors.textMuted} />
         <TextInput
           style={s.searchInput}
@@ -79,6 +100,17 @@ export default function VenueItemsTab() {
             hitSlop={8}
           >
             <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+          </Pressable>
+        )}
+        </View>
+        {canEdit && (
+          <Pressable
+            onPress={openAdd}
+            accessibilityRole="button"
+            accessibilityLabel="Add equipment"
+            style={({ pressed }) => [s.addBtn, pressed && s.addBtnPressed]}
+          >
+            <Ionicons name="add" size={22} color={Colors.accent} />
           </Pressable>
         )}
       </View>
@@ -164,7 +196,9 @@ export default function VenueItemsTab() {
               <Text style={s.emptyText}>
                 {query.trim() || zoneFilter
                   ? 'Try a different search or location filter.'
-                  : 'Items added on the Equipment screen show up here.'}
+                  : canEdit
+                    ? 'Tap + to add your first piece of equipment.'
+                    : 'Equipment added by an admin shows up here.'}
               </Text>
             </View>
           ) : null
@@ -225,9 +259,29 @@ export default function VenueItemsTab() {
                 accessibilityLabel={`Floor plan showing ${getLocationLabel(selected.location!)}`}
               />
             )}
+
+            {canEdit && (
+              <View style={s.detailEditRow}>
+                <Button
+                  title="Edit"
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
+                  onPress={() => openEdit(selected)}
+                />
+              </View>
+            )}
           </View>
         )}
       </Modal>
+
+      {canEdit && (
+        <EquipmentEditorModal
+          visible={editorOpen}
+          item={editorItem}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
 
       {selected?.image_url ? (
         <Lightbox
@@ -245,7 +299,14 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   searchWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
@@ -255,7 +316,19 @@ const s = StyleSheet.create({
     borderColor: Colors.border,
     paddingHorizontal: Spacing.md,
     minHeight: 44,
-    marginBottom: Spacing.sm,
+  },
+  addBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentGlow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtnPressed: {
+    backgroundColor: Colors.bgElevated,
   },
   searchInput: {
     flex: 1,
@@ -397,5 +470,8 @@ const s = StyleSheet.create({
     backgroundColor: Colors.bgSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  detailEditRow: {
+    marginTop: Spacing.md,
   },
 });
