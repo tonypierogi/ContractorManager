@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   Image,
@@ -11,14 +12,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
 import Lightbox from '@/components/ui/Lightbox';
+import Modal from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { getLocationLabel } from '@/features/locations/zones';
+import {
+  LOCATION_ZONES,
+  getLocationLabel,
+  type Floor,
+  type LocationZone,
+} from '@/features/locations/zones';
 import { formatDate, formatTime } from '@/utils/format';
-import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import {
   useInventoryItems,
   useDeleteInventoryItem,
@@ -34,10 +40,19 @@ export default function InventoryAdminScreen() {
   const [activeTab, setActiveTab] = useState<AdminTab>('items');
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [autoCamera, setAutoCamera] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[] | null>(null);
 
   const openEditor = (item: InventoryItem | null) => {
     setEditingItem(item);
+    setAutoCamera(false);
+    setEditorVisible(true);
+  };
+
+  // Add flow is camera-first: the + button opens the camera, then name + location.
+  const openAddFlow = () => {
+    setEditingItem(null);
+    setAutoCamera(true);
     setEditorVisible(true);
   };
 
@@ -53,7 +68,6 @@ export default function InventoryAdminScreen() {
     <SafeAreaView style={s.safe} edges={[]}>
       <View style={s.header}>
         <Text style={s.heading}>Inventory</Text>
-        <Button title="+ Add Item" size="sm" onPress={() => openEditor(null)} />
       </View>
 
       <View style={s.panelContainer}>
@@ -73,15 +87,27 @@ export default function InventoryAdminScreen() {
         </View>
 
         {activeTab === 'items' ? (
-          <ItemsTab onEdit={openEditor} onOpenImage={openLightbox} />
+          <ItemsTab onEdit={openEditor} onAdd={openAddFlow} onOpenImage={openLightbox} />
         ) : (
           <LastRunTab onOpenImage={openLightbox} />
         )}
       </View>
 
+      {activeTab === 'items' ? (
+        <TouchableOpacity
+          style={s.fab}
+          onPress={openAddFlow}
+          activeOpacity={0.85}
+          accessibilityLabel="Add item"
+        >
+          <Ionicons name="add" size={30} color={Colors.bgPrimary} />
+        </TouchableOpacity>
+      ) : null}
+
       <InventoryItemEditorModal
         visible={editorVisible}
         item={editingItem}
+        autoLaunchCamera={autoCamera}
         onClose={() => setEditorVisible(false)}
       />
 
@@ -96,14 +122,34 @@ export default function InventoryAdminScreen() {
 
 function ItemsTab({
   onEdit,
+  onAdd,
   onOpenImage,
 }: {
   onEdit: (item: InventoryItem | null) => void;
+  onAdd: () => void;
   onOpenImage: (url: string) => void;
 }) {
   const { showToast } = useToast();
   const { data: items, isLoading, isError, refetch } = useInventoryItems(false);
   const deleteItem = useDeleteInventoryItem();
+
+  const [search, setSearch] = useState('');
+  const [locationFilter, setLocationFilter] = useState<string | null>(null);
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    const q = search.trim().toLowerCase();
+    return items.filter((item) => {
+      if (locationFilter && item.location !== locationFilter) return false;
+      if (!q) return true;
+      return (
+        item.name.toLowerCase().includes(q) ||
+        (item.description ?? '').toLowerCase().includes(q) ||
+        getLocationLabel(item.location).toLowerCase().includes(q)
+      );
+    });
+  }, [items, search, locationFilter]);
 
   const handleDelete = (item: InventoryItem) => {
     Alert.alert('Delete Item', `Delete "${item.name}"? This cannot be undone.`, [
@@ -144,72 +190,181 @@ function ItemsTab({
         icon="\u{1F4E6}"
         title="No inventory items yet"
         message="Add items your team needs to check during inventory runs."
-        action={{ label: 'Add First Item', onPress: () => onEdit(null) }}
+        action={{ label: 'Add First Item', onPress: onAdd }}
       />
     );
   }
 
   return (
-    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
-      {items.map((item) => (
-        <View key={item.id} style={[s.itemCard, !item.is_active && s.itemCardInactive]}>
-          {item.image_url ? (
-            <TouchableOpacity
-              onPress={() => onOpenImage(item.image_url!)}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={{ uri: item.image_url }}
-                style={s.itemThumb}
-                resizeMode="cover"
-              />
+    <View style={s.itemsTab}>
+      <View style={s.searchRow}>
+        <View style={s.searchBox}>
+          <Ionicons name="search" size={18} color={Colors.textMuted} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search by item name or location"
+            placeholderTextColor={Colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
-          ) : (
-            <View style={s.itemThumbPlaceholder}>
-              <Ionicons name="cube-outline" size={24} color={Colors.textMuted} />
-            </View>
-          )}
-          <View style={s.itemInfo}>
-            <Text style={s.itemName} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.location ? (
-              <Text style={s.itemLocation} numberOfLines={1}>
-                {getLocationLabel(item.location)}
-              </Text>
-            ) : (
-              <Text style={s.itemNoZone} numberOfLines={1}>
-                No zone — edit to assign one
-              </Text>
-            )}
-            {item.description ? (
-              <Text style={s.itemDesc} numberOfLines={2}>
-                {item.description}
-              </Text>
-            ) : null}
-            {!item.is_active ? (
-              <View style={s.inactiveBadge}>
-                <Badge label="Inactive" variant="default" />
-              </View>
-            ) : null}
-            <View style={s.itemActions}>
-              <Button
-                title="Edit"
-                variant="secondary"
-                size="sm"
-                onPress={() => onEdit(item)}
-              />
-              <Button
-                title="Delete"
-                variant="danger"
-                size="sm"
-                onPress={() => handleDelete(item)}
-              />
-            </View>
-          </View>
+          ) : null}
         </View>
-      ))}
-    </ScrollView>
+        <TouchableOpacity
+          style={[s.filterButton, locationFilter != null && s.filterButtonActive]}
+          onPress={() => setFilterVisible(true)}
+          activeOpacity={0.7}
+          accessibilityLabel="Filter by location"
+        >
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={locationFilter != null ? Colors.bgPrimary : Colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {locationFilter != null ? (
+        <View style={s.activeFilterRow}>
+          <TouchableOpacity
+            style={s.activeFilterChip}
+            onPress={() => setLocationFilter(null)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="location-outline" size={14} color={Colors.accent} />
+            <Text style={s.activeFilterText}>{getLocationLabel(locationFilter)}</Text>
+            <Ionicons name="close" size={14} color={Colors.accent} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {filteredItems.length ? (
+        <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+          {filteredItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[s.itemCard, !item.is_active && s.itemCardInactive]}
+              onPress={() => onEdit(item)}
+              activeOpacity={0.7}
+            >
+              {item.image_url ? (
+                <TouchableOpacity
+                  onPress={() => onOpenImage(item.image_url!)}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: item.image_url }}
+                    style={s.itemThumb}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View style={s.itemThumbPlaceholder}>
+                  <Ionicons name="cube-outline" size={24} color={Colors.textMuted} />
+                </View>
+              )}
+              <View style={s.itemInfo}>
+                <View style={s.itemTitleRow}>
+                  <Text style={s.itemName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  {item.location ? (
+                    <View style={s.locationPill}>
+                      <Text style={s.locationPillText} numberOfLines={1}>
+                        {getLocationLabel(item.location)}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[s.locationPill, s.locationPillMissing]}>
+                      <Text style={s.locationPillMissingText}>No zone</Text>
+                    </View>
+                  )}
+                </View>
+                {item.description ? (
+                  <Text style={s.itemDesc} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                ) : null}
+                {!item.is_active ? (
+                  <View style={s.inactiveBadge}>
+                    <Badge label="Inactive" variant="default" />
+                  </View>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                style={s.deleteButton}
+                onPress={() => handleDelete(item)}
+                hitSlop={8}
+                accessibilityLabel={`Delete ${item.name}`}
+              >
+                <Ionicons name="trash-outline" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        <EmptyState
+          icon="\u{1F50D}"
+          title="No matching items"
+          message={
+            locationFilter
+              ? `Nothing ${search ? 'matching your search ' : ''}in ${getLocationLabel(locationFilter)}.`
+              : 'Try a different search.'
+          }
+        />
+      )}
+
+      <Modal
+        visible={filterVisible}
+        onClose={() => setFilterVisible(false)}
+        title="Filter by Location"
+        size="sm"
+      >
+        <TouchableOpacity
+          style={s.filterOption}
+          onPress={() => {
+            setLocationFilter(null);
+            setFilterVisible(false);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={s.filterOptionText}>All locations</Text>
+          {locationFilter == null && (
+            <Ionicons name="checkmark" size={18} color={Colors.accent} />
+          )}
+        </TouchableOpacity>
+        {(Object.entries(LOCATION_ZONES) as [Floor, LocationZone[]][]).map(
+          ([floor, zones]) => (
+            <View key={floor}>
+              <Text style={s.filterGroupHeader}>
+                {floor.charAt(0).toUpperCase() + floor.slice(1)}
+              </Text>
+              {zones.map((zone) => (
+                <TouchableOpacity
+                  key={zone.id}
+                  style={s.filterOption}
+                  onPress={() => {
+                    setLocationFilter(zone.id);
+                    setFilterVisible(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.filterOptionText}>{zone.label}</Text>
+                  {locationFilter === zone.id && (
+                    <Ionicons name="checkmark" size={18} color={Colors.accent} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ),
+        )}
+      </Modal>
+    </View>
   );
 }
 
@@ -360,6 +515,103 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     padding: Spacing.xxl,
   },
+  itemsTab: {
+    flex: 1,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    minHeight: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: FontSize.md,
+    color: Colors.text,
+    paddingVertical: Spacing.sm,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterButtonActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  activeFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.accentGlow,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.xs + 2,
+  },
+  activeFilterText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm + 4,
+    minHeight: 44,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  filterOptionText: {
+    fontSize: FontSize.md,
+    color: Colors.text,
+  },
+  filterGroupHeader: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  fab: {
+    position: 'absolute',
+    right: Spacing.lg + Spacing.sm,
+    bottom: Spacing.lg + Spacing.sm,
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.lg,
+  },
   scroll: {
     flex: 1,
   },
@@ -397,21 +649,36 @@ const s = StyleSheet.create({
   itemInfo: {
     flex: 1,
   },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   itemName: {
+    flex: 1,
     fontSize: FontSize.md,
     fontWeight: '600',
     color: Colors.text,
   },
-  itemLocation: {
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
+  locationPill: {
+    backgroundColor: Colors.accentGlow,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 3,
+    maxWidth: 130,
   },
-  itemNoZone: {
-    fontSize: FontSize.xs,
+  locationPillText: {
+    fontSize: FontSize.xxs,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  locationPillMissing: {
+    backgroundColor: 'rgba(244, 63, 94, 0.15)',
+  },
+  locationPillMissingText: {
+    fontSize: FontSize.xxs,
     fontWeight: '600',
     color: Colors.danger,
-    marginTop: 2,
   },
   itemDesc: {
     fontSize: FontSize.xs,
@@ -421,10 +688,9 @@ const s = StyleSheet.create({
   inactiveBadge: {
     marginTop: Spacing.xs,
   },
-  itemActions: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
+  deleteButton: {
+    alignSelf: 'center',
+    padding: Spacing.xs,
   },
   runSummary: {
     backgroundColor: Colors.bgSecondary,
