@@ -149,6 +149,88 @@ export async function fetchLastInventoryRun(): Promise<LastInventoryRun | null> 
   return { run, runnerName, checks: (checks ?? []) as InventoryCheckWithItem[] };
 }
 
+export interface InventoryRunSummary extends InventoryRun {
+  runnerName: string;
+  counts: Record<InventoryStatus, number>;
+  totalChecks: number;
+}
+
+/**
+ * Run history, newest first, with per-status tallies and runner names.
+ * Runner names degrade to 'Unknown' when the profile isn't readable
+ * (same fallback as fetchLastInventoryRun).
+ */
+export async function fetchInventoryRuns(limit = 20): Promise<InventoryRunSummary[]> {
+  const { data, error } = await supabase
+    .from('inventory_runs')
+    .select('*, inventory_checks(status)')
+    .order('started_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const rows = (data ?? []) as (InventoryRun & {
+    inventory_checks: { status: InventoryStatus }[] | null;
+  })[];
+
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))] as string[];
+  const names = new Map<string, string>();
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', userIds);
+    for (const p of profiles ?? []) {
+      names.set(p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown');
+    }
+  }
+
+  return rows.map(({ inventory_checks, ...run }) => {
+    const counts: Record<InventoryStatus, number> = { Plenty: 0, Some: 0, OUT: 0 };
+    for (const c of inventory_checks ?? []) counts[c.status] += 1;
+    return {
+      ...run,
+      runnerName: (run.user_id && names.get(run.user_id)) || 'Unknown',
+      counts,
+      totalChecks: (inventory_checks ?? []).length,
+    };
+  });
+}
+
+export async function fetchRunChecks(runId: string): Promise<InventoryCheckWithItem[]> {
+  const { data, error } = await supabase
+    .from('inventory_checks')
+    .select('*, inventory_items:item_id(name, location, image_url)')
+    .eq('run_id', runId)
+    .order('checked_at');
+  if (error) throw error;
+  return (data ?? []) as InventoryCheckWithItem[];
+}
+
+export interface LatestItemCheck {
+  item_id: string;
+  status: InventoryStatus;
+  checked_at: string;
+}
+
+/**
+ * Latest check per item, derived client-side from recent checks (PostgREST
+ * has no DISTINCT ON). The 1000-row window covers ~40 full runs at current
+ * item counts before the oldest items fall out.
+ */
+export async function fetchLatestItemChecks(): Promise<Record<string, LatestItemCheck>> {
+  const { data, error } = await supabase
+    .from('inventory_checks')
+    .select('item_id, status, checked_at')
+    .order('checked_at', { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  const out: Record<string, LatestItemCheck> = {};
+  for (const row of (data ?? []) as LatestItemCheck[]) {
+    if (row.item_id && !out[row.item_id]) out[row.item_id] = row;
+  }
+  return out;
+}
+
 export interface SubmitCheckInput {
   item_id: string;
   status: InventoryStatus;

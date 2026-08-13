@@ -70,7 +70,9 @@ export const qk = {
     items: ['inventory', 'items'] as const,
     activeItems: ['inventory', 'items', 'active'] as const,
     lastRun: ['inventory', 'lastRun'] as const,
+    runs: ['inventory', 'runs'] as const,
     runChecks: (runId: string) => ['inventory', 'runChecks', runId] as const,
+    latestChecks: ['inventory', 'latestChecks'] as const,
   },
   schedule: {
     all: ['schedule'] as const,

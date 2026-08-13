@@ -75,12 +75,16 @@ export default function InventoryItemEditorModal({
       showToast('Enter item name', 'error');
       return;
     }
+    if (!location) {
+      showToast('Every item needs a zone — pick one', 'error');
+      return;
+    }
     try {
       await saveItem.mutateAsync({
         id: item?.id,
         name: trimmedName,
         description: description.trim() || null,
-        location: location || null,
+        location,
         // Always the editor's current value — Remove + Save clears the image.
         image_url: imageUrl || null,
         is_active: isActive,
@@ -113,7 +117,7 @@ export default function InventoryItemEditorModal({
         onChangeText={setDescription}
         multiline
       />
-      <LocationZonePicker value={location} onChange={setLocation} />
+      <LocationZonePicker value={location} onChange={setLocation} allowNone={false} />
 
       <Text style={s.sectionLabel}>Image (optional)</Text>
       {imageUrl ? (

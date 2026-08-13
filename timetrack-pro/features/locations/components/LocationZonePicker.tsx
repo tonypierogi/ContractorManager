@@ -12,6 +12,8 @@ import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 interface LocationZonePickerProps {
   value: string | null;
   onChange: (zoneId: string | null) => void;
+  /** When false, hides the '-- No location --' option (zone is required). */
+  allowNone?: boolean;
 }
 
 const NO_LOCATION_LABEL = '-- No location --';
@@ -21,7 +23,11 @@ const NO_LOCATION_LABEL = '-- No location --';
  * capitalized floor name (Upstairs/Downstairs) plus a '-- No location --'
  * default option (inventory.js:66-76).
  */
-export default function LocationZonePicker({ value, onChange }: LocationZonePickerProps) {
+export default function LocationZonePicker({
+  value,
+  onChange,
+  allowNone = true,
+}: LocationZonePickerProps) {
   const [open, setOpen] = useState(false);
 
   const floors = Object.entries(LOCATION_ZONES) as [Floor, LocationZone[]][];
@@ -40,7 +46,7 @@ export default function LocationZonePicker({ value, onChange }: LocationZonePick
         activeOpacity={0.7}
       >
         <Text style={[s.fieldText, !value && s.fieldPlaceholder]}>
-          {value ? getLocationLabel(value) : NO_LOCATION_LABEL}
+          {value ? getLocationLabel(value) : allowNone ? NO_LOCATION_LABEL : 'Select a zone'}
         </Text>
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
@@ -51,14 +57,16 @@ export default function LocationZonePicker({ value, onChange }: LocationZonePick
 
       {open && (
         <View style={s.dropdown}>
-          <TouchableOpacity
-            style={s.option}
-            onPress={() => select(null)}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.optionText, s.fieldPlaceholder]}>{NO_LOCATION_LABEL}</Text>
-            {!value && <Ionicons name="checkmark" size={16} color={Colors.accent} />}
-          </TouchableOpacity>
+          {allowNone && (
+            <TouchableOpacity
+              style={s.option}
+              onPress={() => select(null)}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.optionText, s.fieldPlaceholder]}>{NO_LOCATION_LABEL}</Text>
+              {!value && <Ionicons name="checkmark" size={16} color={Colors.accent} />}
+            </TouchableOpacity>
+          )}
           {floors.map(([floor, zones]) => (
             <View key={floor}>
               <Text style={s.groupHeader}>

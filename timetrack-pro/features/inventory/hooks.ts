@@ -3,7 +3,10 @@ import { qk } from '@/lib/query-keys';
 import {
   deleteInventoryItem,
   fetchInventoryItems,
+  fetchInventoryRuns,
   fetchLastInventoryRun,
+  fetchLatestItemChecks,
+  fetchRunChecks,
   saveInventoryItem,
   submitInventoryRun,
   uploadInventoryCheckPhoto,
@@ -41,6 +44,28 @@ export function useLastInventoryRun() {
   return useQuery({
     queryKey: qk.inventory.lastRun,
     queryFn: fetchLastInventoryRun,
+  });
+}
+
+export function useInventoryRuns() {
+  return useQuery({
+    queryKey: qk.inventory.runs,
+    queryFn: () => fetchInventoryRuns(),
+  });
+}
+
+export function useRunChecks(runId: string | null) {
+  return useQuery({
+    queryKey: qk.inventory.runChecks(runId ?? 'none'),
+    queryFn: () => fetchRunChecks(runId!),
+    enabled: !!runId,
+  });
+}
+
+export function useLatestItemChecks() {
+  return useQuery({
+    queryKey: qk.inventory.latestChecks,
+    queryFn: fetchLatestItemChecks,
   });
 }
 

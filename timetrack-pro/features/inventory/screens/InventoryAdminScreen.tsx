@@ -177,7 +177,11 @@ function ItemsTab({
               <Text style={s.itemLocation} numberOfLines={1}>
                 {getLocationLabel(item.location)}
               </Text>
-            ) : null}
+            ) : (
+              <Text style={s.itemNoZone} numberOfLines={1}>
+                No zone — edit to assign one
+              </Text>
+            )}
             {item.description ? (
               <Text style={s.itemDesc} numberOfLines={2}>
                 {item.description}
@@ -401,6 +405,12 @@ const s = StyleSheet.create({
   itemLocation: {
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  itemNoZone: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.danger,
     marginTop: 2,
   },
   itemDesc: {
