@@ -6,6 +6,10 @@ export const MEDIA_BUCKET = 'sop-media';
 
 const MAX_IMAGE_DIM = 1920;
 
+/** Whisper — reached through the process-task-video edge function — rejects
+ * inputs over 25MB, so a bigger file is worth refusing before the upload. */
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
 export interface UploadImageInput {
   userId: string;
   uri: string;
@@ -55,6 +59,47 @@ export async function uploadImageToMediaBucket(
   const { error } = await supabase.storage
     .from(MEDIA_BUCKET)
     .upload(path, body, { contentType: 'image/jpeg', upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export interface UploadVideoInput {
+  userId: string;
+  uri: string;
+  /** Picker-reported name; the uri's last segment is a cache id on native. */
+  fileName?: string;
+  mimeType?: string;
+}
+
+/**
+ * Upload a source video to `{userId}/task-videos/{ts}-{name}` (legacy path) and
+ * return its public URL. Videos are stored as picked — unlike images there is
+ * no client-side transcode, so the 25MB transcription ceiling is enforced here.
+ */
+export async function uploadVideoToMediaBucket({
+  userId,
+  uri,
+  fileName,
+  mimeType,
+}: UploadVideoInput): Promise<string> {
+  const rawName = fileName || uri.split('/').pop() || 'video.mp4';
+  const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${userId}/task-videos/${Date.now()}-${safeName}`;
+  const res = await fetch(uri);
+  const body = await res.arrayBuffer();
+  if (body.byteLength > MAX_VIDEO_BYTES) {
+    const sizeMB = (body.byteLength / (1024 * 1024)).toFixed(1);
+    throw new Error(
+      `Video is ${sizeMB}MB — the limit is 25MB. Record a shorter clip and try again.`,
+    );
+  }
+  const { error } = await supabase.storage
+    .from(MEDIA_BUCKET)
+    .upload(path, body, {
+      contentType: mimeType || 'video/mp4',
+      upsert: true,
+    });
   if (error) throw error;
   const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
   return data.publicUrl;
