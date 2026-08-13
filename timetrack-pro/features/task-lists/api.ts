@@ -239,12 +239,15 @@ export async function deleteTaskList(id: string): Promise<void> {
 }
 
 export async function fetchTaskListAssignments(taskListId: string) {
+  // scheduled_shifts embed requires the task_list_assignments.shift_id column
+  // (migration 20260812090000_task_assignment_shift.sql).
   const { data, error } = await supabase
     .from('task_list_assignments')
     .select(
-      '*, profiles!task_list_assignments_assigned_to_fkey(first_name, last_name)',
+      '*, profiles!task_list_assignments_assigned_to_fkey(first_name, last_name), scheduled_shifts(id, shift_date, start_time, end_time)',
     )
-    .eq('task_list_id', taskListId);
+    .eq('task_list_id', taskListId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
 }
@@ -253,12 +256,17 @@ export async function saveAssignments(input: {
   taskListId: string;
   assignedTo: string[];
   assignedBy: string;
+  /** Optional scheduled_shifts id to pin the assignment to a specific shift. */
+  shiftId?: string | null;
 }): Promise<void> {
   const rows = input.assignedTo.map((userId) => ({
     task_list_id: input.taskListId,
     assigned_to: userId,
     assigned_by: input.assignedBy,
     status: 'pending' as const,
+    // Only sent when set so plain assignments keep working before the
+    // shift_id migration is applied.
+    ...(input.shiftId ? { shift_id: input.shiftId } : {}),
   }));
   const { error } = await supabase.from('task_list_assignments').insert(rows);
   if (error) throw error;
