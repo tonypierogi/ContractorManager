@@ -21,7 +21,6 @@ import {
   FLOOR_PLAN_DEFAULT,
   FLOOR_PLAN_HIGHLIGHT,
   ZONE_PHOTOS,
-  getLocationLabel,
   type Floor,
 } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
@@ -32,8 +31,9 @@ const FLOORS: { key: Floor; label: string }[] = [
 ];
 
 /**
- * Floor plan up top, expandable section list below. Expanding a section
- * highlights it on the plan and reveals its reference photo + linked tasks.
+ * Room list up top, then the floor plan side by side with the selected
+ * room's photo. Selecting a room (from the list or from the plan itself)
+ * highlights it on the plan and swaps in its photo + linked tasks.
  */
 export default function VenueFloorPlansTab() {
   const router = useRouter();
@@ -42,7 +42,7 @@ export default function VenueFloorPlansTab() {
   const isWide = width >= 900;
 
   const [floor, setFloor] = useState<Floor>('upstairs');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const zones = LOCATION_ZONES[floor];
@@ -50,23 +50,32 @@ export default function VenueFloorPlansTab() {
   const aspectRatio = FLOOR_PLAN_ASPECT[floor];
 
   const floorPlanSource =
-    expanded != null
-      ? FLOOR_PLAN_HIGHLIGHT[expanded] ?? FLOOR_PLAN_DEFAULT[floor]
+    selected != null
+      ? FLOOR_PLAN_HIGHLIGHT[selected] ?? FLOOR_PLAN_DEFAULT[floor]
       : FLOOR_PLAN_DEFAULT[floor];
 
-  const expandedLabel = expanded ? getLocationLabel(expanded) : null;
-  const expandedPhoto = expanded ? ZONE_PHOTOS[expanded] : undefined;
+  const selectedZone = selected ? zones.find((z) => z.id === selected) ?? null : null;
+  const selectedPhoto = selected ? ZONE_PHOTOS[selected] : undefined;
 
-  const linkedQuery = useLinkedTaskLists(expanded);
+  const linkedQuery = useLinkedTaskLists(selected);
+
+  // The plan PNGs are tall and narrow (311x1024), so size them from a
+  // height budget and let the photo pane take the remaining width.
+  const contentWidth = width - Spacing.lg * 2;
+  const planWidth = Math.min(
+    (isWide ? 560 : 380) * aspectRatio,
+    (contentWidth - Spacing.md) * (isWide ? 0.4 : 0.45),
+  );
+  const planHeight = planWidth / aspectRatio;
 
   const selectFloor = (f: Floor) => {
     setFloor(f);
-    // Switching floors clears the expanded zone (legacy parity).
-    setExpanded(null);
+    // Switching floors clears the selection (legacy parity).
+    setSelected(null);
   };
 
   const toggleZone = (zoneId: string) => {
-    setExpanded((prev) => (prev === zoneId ? null : zoneId));
+    setSelected((prev) => (prev === zoneId ? null : zoneId));
   };
 
   const openTaskList = (id: string) => {
@@ -79,8 +88,34 @@ export default function VenueFloorPlansTab() {
     );
   };
 
+  const roomList = (
+    <View style={s.roomList}>
+      {zones.map((zone) => {
+        const isActive = selected === zone.id;
+        return (
+          <Pressable
+            key={zone.id}
+            onPress={() => toggleZone(zone.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
+            style={({ pressed }) => [
+              s.roomChip,
+              isActive && s.roomChipActive,
+              pressed && s.roomChipPressed,
+            ]}
+          >
+            <View style={[s.zoneDot, isActive && s.zoneDotActive]} />
+            <Text style={[s.roomChipLabel, isActive && s.roomChipLabelActive]} numberOfLines={1}>
+              {zone.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   const floorPlan = (
-    <View style={[s.floorPlanWrap, { aspectRatio }]}>
+    <View style={[s.floorPlanWrap, { width: planWidth, height: planHeight }]}>
       <Image
         source={floorPlanSource}
         style={s.floorPlanImage}
@@ -90,7 +125,7 @@ export default function VenueFloorPlansTab() {
       {overlays.map((ov) => {
         const zone = zones.find((z) => z.id === ov.id);
         if (!zone) return null;
-        const isActive = expanded === ov.id;
+        const isActive = selected === ov.id;
         return (
           <Pressable
             key={ov.id}
@@ -117,91 +152,70 @@ export default function VenueFloorPlansTab() {
     </View>
   );
 
-  const sections = (
-    <View style={s.sectionList}>
-      {zones.map((zone) => {
-        const isOpen = expanded === zone.id;
-        return (
-          <View key={zone.id} style={[s.section, isOpen && s.sectionOpen]}>
+  const detailPane = (
+    <View style={s.detailPane}>
+      {selectedZone == null ? (
+        <View style={s.emptyPane}>
+          <Ionicons name="map-outline" size={28} color={Colors.textMuted} />
+          <Text style={s.emptyPaneText}>Pick a room to see its photo and tasks</Text>
+        </View>
+      ) : (
+        <>
+          <Text style={s.detailTitle} numberOfLines={1}>
+            {selectedZone.label}
+          </Text>
+
+          {selectedPhoto ? (
             <Pressable
-              onPress={() => toggleZone(zone.id)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isOpen }}
-              style={({ pressed }) => [s.sectionHeader, pressed && s.sectionHeaderPressed]}
+              onPress={() => setLightboxOpen(true)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={selectedZone.label}
             >
-              <View style={[s.zoneDot, isOpen && s.zoneDotActive]} />
-              <Text style={[s.sectionTitle, isOpen && s.sectionTitleActive]} numberOfLines={1}>
-                {zone.label}
-              </Text>
-              <Ionicons
-                name={isOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={isOpen ? Colors.accent : Colors.textMuted}
-              />
+              <Image source={selectedPhoto} style={s.zonePhoto} resizeMode="cover" />
             </Pressable>
+          ) : (
+            <View style={s.photoPlaceholder}>
+              <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
+              <Text style={s.photoPlaceholderText}>No photo for this room</Text>
+            </View>
+          )}
 
-            {isOpen && (
-              <View style={s.sectionBody}>
-                {expandedPhoto ? (
-                  <Pressable
-                    onPress={() => setLightboxOpen(true)}
-                    accessibilityRole="imagebutton"
-                    accessibilityLabel={zone.label}
-                  >
-                    <Image source={expandedPhoto} style={s.zonePhoto} resizeMode="cover" />
-                  </Pressable>
-                ) : (
-                  <View style={s.photoPlaceholder}>
-                    <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
-                    <Text style={s.photoPlaceholderText}>No photo for this section</Text>
-                  </View>
-                )}
-
-                {linkedQuery.isLoading ? (
-                  <Text style={s.tasksLoading}>Loading tasks...</Text>
-                ) : linkedQuery.isError ? (
-                  <Text style={s.tasksError}>Couldn't load tasks. Please try again.</Text>
-                ) : !linkedQuery.data || linkedQuery.data.length === 0 ? null : (
-                  <View style={s.tasksPanel}>
-                    <View style={s.tasksHeader}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={14}
-                        color={Colors.textSecondary}
-                      />
-                      <Text style={s.tasksHeaderText}>Tasks for {zone.label}</Text>
-                    </View>
-                    {linkedQuery.data.map((task) => (
-                      <Pressable
-                        key={task.id}
-                        onPress={() => openTaskList(task.id)}
-                        accessibilityRole="button"
-                        style={({ pressed }) => [s.taskRow, pressed && s.taskRowPressed]}
-                      >
-                        <View style={s.taskRowTop}>
-                          <Text style={s.taskTitle} numberOfLines={1}>
-                            {task.title}
-                          </Text>
-                          <Badge
-                            label={task.isSop ? 'SOP' : 'Task'}
-                            variant={task.isSop ? 'info' : 'default'}
-                          />
-                        </View>
-                        <Text style={s.taskMeta}>
-                          {task.itemCount} item{task.itemCount !== 1 ? 's' : ''}
-                          {task.assignedCount > 0
-                            ? ` · ${task.assignedCount} assigned`
-                            : ''}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
+          {linkedQuery.isLoading ? (
+            <Text style={s.tasksLoading}>Loading tasks...</Text>
+          ) : linkedQuery.isError ? (
+            <Text style={s.tasksError}>Couldn't load tasks. Please try again.</Text>
+          ) : !linkedQuery.data || linkedQuery.data.length === 0 ? null : (
+            <View style={s.tasksPanel}>
+              <View style={s.tasksHeader}>
+                <Ionicons name="document-text-outline" size={14} color={Colors.textSecondary} />
+                <Text style={s.tasksHeaderText}>Tasks for {selectedZone.label}</Text>
               </View>
-            )}
-          </View>
-        );
-      })}
+              {linkedQuery.data.map((task) => (
+                <Pressable
+                  key={task.id}
+                  onPress={() => openTaskList(task.id)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [s.taskRow, pressed && s.taskRowPressed]}
+                >
+                  <View style={s.taskRowTop}>
+                    <Text style={s.taskTitle} numberOfLines={1}>
+                      {task.title}
+                    </Text>
+                    <Badge
+                      label={task.isSop ? 'SOP' : 'Task'}
+                      variant={task.isSop ? 'info' : 'default'}
+                    />
+                  </View>
+                  <Text style={s.taskMeta}>
+                    {task.itemCount} item{task.itemCount !== 1 ? 's' : ''}
+                    {task.assignedCount > 0 ? ` · ${task.assignedCount} assigned` : ''}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 
@@ -227,15 +241,17 @@ export default function VenueFloorPlansTab() {
           })}
         </View>
 
-        <View style={isWide ? s.layoutWide : undefined}>
-          <View style={isWide ? s.floorPlanColumn : undefined}>{floorPlan}</View>
-          <View style={isWide ? s.sectionColumn : undefined}>{sections}</View>
+        {roomList}
+
+        <View style={s.planRow}>
+          {floorPlan}
+          {detailPane}
         </View>
       </ScrollView>
 
-      {expanded && expandedPhoto ? (
+      {selected && selectedPhoto ? (
         <Lightbox
-          images={[expandedPhoto]}
+          images={[selectedPhoto]}
           visible={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
         />
@@ -276,25 +292,60 @@ const s = StyleSheet.create({
   floorTabLabelActive: {
     color: Colors.accent,
   },
-  layoutWide: {
+  roomList: {
     flexDirection: 'row',
-    gap: Spacing.lg,
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  roomChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgPanel,
+    minHeight: 44,
+    ...Shadows.sm,
+  },
+  roomChipActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentGlow,
+  },
+  roomChipPressed: {
+    backgroundColor: Colors.bgElevated,
+  },
+  roomChipLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  roomChipLabelActive: {
+    color: Colors.accent,
+  },
+  zoneDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.textMuted,
+  },
+  zoneDotActive: {
+    backgroundColor: Colors.accent,
+  },
+  planRow: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-  floorPlanColumn: {
-    flex: 3,
-  },
-  sectionColumn: {
-    flex: 2,
+    gap: Spacing.md,
   },
   floorPlanWrap: {
-    width: '100%',
     backgroundColor: Colors.bgPanel,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
-    marginBottom: Spacing.md,
     ...Shadows.sm,
   },
   floorPlanImage: {
@@ -326,63 +377,41 @@ const s = StyleSheet.create({
     borderRadius: 3,
     overflow: 'hidden',
   },
-  sectionList: {
-    gap: Spacing.sm,
-  },
-  section: {
-    backgroundColor: Colors.bgPanel,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-    ...Shadows.sm,
-  },
-  sectionOpen: {
-    borderColor: Colors.accent,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    minHeight: 48,
-  },
-  sectionHeaderPressed: {
-    backgroundColor: Colors.bgElevated,
-  },
-  zoneDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.textMuted,
-  },
-  zoneDotActive: {
-    backgroundColor: Colors.accent,
-  },
-  sectionTitle: {
+  detailPane: {
     flex: 1,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
+    minWidth: 0,
+    gap: Spacing.sm,
+  },
+  detailTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '700',
     color: Colors.text,
   },
-  sectionTitleActive: {
-    color: Colors.accent,
+  emptyPane: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgPanel,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
   },
-  sectionBody: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.md,
+  emptyPaneText: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
   zonePhoto: {
     width: '100%',
-    height: 180,
+    aspectRatio: 4 / 3,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.bgElevated,
   },
   photoPlaceholder: {
-    height: 120,
+    width: '100%',
+    aspectRatio: 4 / 3,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.bgElevated,
     alignItems: 'center',
@@ -392,6 +421,7 @@ const s = StyleSheet.create({
   photoPlaceholderText: {
     fontSize: FontSize.xs,
     color: Colors.textMuted,
+    textAlign: 'center',
   },
   tasksLoading: {
     fontSize: FontSize.xs,
