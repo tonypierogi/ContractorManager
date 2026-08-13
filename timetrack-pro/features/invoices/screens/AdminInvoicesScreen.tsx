@@ -98,7 +98,7 @@ export default function AdminInvoicesScreen() {
           <View style={styles.panel}>
             <View style={styles.sectionHeader}>
               <View style={styles.accentDot} />
-              <Text style={styles.sectionTitle}>Select Employee &amp; Period</Text>
+              <Text style={styles.sectionTitle}>Select Contractor &amp; Period</Text>
             </View>
 
             <View style={styles.formGrid}>
@@ -118,7 +118,7 @@ export default function AdminInvoicesScreen() {
                       ? [selectedMember.first_name, selectedMember.last_name]
                           .filter(Boolean)
                           .join(' ') || selectedMember.email
-                      : 'Select Employee'}
+                      : 'Select Contractor'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
                 </TouchableOpacity>
@@ -223,7 +223,7 @@ export default function AdminInvoicesScreen() {
       <Modal
         visible={showEmployeePicker}
         onClose={() => setShowEmployeePicker(false)}
-        title="Select Employee"
+        title="Select Contractor"
       >
         {(members ?? []).map((member) => (
           <TouchableOpacity

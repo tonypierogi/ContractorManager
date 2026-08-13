@@ -43,6 +43,11 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   const { profile, signOut } = useAuth();
   const { width, height } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
+  // Short ungrouped navs (the contractor hubs) fit inline on a phone, so
+  // show them as a compressed pill row instead of hiding them behind the
+  // hamburger; the hamburger then only carries the role slider + sign out.
+  const isCompact =
+    !isWide && items.length <= 3 && items.every((i) => !i.group);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -98,6 +103,7 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   };
 
   const toggleRole = () => {
+    setMobileMenuOpen(false);
     if (isInAdminView) {
       router.push('/(employee)/home');
     } else if (isAdmin) {
@@ -242,7 +248,7 @@ export default function TopNavBar({ items }: TopNavBarProps) {
                     !isInAdminView && styles.roleButtonWideTextActive,
                   ]}
                 >
-                  Employee
+                  Contractor
                 </Text>
               </TouchableOpacity>
             </View>
@@ -254,6 +260,10 @@ export default function TopNavBar({ items }: TopNavBarProps) {
           )}
         </View>
       </View>
+
+      {isCompact && (
+        <View style={styles.navCompactRow}>{items.map(renderPill)}</View>
+      )}
 
       <Modal
         visible={mobileMenuOpen}
@@ -312,13 +322,13 @@ export default function TopNavBar({ items }: TopNavBarProps) {
                         !isInAdminView && styles.roleButtonTextActive,
                       ]}
                     >
-                      Employee
+                      Contractor
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
-            {items.map((item, idx) => {
+            {!isCompact && items.map((item, idx) => {
               const active = isActive(item);
               const showGroupLabel =
                 !!item.group && item.group !== items[idx - 1]?.group;
@@ -481,6 +491,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: Spacing.xs,
+  },
+  navCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
   },
   navButton: {
     flexDirection: 'row',

@@ -102,7 +102,7 @@ export default function TimesheetsScreen() {
   // clean aligned columns — the legacy admin export emitted 9 fields against
   // a 7-column header (spreadsheet.js quirk), fixed intentionally here.
   const exportColumns: SpreadsheetColumn<any>[] = [
-    { header: 'Employee', value: (item) => getMemberName(item) },
+    { header: 'Contractor', value: (item) => getMemberName(item) },
     { header: 'Date', value: (item) => formatDate(item.clock_in) },
     { header: 'Clock In', value: (item) => formatTime(item.clock_in) },
     {
@@ -201,7 +201,7 @@ export default function TimesheetsScreen() {
             <Text style={selectedMember ? styles.dropdownText : styles.dropdownPlaceholder}>
               {selectedMember
                 ? `${selectedMember.first_name} ${selectedMember.last_name}`
-                : 'All Employees'}
+                : 'All Contractors'}
             </Text>
             <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -228,7 +228,7 @@ export default function TimesheetsScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeader}>
-              <Text style={[styles.headerCell, styles.cellEmployee]}>EMPLOYEE</Text>
+              <Text style={[styles.headerCell, styles.cellEmployee]}>CONTRACTOR</Text>
               <Text style={[styles.headerCell, styles.cellDate]}>DATE</Text>
               <Text style={[styles.headerCell, styles.cellTime]}>CLOCK IN</Text>
               <Text style={[styles.headerCell, styles.cellTime]}>CLOCK OUT</Text>
@@ -274,7 +274,7 @@ export default function TimesheetsScreen() {
       <Modal
         visible={showEmployeePicker}
         onClose={() => setShowEmployeePicker(false)}
-        title="Select Employee"
+        title="Select Contractor"
       >
         <TouchableOpacity
           style={[styles.pickerItem, !employeeFilter && styles.pickerItemSelected]}
@@ -283,7 +283,7 @@ export default function TimesheetsScreen() {
             setShowEmployeePicker(false);
           }}
         >
-          <Text style={styles.pickerItemText}>All Employees</Text>
+          <Text style={styles.pickerItemText}>All Contractors</Text>
         </TouchableOpacity>
         {(members ?? []).map((member) => (
           <TouchableOpacity

@@ -60,7 +60,7 @@ export default function MemberCard({ member, onPress, onRemove, isCurrentUser }:
         </View>
         <View style={styles.statBox}>
           <Text style={[styles.statValue, member.role === 'admin' ? styles.accentText : styles.accentText]}>
-            {member.role === 'admin' ? 'Admin' : 'Employee'}
+            {member.role === 'admin' ? 'Admin' : 'Contractor'}
           </Text>
           <Text style={styles.statLabel}>ROLE</Text>
         </View>
