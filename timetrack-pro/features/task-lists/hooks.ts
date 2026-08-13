@@ -10,6 +10,7 @@ import {
   fetchTaskList,
   fetchTaskListAssignments,
   fetchTaskLists,
+  importTaskVideo,
   saveAssignments,
   saveTaskList,
   toggleTaskCheck,
@@ -19,6 +20,12 @@ import {
 
 export function useUploadTaskListMedia() {
   return useMutation({ mutationFn: uploadTaskListMedia });
+}
+
+/** Upload + transcribe a walkthrough video into draft tasks. Nothing is
+ * persisted until the editor is saved, so no cache invalidation here. */
+export function useImportTaskVideo() {
+  return useMutation({ mutationFn: importTaskVideo });
 }
 
 export type { TaskChecklistItemWithCheck };

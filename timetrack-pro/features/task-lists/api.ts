@@ -1,11 +1,103 @@
 import { supabase } from '@/lib/supabase';
-import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
+import {
+  uploadImageToMediaBucket,
+  uploadVideoToMediaBucket,
+  type UploadImageInput,
+  type UploadVideoInput,
+} from '@/lib/uploads';
 import type { MediaItem, TaskList, TaskListItem } from '@/types/database';
 
 /** Item media images go to the bucket root under the uploader's user id
  * (`{userId}/{ts}-{name}`), matching legacy SOP/task-list media paths. */
 export function uploadTaskListMedia(params: UploadImageInput): Promise<string> {
   return uploadImageToMediaBucket('', params);
+}
+
+export interface GeneratedTaskItem {
+  title: string;
+  description: string;
+  /** Seconds into the source video where the speaker asked for a capture. */
+  video_timestamp: number | null;
+}
+
+export interface VideoImportResult {
+  videoUrl: string;
+  transcript: string;
+  items: GeneratedTaskItem[];
+}
+
+export interface ImportTaskVideoInput extends UploadVideoInput {
+  /** Reports the current step so the editor can show what's taking time. */
+  onStage?: (stage: string) => void;
+}
+
+/**
+ * functions.invoke flattens every non-2xx into the same generic message; the
+ * edge function's actual reason (no API key, video too long) is in the body.
+ */
+async function edgeFunctionErrorMessage(
+  error: unknown,
+  fallback: string,
+): Promise<string> {
+  const context = (error as { context?: Response } | null)?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error) return String(body.error);
+    } catch {
+      // non-JSON body — fall through to the generic message
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/**
+ * Upload a walkthrough video, then transcribe it and turn it into draft tasks
+ * via the process-task-video edge function.
+ *
+ * The legacy web app also grabbed a still per "capture" keyword using
+ * ffmpeg.wasm + a canvas, neither of which exists in React Native. Each task
+ * instead keeps the capture's `video_timestamp`, so the checklist can point at
+ * the moment in the stored source video.
+ */
+export async function importTaskVideo({
+  onStage,
+  ...upload
+}: ImportTaskVideoInput): Promise<VideoImportResult> {
+  onStage?.('Uploading video…');
+  const videoUrl = await uploadVideoToMediaBucket(upload);
+
+  onStage?.('Transcribing and generating tasks…');
+  const { data, error } = await supabase.functions.invoke('process-task-video', {
+    body: { video_url: videoUrl },
+  });
+  if (error) {
+    throw new Error(
+      await edgeFunctionErrorMessage(error, 'Video processing failed'),
+    );
+  }
+  if (data?.error) throw new Error(String(data.error));
+
+  const captureTimestamps: number[] = data?.capture_timestamps ?? [];
+  const tasks: Array<{
+    title?: string;
+    description?: string;
+    capture_indices?: number[];
+  }> = data?.tasks ?? [];
+
+  const items = tasks.map((task, idx) => {
+    const firstCapture = (task.capture_indices ?? []).find(
+      (ci) => captureTimestamps[ci] != null,
+    );
+    return {
+      title: task.title?.trim() || `Task ${idx + 1}`,
+      description: task.description?.trim() ?? '',
+      video_timestamp:
+        firstCapture != null ? captureTimestamps[firstCapture] : null,
+    };
+  });
+
+  return { videoUrl, transcript: data?.transcript ?? '', items };
 }
 
 export interface TaskChecklistItemWithCheck extends TaskListItem {

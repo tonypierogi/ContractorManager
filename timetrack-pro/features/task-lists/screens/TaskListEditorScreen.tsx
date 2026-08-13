@@ -14,11 +14,12 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
 import { EquipmentPickerModal } from '@/features/equipment/components/EquipmentTagging';
 import {
+  useImportTaskVideo,
   useSaveTaskList,
   useTaskList,
   useUploadTaskListMedia,
@@ -27,6 +28,7 @@ import ItemEditorCard, {
   makeDraft,
   type ItemDraft,
 } from '@/features/task-lists/components/ItemEditorCard';
+import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import type { TemplateItemRef } from '@/features/task-lists/api';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
@@ -35,8 +37,10 @@ import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 export default function TaskListEditorScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const saveTaskList = useSaveTaskList();
   const uploadMedia = useUploadTaskListMedia();
+  const importVideo = useImportTaskVideo();
   const { data: existing } = useTaskList(id ?? '');
   const { data: equipment } = useEquipment();
 
@@ -47,6 +51,8 @@ export default function TaskListEditorScreen() {
   const [sourceVideoUrl, setSourceVideoUrl] = useState<string | null>(null);
   const [sourceTranscript, setSourceTranscript] = useState<string | null>(null);
   const [videoMode, setVideoMode] = useState(false);
+  const [videoName, setVideoName] = useState<string | null>(null);
+  const [videoStatus, setVideoStatus] = useState<string | null>(null);
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
@@ -69,6 +75,8 @@ export default function TaskListEditorScreen() {
     setLocation(taskList.location ?? null);
     setSourceVideoUrl(taskList.source_video_url ?? null);
     setSourceTranscript(taskList.source_transcript ?? null);
+    // Reveal the video panel when the list already came from one.
+    setVideoMode(!!taskList.source_video_url);
     setItems(
       rows.map((it) => ({
         id: it.id,
@@ -150,6 +158,59 @@ export default function TaskListEditorScreen() {
     } finally {
       setUploadingItemId(null);
     }
+  };
+
+  // Pick a walkthrough video, upload it, and append the tasks the transcript
+  // produced. Generated tasks are appended (never replacing existing ones) so
+  // re-running on an edited list can't wipe hand-written items.
+  const handlePickVideo = async () => {
+    if (!user) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: false,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    const asset = picked.assets[0];
+    const name = asset.fileName ?? asset.uri.split('/').pop() ?? 'video.mp4';
+    setVideoName(name);
+    try {
+      const result = await importVideo.mutateAsync({
+        userId: user.id,
+        uri: asset.uri,
+        fileName: asset.fileName ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
+        onStage: setVideoStatus,
+      });
+      setSourceVideoUrl(result.videoUrl);
+      setSourceTranscript(result.transcript || null);
+      if (result.items.length === 0) {
+        showToast('No tasks were found in that video', 'error');
+        return;
+      }
+      setItems((prev) => [
+        ...prev,
+        ...result.items.map((task) => ({
+          ...makeDraft(),
+          title: task.title,
+          description: task.description,
+          video_timestamp: task.video_timestamp,
+        })),
+      ]);
+      showToast(
+        `Generated ${result.items.length} task${result.items.length === 1 ? '' : 's'} from video`,
+      );
+    } catch {
+      // surfaced by the global mutation error toast
+      setVideoName(null);
+    } finally {
+      setVideoStatus(null);
+    }
+  };
+
+  const clearVideo = () => {
+    setSourceVideoUrl(null);
+    setSourceTranscript(null);
+    setVideoName(null);
   };
 
   const removeImage = (itemId: string, mediaIndex: number) => {
@@ -283,55 +344,58 @@ export default function TaskListEditorScreen() {
           />
         </View>
 
-        {videoMode ? (
-          <Card style={styles.videoCard}>
-            <Text style={styles.videoText}>
-              Video upload and processing will be available here.
-            </Text>
-            <Button title="Pick Video" onPress={() => {}} variant="secondary" />
-          </Card>
-        ) : (
-          <>
-            <Text style={styles.subheading}>Items</Text>
-            {items.map((item, index) => (
-              <ItemEditorCard
-                key={item.id}
-                item={item}
-                index={index}
-                count={items.length}
-                equipmentById={equipmentById}
-                uploading={uploadingItemId === item.id}
-                onUpdateField={(field, value) => updateItem(item.id, field, value)}
-                onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
-                onAddImage={() => handleAddImage(item.id)}
-                onRemoveImage={(mi) => removeImage(item.id, mi)}
-                onEditEquipment={() => setEquipmentPickerFor(item.id)}
-                onMove={(direction) => moveItem(index, direction)}
-                onRemove={() => removeItem(item.id)}
-              />
-            ))}
-            <View style={styles.addRow}>
-              <View style={styles.addRowBtn}>
-                <Button
-                  title="New Item"
-                  onPress={addItem}
-                  variant="secondary"
-                  size="sm"
-                  fullWidth
-                />
-              </View>
-              <View style={styles.addRowBtn}>
-                <Button
-                  title="From Existing"
-                  onPress={() => setExistingPickerOpen(true)}
-                  variant="secondary"
-                  size="sm"
-                  fullWidth
-                />
-              </View>
-            </View>
-          </>
+        {videoMode && (
+          <VideoImportCard
+            videoUrl={sourceVideoUrl}
+            fileName={videoName}
+            transcript={sourceTranscript}
+            busy={importVideo.isPending}
+            status={videoStatus}
+            onPick={handlePickVideo}
+            onClear={clearVideo}
+          />
         )}
+
+        {/* Generated tasks land in the same editor as hand-written ones, so
+            they can be reordered, photographed and tagged before saving. */}
+        <Text style={styles.subheading}>Items</Text>
+        {items.map((item, index) => (
+          <ItemEditorCard
+            key={item.id}
+            item={item}
+            index={index}
+            count={items.length}
+            equipmentById={equipmentById}
+            uploading={uploadingItemId === item.id}
+            onUpdateField={(field, value) => updateItem(item.id, field, value)}
+            onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
+            onAddImage={() => handleAddImage(item.id)}
+            onRemoveImage={(mi) => removeImage(item.id, mi)}
+            onEditEquipment={() => setEquipmentPickerFor(item.id)}
+            onMove={(direction) => moveItem(index, direction)}
+            onRemove={() => removeItem(item.id)}
+          />
+        ))}
+        <View style={styles.addRow}>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="New Item"
+              onPress={addItem}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="From Existing"
+              onPress={() => setExistingPickerOpen(true)}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+        </View>
 
       </ScrollView>
 
@@ -407,16 +471,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.text,
     fontWeight: '500',
-  },
-  videoCard: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xl,
-    gap: Spacing.md,
-  },
-  videoText: {
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-    textAlign: 'center',
   },
   itemCard: {
     marginBottom: Spacing.sm,
