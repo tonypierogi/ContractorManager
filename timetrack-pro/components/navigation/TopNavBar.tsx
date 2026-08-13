@@ -47,8 +47,10 @@ export default function TopNavBar({ items }: TopNavBarProps) {
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const triggerRefs = useRef<Record<string, View | null>>({});
 
-  const isActive = (item: NavItem) => pathname.includes(`/${item.segment}`);
   const isAdmin = profile?.role === 'admin';
+  const isInAdminView = pathname.startsWith('/(admin)');
+
+  const isActive = (item: NavItem) => pathname.includes(`/${item.segment}`);
 
   // Collapse grouped items into a dropdown entry at the first item's position.
   const entries = useMemo<NavEntry[]>(() => {
@@ -89,6 +91,19 @@ export default function TopNavBar({ items }: TopNavBarProps) {
     closeMenu();
     setMobileMenuOpen(false);
     router.push(item.href as any);
+  };
+
+  const toggleRole = () => {
+    if (isInAdminView) {
+      router.push('/(employee)/home');
+    } else if (isAdmin) {
+      router.push('/(admin)/team');
+    }
+  };
+
+  const handleSignOut = async () => {
+    setMobileMenuOpen(false);
+    await signOut();
   };
 
   const renderPill = (item: NavItem) => {
@@ -188,6 +203,46 @@ export default function TopNavBar({ items }: TopNavBarProps) {
               Hello, {profile.first_name ?? 'User'}!
             </Text>
           )}
+          {isAdmin && isWide && (
+            <View style={styles.roleToggleWide}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!isInAdminView) toggleRole();
+                }}
+                style={[
+                  styles.roleButtonWide,
+                  isInAdminView && styles.roleButtonWideActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roleButtonWideText,
+                    isInAdminView && styles.roleButtonWideTextActive,
+                  ]}
+                >
+                  Admin
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (isInAdminView) toggleRole();
+                }}
+                style={[
+                  styles.roleButtonWide,
+                  !isInAdminView && styles.roleButtonWideActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roleButtonWideText,
+                    !isInAdminView && styles.roleButtonWideTextActive,
+                  ]}
+                >
+                  Employee
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
@@ -210,6 +265,49 @@ export default function TopNavBar({ items }: TopNavBarProps) {
               { paddingTop: insets.top + Spacing.md },
             ]}
           >
+            {isAdmin && (
+              <View style={styles.roleToggleContainer}>
+                <Text style={styles.roleLabel}>View as:</Text>
+                <View style={styles.roleToggle}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (!isInAdminView) toggleRole();
+                    }}
+                    style={[
+                      styles.roleButton,
+                      isInAdminView && styles.roleButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        isInAdminView && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      Admin
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (isInAdminView) toggleRole();
+                    }}
+                    style={[
+                      styles.roleButton,
+                      !isInAdminView && styles.roleButtonActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        !isInAdminView && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      Employee
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             {items.map((item, idx) => {
               const active = isActive(item);
               const showGroupLabel =
@@ -243,6 +341,18 @@ export default function TopNavBar({ items }: TopNavBarProps) {
                 </View>
               );
             })}
+            <TouchableOpacity
+              onPress={handleSignOut}
+              style={styles.signOutMenuItem}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={18}
+                color={Colors.textSecondary}
+              />
+              <Text style={styles.signOutMenuItemLabel}>Sign Out</Text>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
@@ -441,5 +551,84 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: '500',
     color: Colors.text,
+  },
+  roleToggleContainer: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  roleLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
+  },
+  roleToggle: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.md,
+    padding: 2,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+  },
+  roleButtonActive: {
+    backgroundColor: Colors.accent,
+  },
+  roleButtonText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  roleButtonTextActive: {
+    color: Colors.bgPrimary,
+  },
+  signOutMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.md,
+    minHeight: 44,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    marginTop: Spacing.md,
+  },
+  signOutMenuItemLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  roleToggleWide: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.md,
+    padding: 2,
+  },
+  roleButtonWide: {
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+  },
+  roleButtonWideActive: {
+    backgroundColor: Colors.accent,
+  },
+  roleButtonWideText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  roleButtonWideTextActive: {
+    color: Colors.bgPrimary,
   },
 });
