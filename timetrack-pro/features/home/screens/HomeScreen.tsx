@@ -40,14 +40,14 @@ const QUICK_LINKS: {
 }[] = [
   { label: 'Time Clock', sub: 'Clock in & out', href: '/(employee)/timeclock', icon: 'timer-outline' },
   { label: 'My Work', sub: 'Tasks & SOPs', href: '/(employee)/work', icon: 'clipboard-outline' },
-  { label: 'Locations', sub: 'Zones & maps', href: '/(employee)/locations', icon: 'map-outline' },
+  { label: 'Venue', sub: 'Items & floor plans', href: '/(employee)/venue', icon: 'business-outline' },
   { label: 'Inventory', sub: 'Counts & runs', href: '/(employee)/inventory', icon: 'cube-outline' },
 ];
 
 /**
  * Employee landing page: clocked-in status up top, then anything assigned
  * (or a pointer at today's SOPs), then the next few scheduled shifts, then
- * quick links into the full Time Clock / My Work / Locations / Inventory
+ * quick links into the full Time Clock / My Work / Venue / Inventory
  * pages. Each section is a preview — the destination pages stay the source
  * of truth.
  */

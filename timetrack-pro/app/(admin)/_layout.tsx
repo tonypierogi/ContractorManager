@@ -11,7 +11,7 @@ const adminNav: NavItem[] = [
   { label: 'SOP', href: '/(admin)/sops', segment: 'sops', icon: 'clipboard-outline', group: 'Operations' },
   { label: 'Equipment', href: '/(admin)/equipment', segment: 'equipment', icon: 'construct-outline', group: 'Operations' },
   { label: 'Task Lists', href: '/(admin)/task-lists', segment: 'task-lists', icon: 'list-outline', group: 'Operations' },
-  { label: 'Locations', href: '/(admin)/locations', segment: 'locations', icon: 'map-outline', group: 'Operations' },
+  { label: 'Venue', href: '/(admin)/venue', segment: 'venue', icon: 'business-outline', group: 'Operations' },
   { label: 'Inventory', href: '/(admin)/inventory', segment: 'inventory', icon: 'cube-outline', group: 'Operations' },
   { label: 'Invoices', href: '/(admin)/invoices', segment: 'invoices', icon: 'document-text-outline' },
   { label: 'Settings', href: '/(admin)/settings', segment: 'settings', icon: 'settings-outline' },

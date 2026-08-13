@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/auth-provider';
 import { Colors } from '@/constants/theme';
 
 // Two-hub nav: everything about the day's work (Time Clock, My Work,
-// Locations, Inventory) previews on Home; everything about the person
+// Venue, Inventory) previews on Home; everything about the person
 // (Profile, Invoices, Shifts, Schedule) previews on My Page. The full pages
 // stay routable — the hubs link into them.
 const employeeNav: NavItem[] = [

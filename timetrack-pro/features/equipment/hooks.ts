@@ -4,6 +4,7 @@ import {
   deleteEquipment,
   fetchEquipment,
   saveEquipment,
+  uploadEquipmentImage,
   type SaveEquipmentInput,
 } from './api';
 
@@ -24,6 +25,10 @@ export function useSaveEquipment() {
       queryClient.invalidateQueries({ queryKey: qk.equipment.all });
     },
   });
+}
+
+export function useUploadEquipmentImage() {
+  return useMutation({ mutationFn: uploadEquipmentImage });
 }
 
 export function useDeleteEquipment() {
