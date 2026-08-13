@@ -14,14 +14,21 @@ const employeeNav: NavItem[] = [
 ];
 
 export default function EmployeeLayout() {
-  const { session, isLoading } = useAuth();
+  const { session, role, isLoading } = useAuth();
 
   if (isLoading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;
 
   return (
     <View style={styles.container}>
-      <TopNavBar items={employeeNav} />
+      <TopNavBar
+        items={employeeNav}
+        viewSwitch={
+          role === 'admin'
+            ? { label: 'Admin View', href: '/(admin)/team' }
+            : undefined
+        }
+      />
       <View style={styles.content}>
         <Slot />
       </View>

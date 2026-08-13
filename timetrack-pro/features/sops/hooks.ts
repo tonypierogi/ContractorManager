@@ -6,6 +6,7 @@ import {
   completeDailySop,
   createDailySop,
   deleteSopTemplate,
+  duplicateSopTemplate,
   fetchAdHocTasks,
   fetchCompletedDailySops,
   fetchSopChecklist,
@@ -48,6 +49,17 @@ export function useSaveSopTemplate() {
 
   return useMutation({
     mutationFn: saveSopTemplate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.sops.templates });
+    },
+  });
+}
+
+export function useDuplicateSopTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: duplicateSopTemplate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.sops.templates });
     },

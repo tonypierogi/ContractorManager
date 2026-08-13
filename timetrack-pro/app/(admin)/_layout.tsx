@@ -26,7 +26,10 @@ export default function AdminLayout() {
 
   return (
     <View style={styles.container}>
-      <TopNavBar items={adminNav} />
+      <TopNavBar
+        items={adminNav}
+        viewSwitch={{ label: 'Employee View', href: '/(employee)/timeclock' }}
+      />
       <View style={styles.content}>
         <Slot />
       </View>

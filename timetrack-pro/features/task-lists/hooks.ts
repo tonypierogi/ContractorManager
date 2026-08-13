@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
 import {
   deleteTaskList,
+  duplicateTaskList,
   fetchMyTaskAssignments,
   fetchPendingTaskAssignments,
   fetchTaskChecklist,
@@ -44,6 +45,18 @@ export function useSaveTaskList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
       // the Locations screen's linked-tasks panel reads task_lists too
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
+    },
+  });
+}
+
+export function useDuplicateTaskList() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: duplicateTaskList,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
       queryClient.invalidateQueries({ queryKey: qk.locations.all });
     },
   });

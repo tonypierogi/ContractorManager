@@ -124,6 +124,52 @@ export async function saveTaskList({
   return taskListId!;
 }
 
+/** Copies a list and all its items — media URLs, locations, equipment tags —
+ * so an admin can tweak the copy and reassign it without rebuilding. */
+export async function duplicateTaskList(input: {
+  id: string;
+  createdBy: string;
+}): Promise<string> {
+  const { taskList, items } = await fetchTaskList(input.id);
+
+  const { data, error } = await supabase
+    .from('task_lists')
+    .insert({
+      title: `${taskList.title} (Copy)`,
+      description: taskList.description,
+      is_sop: taskList.is_sop,
+      location: taskList.location,
+      source_video_url: taskList.source_video_url,
+      source_transcript: taskList.source_transcript,
+      created_by: input.createdBy,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  const newId = data.id as string;
+
+  if (items.length > 0) {
+    const rows = items.map((it) => ({
+      task_list_id: newId,
+      sort_order: it.sort_order,
+      title: it.title,
+      description: it.description,
+      media: it.media ?? [],
+      item_type: it.item_type ?? 'task',
+      location_from: it.location_from ?? null,
+      location_to: it.location_to ?? null,
+      equipment: it.equipment ?? [],
+      video_timestamp: it.video_timestamp ?? null,
+    }));
+    const { error: itemsError } = await supabase
+      .from('task_list_items')
+      .insert(rows);
+    if (itemsError) throw itemsError;
+  }
+
+  return newId;
+}
+
 export async function deleteTaskList(id: string): Promise<void> {
   const { error } = await supabase.from('task_lists').delete().eq('id', id);
   if (error) throw error;
