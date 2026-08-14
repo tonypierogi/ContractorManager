@@ -186,6 +186,27 @@ export interface TaskListAssignment {
   assigned_to: string;
   assigned_by: string | null;
   status: TaskAssignmentStatus;
+  /** Optional scheduled_shifts row this assignment is pinned to. */
+  shift_id: string | null;
+  /** The day the assignment is for ('YYYY-MM-DD'); null = no due date. */
+  due_date: string | null;
+  /** Set when the row was generated from a task_list_recurrences rule. */
+  recurrence_id: string | null;
+  created_at: string;
+}
+
+/** "This list, for this person, every Mon/Wed." Occurrences are materialized
+ * into task_list_assignments rows for a rolling window. */
+export interface TaskListRecurrence {
+  id: string;
+  task_list_id: string;
+  assigned_to: string;
+  /** 0 = Sunday .. 6 = Saturday, matching Date.getDay(). */
+  days_of_week: number[];
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  created_by: string | null;
   created_at: string;
 }
 

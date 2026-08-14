@@ -41,6 +41,8 @@ export const qk = {
     detail: (id: string) => ['taskLists', 'detail', id] as const,
     assignments: (taskListId: string) =>
       ['taskLists', 'assignments', taskListId] as const,
+    recurrences: (taskListId: string) =>
+      ['taskLists', 'recurrences', taskListId] as const,
     mine: ['taskLists', 'mine'] as const,
     mineFor: (userId: string | undefined) => ['taskLists', 'mine', userId] as const,
     checklist: (assignmentId: string) =>

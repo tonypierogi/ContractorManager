@@ -17,13 +17,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { useAuth } from '@/features/auth/auth-provider';
 import {
   useTaskList,
   useTaskListAssignments,
+  useTaskListRecurrences,
   useSaveAssignments,
+  useSaveRecurrence,
+  useDeleteRecurrence,
 } from '@/features/task-lists/hooks';
+import { RECURRENCE_WINDOW_DAYS } from '@/features/task-lists/api';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
 import { getLocationLabel } from '@/features/locations/zones';
@@ -37,12 +42,46 @@ import {
   addDays,
   formatEndTime,
   formatScheduleTime,
+  isValidDateInput,
   parseDateString,
   toDateString,
 } from '@/features/schedule/lib';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+/** Sunday-first, matching Date.getDay() and the schedule's week start. */
+const WEEKDAYS = [
+  { day: 0, initial: 'S', short: 'Sun' },
+  { day: 1, initial: 'M', short: 'Mon' },
+  { day: 2, initial: 'T', short: 'Tue' },
+  { day: 3, initial: 'W', short: 'Wed' },
+  { day: 4, initial: 'T', short: 'Thu' },
+  { day: 5, initial: 'F', short: 'Fri' },
+  { day: 6, initial: 'S', short: 'Sat' },
+];
+
+/** 'Mon, Wed, Fri' — or 'Every day' / 'Weekdays' / 'Weekends' when it fits. */
+function repeatLabel(days: number[]): string {
+  const sorted = [...days].sort((a, b) => a - b);
+  const key = sorted.join(',');
+  if (key === '0,1,2,3,4,5,6') return 'Every day';
+  if (key === '1,2,3,4,5') return 'Weekdays';
+  if (key === '0,6') return 'Weekends';
+  return sorted
+    .map((d) => WEEKDAYS.find((w) => w.day === d)?.short ?? '')
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** 'Thu, Aug 13' */
+function dueLabel(dateStr: string): string {
+  return parseDateString(dateStr).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 /** 'Thu, Aug 13 · 9:00 AM – 5:00 PM' */
 function shiftLabel(
@@ -80,15 +119,22 @@ export default function TaskListDetailScreen() {
   const { user } = useAuth();
   const { data, isLoading } = useTaskList(taskListId);
   const { data: assignments } = useTaskListAssignments(taskListId);
+  const { data: recurrences } = useTaskListRecurrences(taskListId);
   const { data: members } = useTeamMembers();
   const { data: equipment } = useEquipment();
   const saveAssignments = useSaveAssignments();
+  const saveRecurrence = useSaveRecurrence();
+  const deleteRecurrence = useDeleteRecurrence();
 
   const [showAssign, setShowAssign] = useState(assign === 'true');
   const [pendingMember, setPendingMember] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [dueDate, setDueDate] = useState(toDateString(new Date()));
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+  const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
   const [fullImageUri, setFullImageUri] = useState<string | null>(null);
 
   const { data: upcomingShifts, isLoading: shiftsLoading } = useUpcomingShifts(
@@ -112,20 +158,74 @@ export default function TaskListDetailScreen() {
   const closeAssign = () => {
     setShowAssign(false);
     setPendingMember(null);
+    setDueDate(toDateString(new Date()));
+    setSelectedShiftId(null);
+    setRepeatDays([]);
   };
 
-  const handleAssign = async (userId: string, shiftId: string | null) => {
+  const toggleRepeatDay = (day: number) =>
+    setRepeatDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+
+  /** Picking a shift also dates the assignment to that shift's day. */
+  const pickShift = (shift: ScheduledShift) => {
+    if (selectedShiftId === shift.id) {
+      setSelectedShiftId(null);
+      return;
+    }
+    setSelectedShiftId(shift.id);
+    setDueDate(shift.shift_date);
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!pendingMember) return;
+    if (dueDate && !isValidDateInput(dueDate)) {
+      Alert.alert('Invalid date', 'Use the YYYY-MM-DD format.');
+      return;
+    }
+    setSaving(true);
     try {
-      await saveAssignments.mutateAsync({
-        taskListId,
-        assignedTo: [userId],
-        assignedBy: user?.id ?? '',
-        shiftId,
-      });
+      if (repeatDays.length > 0) {
+        // A weekly rule generates its own dated assignments, so the picked
+        // shift doesn't carry over — future shifts aren't known yet.
+        await saveRecurrence.mutateAsync({
+          taskListId,
+          assignedTo: pendingMember.id,
+          daysOfWeek: repeatDays,
+          startDate: dueDate || null,
+          createdBy: user?.id ?? '',
+        });
+      } else {
+        await saveAssignments.mutateAsync({
+          taskListId,
+          assignedTo: [pendingMember.id],
+          assignedBy: user?.id ?? '',
+          shiftId: selectedShiftId,
+          dueDate: dueDate || null,
+        });
+      }
       closeAssign();
     } catch {
       Alert.alert('Error', 'Failed to assign task list');
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleDeleteRecurrence = (id: string, label: string) => {
+    Alert.alert(
+      'Stop repeating',
+      `Stop generating "${label}"? Assignments already created stay put.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Stop',
+          style: 'destructive',
+          onPress: () => deleteRecurrence.mutate(id),
+        },
+      ],
+    );
   };
 
   if (isLoading) {
@@ -195,6 +295,19 @@ export default function TaskListDetailScreen() {
                         />
                         <Text style={styles.shiftText}>{shiftLabel(shift)}</Text>
                       </View>
+                    ) : a.due_date ? (
+                      <View style={styles.shiftRow}>
+                        <Ionicons
+                          name={
+                            a.recurrence_id ? 'repeat-outline' : 'calendar-outline'
+                          }
+                          size={13}
+                          color={Colors.textSecondary}
+                        />
+                        <Text style={styles.shiftText}>
+                          {dueLabel(a.due_date)}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                   <View
@@ -218,6 +331,50 @@ export default function TaskListDetailScreen() {
           ) : (
             <Text style={styles.emptyText}>Not assigned to anyone yet</Text>
           )}
+
+          {recurrences?.length ? (
+            <>
+              <Text style={styles.subheading}>Repeats</Text>
+              {recurrences.map((r) => {
+                const name = r.profiles
+                  ? `${r.profiles.first_name ?? ''} ${r.profiles.last_name ?? ''}`.trim()
+                  : 'Unknown';
+                const label = repeatLabel(r.days_of_week ?? []);
+                return (
+                  <Card key={r.id} style={styles.assignCard}>
+                    <View style={styles.assignInfo}>
+                      <Text style={styles.assignName}>{name}</Text>
+                      <View style={styles.shiftRow}>
+                        <Ionicons
+                          name="repeat-outline"
+                          size={13}
+                          color={Colors.textSecondary}
+                        />
+                        <Text style={styles.shiftText}>
+                          {label}
+                          {r.start_date ? ` · from ${dueLabel(r.start_date)}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleDeleteRecurrence(r.id, `${label} — ${name}`)
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Stop repeating for ${name}`}
+                      style={styles.repeatDelete}
+                    >
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={20}
+                        color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  </Card>
+                );
+              })}
+            </>
+          ) : null}
         </View>
 
         <Text style={styles.subheading}>Items</Text>
@@ -331,33 +488,88 @@ export default function TaskListDetailScreen() {
           ) : (
             <>
               <Text style={styles.assigningTo}>
-                Assigning to {pendingMember.name || 'member'} — pick an upcoming
-                shift, or assign without one.
+                Assigning to {pendingMember.name || 'member'}.
               </Text>
-              {shiftsLoading ? (
-                <ActivityIndicator color={Colors.accent} style={styles.shiftsLoading} />
-              ) : upcomingShifts?.length ? (
-                upcomingShifts.map((shift) => (
-                  <Card
-                    key={shift.id}
-                    style={styles.shiftPick}
-                    onPress={() => handleAssign(pendingMember.id, shift.id)}
-                  >
-                    <Ionicons
-                      name="calendar-outline"
-                      size={16}
+
+              <Input
+                label={repeatDays.length ? 'Starting' : 'Date'}
+                placeholder="YYYY-MM-DD"
+                value={dueDate}
+                onChangeText={(t) => {
+                  setDueDate(t);
+                  setSelectedShiftId(null);
+                }}
+              />
+
+              <Text style={styles.fieldLabel}>Repeat weekly on</Text>
+              <View style={styles.dayRow}>
+                {WEEKDAYS.map((w, idx) => {
+                  const on = repeatDays.includes(w.day);
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.dayPill, on && styles.dayPillOn]}
+                      onPress={() => toggleRepeatDay(w.day)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={w.short}
+                    >
+                      <Text style={[styles.dayPillText, on && styles.dayPillTextOn]}>
+                        {w.initial}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.hint}>
+                {repeatDays.length
+                  ? `Repeats ${repeatLabel(repeatDays).toLowerCase()} — assignments are created ${RECURRENCE_WINDOW_DAYS} days ahead.`
+                  : 'Leave empty for a one-off assignment.'}
+              </Text>
+
+              {repeatDays.length === 0 ? (
+                <>
+                  <Text style={styles.fieldLabel}>Shift (optional)</Text>
+                  {shiftsLoading ? (
+                    <ActivityIndicator
                       color={Colors.accent}
+                      style={styles.shiftsLoading}
                     />
-                    <Text style={styles.shiftPickText}>{shiftLabel(shift)}</Text>
-                  </Card>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>No upcoming shifts scheduled.</Text>
-              )}
+                  ) : upcomingShifts?.length ? (
+                    upcomingShifts.map((shift) => {
+                      const on = selectedShiftId === shift.id;
+                      return (
+                        <Card
+                          key={shift.id}
+                          style={{
+                            ...styles.shiftPick,
+                            ...(on ? styles.shiftPickOn : null),
+                          }}
+                          onPress={() => pickShift(shift)}
+                        >
+                          <Ionicons
+                            name={on ? 'checkmark-circle' : 'calendar-outline'}
+                            size={16}
+                            color={Colors.accent}
+                          />
+                          <Text style={styles.shiftPickText}>
+                            {shiftLabel(shift)}
+                          </Text>
+                        </Card>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.emptyText}>
+                      No upcoming shifts scheduled.
+                    </Text>
+                  )}
+                </>
+              ) : null}
+
               <Button
-                title="Assign without shift"
-                variant="secondary"
-                onPress={() => handleAssign(pendingMember.id, null)}
+                title={repeatDays.length ? 'Save repeating assignment' : 'Assign'}
+                onPress={handleSaveAssignment}
+                loading={saving}
               />
               <Button
                 title="← Back to people"
@@ -508,5 +720,34 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
+  shiftPickOn: { borderColor: Colors.accent },
   shiftPickText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text },
+  fieldLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+  },
+  dayRow: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.xs },
+  dayPill: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayPillOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  dayPillText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  dayPillTextOn: { color: Colors.bgPrimary },
+  hint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginBottom: Spacing.md,
+  },
+  repeatDelete: { padding: Spacing.xs },
 })

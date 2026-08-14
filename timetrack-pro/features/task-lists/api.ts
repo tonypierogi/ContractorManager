@@ -5,7 +5,13 @@ import {
   type UploadImageInput,
   type UploadVideoInput,
 } from '@/lib/uploads';
-import type { MediaItem, TaskList, TaskListItem } from '@/types/database';
+import { addDays, toDateString } from '@/features/schedule/lib';
+import type {
+  MediaItem,
+  TaskList,
+  TaskListItem,
+  TaskListRecurrence,
+} from '@/types/database';
 
 /** Item media images go to the bucket root under the uploader's user id
  * (`{userId}/{ts}-{name}`), matching legacy SOP/task-list media paths. */
@@ -126,6 +132,10 @@ export interface SaveTaskListInput {
 }
 
 export async function fetchTaskLists() {
+  // Admin-only screens use this hook, and only admins may insert assignments
+  // under RLS, so this is where recurring occurrences get topped up.
+  await materializeRecurringAssignments();
+
   // Explicit columns: task_lists.* would drag the full video transcript of
   // every list into this list view.
   const { data, error } = await supabase
@@ -339,6 +349,7 @@ export async function fetchTaskListAssignments(taskListId: string) {
       '*, profiles!task_list_assignments_assigned_to_fkey(first_name, last_name), scheduled_shifts(id, shift_date, start_time, end_time)',
     )
     .eq('task_list_id', taskListId)
+    .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -350,6 +361,8 @@ export async function saveAssignments(input: {
   assignedBy: string;
   /** Optional scheduled_shifts id to pin the assignment to a specific shift. */
   shiftId?: string | null;
+  /** Optional 'YYYY-MM-DD' the assignment is due on. */
+  dueDate?: string | null;
 }): Promise<void> {
   const rows = input.assignedTo.map((userId) => ({
     task_list_id: input.taskListId,
@@ -359,18 +372,134 @@ export async function saveAssignments(input: {
     // Only sent when set so plain assignments keep working before the
     // shift_id migration is applied.
     ...(input.shiftId ? { shift_id: input.shiftId } : {}),
+    ...(input.dueDate ? { due_date: input.dueDate } : {}),
   }));
   const { error } = await supabase.from('task_list_assignments').insert(rows);
   if (error) throw error;
 }
 
+export type TaskListRecurrenceWithProfile = TaskListRecurrence & {
+  profiles: { first_name: string | null; last_name: string | null } | null;
+};
+
+export async function fetchTaskListRecurrences(
+  taskListId: string,
+): Promise<TaskListRecurrenceWithProfile[]> {
+  const { data, error } = await supabase
+    .from('task_list_recurrences')
+    .select(
+      '*, profiles!task_list_recurrences_assigned_to_fkey(first_name, last_name)',
+    )
+    .eq('task_list_id', taskListId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as TaskListRecurrenceWithProfile[];
+}
+
+export async function saveRecurrence(input: {
+  taskListId: string;
+  assignedTo: string;
+  /** 0 = Sunday .. 6 = Saturday. */
+  daysOfWeek: number[];
+  startDate?: string | null;
+  endDate?: string | null;
+  createdBy: string;
+}): Promise<string> {
+  const { data, error } = await supabase
+    .from('task_list_recurrences')
+    .insert({
+      task_list_id: input.taskListId,
+      assigned_to: input.assignedTo,
+      days_of_week: [...input.daysOfWeek].sort((a, b) => a - b),
+      start_date: input.startDate || toDateString(new Date()),
+      end_date: input.endDate || null,
+      created_by: input.createdBy,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+
+  // Fill the window immediately so the new schedule shows up without waiting
+  // for the next admin list load.
+  await materializeRecurringAssignments();
+  return data.id as string;
+}
+
+/** Stops future occurrences. Already-generated assignments are left alone so
+ * completed history and in-flight work survive. */
+export async function deleteRecurrence(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('task_list_recurrences')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/** How far ahead recurring assignments are generated. */
+export const RECURRENCE_WINDOW_DAYS = 14;
+
+/**
+ * Creates the assignment rows for every active recurrence over the next
+ * RECURRENCE_WINDOW_DAYS days. Idempotent: the unique index on
+ * (recurrence_id, assigned_to, due_date) turns repeat runs into no-ops.
+ * Returns the number of rows it attempted to write.
+ */
+export async function materializeRecurringAssignments(
+  windowDays = RECURRENCE_WINDOW_DAYS,
+): Promise<number> {
+  const { data: recurrences, error } = await supabase
+    .from('task_list_recurrences')
+    .select('id, task_list_id, assigned_to, days_of_week, start_date, end_date, created_by')
+    .eq('is_active', true);
+  // Best-effort: a missing table (migration not yet applied) must not break
+  // the task list screen it runs from.
+  if (error || !recurrences?.length) return 0;
+
+  const today = new Date();
+  const rows: Array<Record<string, unknown>> = [];
+  for (const r of recurrences as TaskListRecurrence[]) {
+    const days = r.days_of_week ?? [];
+    for (let i = 0; i < windowDays; i++) {
+      const day = addDays(today, i);
+      const dateStr = toDateString(day);
+      if (dateStr < r.start_date) continue;
+      if (r.end_date && dateStr > r.end_date) continue;
+      if (!days.includes(day.getDay())) continue;
+      rows.push({
+        task_list_id: r.task_list_id,
+        assigned_to: r.assigned_to,
+        assigned_by: r.created_by,
+        status: 'pending',
+        due_date: dateStr,
+        recurrence_id: r.id,
+      });
+    }
+  }
+  if (!rows.length) return 0;
+
+  const { error: insertError } = await supabase
+    .from('task_list_assignments')
+    .upsert(rows, {
+      onConflict: 'recurrence_id,assigned_to,due_date',
+      ignoreDuplicates: true,
+    });
+  if (insertError) return 0;
+  return rows.length;
+}
+
 export async function fetchMyTaskAssignments(userId: string) {
+  // Recurring lists are generated up to two weeks ahead; an employee should
+  // only see what is due today or overdue.
+  const today = toDateString(new Date());
   const { data, error } = await supabase
     .from('task_list_assignments')
     .select(
       '*, task_lists(id, title, description, is_sop, source_video_url), task_list_item_checks(id)',
     )
     .eq('assigned_to', userId)
+    .or(`due_date.is.null,due_date.lte.${today}`)
+    .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -477,10 +606,12 @@ export async function toggleTaskCheck(input: {
 }
 
 export async function fetchPendingTaskAssignments(userId: string) {
+  const today = toDateString(new Date());
   const { data, error } = await supabase
     .from('task_list_assignments')
     .select('*, task_lists(title, description)')
     .eq('assigned_to', userId)
+    .or(`due_date.is.null,due_date.lte.${today}`)
     .in('status', ['pending', 'in_progress']);
   if (error) throw error;
   return data;

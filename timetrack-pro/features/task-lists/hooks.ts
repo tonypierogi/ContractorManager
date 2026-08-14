@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
 import {
+  deleteRecurrence,
   deleteTaskList,
   duplicateTaskList,
   fetchAllTemplateItems,
@@ -9,9 +10,11 @@ import {
   fetchTaskChecklist,
   fetchTaskList,
   fetchTaskListAssignments,
+  fetchTaskListRecurrences,
   fetchTaskLists,
   importTaskVideo,
   saveAssignments,
+  saveRecurrence,
   saveTaskList,
   toggleTaskCheck,
   uploadTaskListMedia,
@@ -108,6 +111,36 @@ export function useSaveAssignments() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
       queryClient.invalidateQueries({ queryKey: qk.locations.all });
+    },
+  });
+}
+
+export function useTaskListRecurrences(taskListId: string) {
+  return useQuery({
+    queryKey: qk.taskLists.recurrences(taskListId),
+    queryFn: () => fetchTaskListRecurrences(taskListId),
+    enabled: !!taskListId,
+  });
+}
+
+export function useSaveRecurrence() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: saveRecurrence,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
+    },
+  });
+}
+
+export function useDeleteRecurrence() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteRecurrence,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.taskLists.all });
     },
   });
 }

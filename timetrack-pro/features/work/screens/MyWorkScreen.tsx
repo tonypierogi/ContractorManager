@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useMyTaskAssignments } from '@/features/task-lists/hooks';
+import { parseDateString, toDateString } from '@/features/schedule/lib';
 import DailySopSection from '@/features/sops/components/DailySopSection';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -12,6 +13,14 @@ function formatFullDate(date: Date): string {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+  });
+}
+
+/** 'Aug 13' — assignments older than today read as overdue. */
+function dueLabel(dateStr: string): string {
+  return parseDateString(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
   });
 }
 
@@ -28,6 +37,7 @@ const statusBadgeStyles: Record<string, { bg: string; color: string }> = {
 export default function MyWorkScreen() {
   const { user } = useAuth();
   const { data: assignments } = useMyTaskAssignments(user?.id ?? '');
+  const today = toDateString(new Date());
 
   const active =
     assignments?.filter(
@@ -71,12 +81,43 @@ export default function MyWorkScreen() {
                           {item.task_lists.description}
                         </Text>
                       ) : null}
-                      <View style={[s.badge, { backgroundColor: badge.bg }]}>
-                        <Text style={[s.badgeText, { color: badge.color }]}>
-                          {item.status === 'in_progress'
-                            ? 'In Progress'
-                            : item.status}
-                        </Text>
+                      <View style={s.badgeRow}>
+                        <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                          <Text style={[s.badgeText, { color: badge.color }]}>
+                            {item.status === 'in_progress'
+                              ? 'In Progress'
+                              : item.status}
+                          </Text>
+                        </View>
+                        {item.due_date ? (
+                          <View
+                            style={[
+                              s.badge,
+                              {
+                                backgroundColor:
+                                  item.due_date < today
+                                    ? 'rgba(244,63,94,0.15)'
+                                    : 'rgba(255,255,255,0.06)',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                s.badgeText,
+                                {
+                                  color:
+                                    item.due_date < today
+                                      ? Colors.danger
+                                      : Colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {item.due_date === today
+                                ? 'Due today'
+                                : `Due ${dueLabel(item.due_date)}`}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                     <Text style={s.chevron}>›</Text>
@@ -98,6 +139,7 @@ export default function MyWorkScreen() {
 }
 
 const s = StyleSheet.create({
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   safe: {
     flex: 1,
     backgroundColor: Colors.bgPrimary,
