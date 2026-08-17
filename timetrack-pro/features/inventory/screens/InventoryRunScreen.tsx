@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
@@ -32,6 +31,7 @@ import {
   zoneFloor,
 } from '@/features/locations/zones';
 import { formatDate } from '@/utils/format';
+import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import {
   useInventoryItems,
@@ -93,6 +93,8 @@ export default function InventoryRunScreen() {
   const [sheetItem, setSheetItem] = useState<InventoryItem | null>(null);
   const [sheetNote, setSheetNote] = useState('');
   const [sheetUploading, setSheetUploading] = useState(false);
+  // Camera-first run flow, but the sheet lets you switch to the library.
+  const [photoSource, setPhotoSource] = useState<PhotoSource>('camera');
   const [zoneMapVisible, setZoneMapVisible] = useState(false);
 
   useEffect(() => {
@@ -161,44 +163,36 @@ export default function InventoryRunScreen() {
     setSheetItem(null);
     setSheetNote('');
     setSheetUploading(false);
+    setPhotoSource('camera');
   }, []);
 
-  // Launch the camera and upload the shot; resolves null when the user
+  // Take (or upload) the proof photo and store it; resolves null when the user
   // cancels or the upload fails (the sheet stays open so they can retry).
-  const capturePhoto = useCallback(async (): Promise<string | null> => {
-    if (!user) return null;
-    let result: ImagePicker.ImagePickerResult;
-    if (Platform.OS === 'web') {
-      // No live camera flow on web — fall back to the file picker.
-      result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
+  const capturePhoto = useCallback(
+    async (source: PhotoSource): Promise<string | null> => {
+      if (!user) return null;
+      const asset = await pickPhotoAsset(source, {
+        onCameraDenied: () =>
+          showToast('Camera access denied — upload from your library instead', 'error'),
       });
-    } else {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        showToast('Camera permission is required to check items', 'error');
+      if (!asset) return null;
+      setSheetUploading(true);
+      try {
+        return await uploadPhoto.mutateAsync({
+          userId: user.id,
+          uri: asset.uri,
+          width: asset.width,
+          height: asset.height,
+        });
+      } catch {
+        // Error surfaced by the global mutation error toast.
         return null;
+      } finally {
+        setSheetUploading(false);
       }
-      result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    }
-    if (result.canceled || !result.assets?.length) return null;
-    setSheetUploading(true);
-    try {
-      const asset = result.assets[0];
-      return await uploadPhoto.mutateAsync({
-        userId: user.id,
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-      });
-    } catch {
-      // Error surfaced by the global mutation error toast.
-      return null;
-    } finally {
-      setSheetUploading(false);
-    }
-  }, [user, uploadPhoto, showToast]);
+    },
+    [user, uploadPhoto, showToast],
+  );
 
   const commit = useCallback(
     (item: InventoryItem, status: InventoryStatus, photoUrl: string, notes: string) => {
@@ -224,8 +218,9 @@ export default function InventoryRunScreen() {
     [draft, user, zones, closeSheet],
   );
 
-  // Status tap: fresh checks go to the camera for proof, then save;
-  // already-checked items just update their status in place.
+  // Status tap: fresh checks go to the camera (or the library, if that's the
+  // selected source) for proof, then save; already-checked items just update
+  // their status in place.
   const selectStatus = useCallback(
     async (status: InventoryStatus) => {
       if (!sheetItem || !draft) return;
@@ -234,21 +229,24 @@ export default function InventoryRunScreen() {
         commit(sheetItem, status, existing.photo_url, sheetNote);
         return;
       }
-      const url = await capturePhoto();
+      const url = await capturePhoto(photoSource);
       if (!url) return;
       commit(sheetItem, status, url, sheetNote);
     },
-    [sheetItem, draft, sheetNote, commit, capturePhoto],
+    [sheetItem, draft, sheetNote, commit, capturePhoto, photoSource],
   );
 
-  const retakePhoto = useCallback(async () => {
-    if (!sheetItem || !draft) return;
-    const existing = draft.checks[sheetItem.id];
-    if (!existing) return;
-    const url = await capturePhoto();
-    if (!url) return;
-    commit(sheetItem, existing.status, url, sheetNote);
-  }, [sheetItem, draft, sheetNote, capturePhoto, commit]);
+  const replacePhoto = useCallback(
+    async (source: PhotoSource) => {
+      if (!sheetItem || !draft) return;
+      const existing = draft.checks[sheetItem.id];
+      if (!existing) return;
+      const url = await capturePhoto(source);
+      if (!url) return;
+      commit(sheetItem, existing.status, url, sheetNote);
+    },
+    [sheetItem, draft, sheetNote, capturePhoto, commit],
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!user || !draft) return;
@@ -424,9 +422,11 @@ export default function InventoryRunScreen() {
         lastCheck={sheetItem ? lastChecks?.[sheetItem.id] : undefined}
         note={sheetNote}
         uploading={sheetUploading}
+        photoSource={photoSource}
+        onChangePhotoSource={setPhotoSource}
         onChangeNote={setSheetNote}
         onSelect={selectStatus}
-        onRetake={retakePhoto}
+        onReplacePhoto={replacePhoto}
         onClose={closeSheet}
       />
 
@@ -557,9 +557,11 @@ function StatusSheet({
   lastCheck,
   note,
   uploading,
+  photoSource,
+  onChangePhotoSource,
   onChangeNote,
   onSelect,
-  onRetake,
+  onReplacePhoto,
   onClose,
 }: {
   item: InventoryItem | null;
@@ -567,9 +569,11 @@ function StatusSheet({
   lastCheck: { status: InventoryStatus; checked_at: string } | undefined;
   note: string;
   uploading: boolean;
+  photoSource: PhotoSource;
+  onChangePhotoSource: (source: PhotoSource) => void;
   onChangeNote: (text: string) => void;
   onSelect: (status: InventoryStatus) => void;
-  onRetake: () => void;
+  onReplacePhoto: (source: PhotoSource) => void;
   onClose: () => void;
 }) {
   return (
@@ -621,13 +625,22 @@ function StatusSheet({
                 resizeMode="cover"
               />
               <Text style={s.capturedText}>Your photo from this run</Text>
-              <Button
-                title="Retake"
-                variant="secondary"
-                size="sm"
-                onPress={onRetake}
-                disabled={uploading}
-              />
+              <View style={s.capturedActions}>
+                <Button
+                  title="Retake"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => void onReplacePhoto('camera')}
+                  disabled={uploading}
+                />
+                <Button
+                  title="Upload"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => void onReplacePhoto('library')}
+                  disabled={uploading}
+                />
+              </View>
             </View>
           ) : null}
 
@@ -647,6 +660,32 @@ function StatusSheet({
             </View>
           ) : (
             <>
+              {!check ? (
+                <View style={s.sourceRow}>
+                  {(['camera', 'library'] as const).map((source) => {
+                    const active = photoSource === source;
+                    return (
+                      <TouchableOpacity
+                        key={source}
+                        style={[s.sourceBtn, active && s.sourceBtnActive]}
+                        onPress={() => onChangePhotoSource(source)}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Ionicons
+                          name={source === 'camera' ? 'camera' : 'image-outline'}
+                          size={16}
+                          color={active ? Colors.accent : Colors.textSecondary}
+                        />
+                        <Text style={[s.sourceText, active && s.sourceTextActive]}>
+                          {source === 'camera' ? 'Take photo' : 'Upload photo'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
               <View style={s.sheetStatusRow}>
                 {STATUSES.map((status) => {
                   const active = check?.status === status;
@@ -674,7 +713,9 @@ function StatusSheet({
               </View>
               {!check ? (
                 <Text style={s.sheetHint}>
-                  Pick a status — the camera opens to snap proof.
+                  {photoSource === 'camera'
+                    ? 'Pick a status — the camera opens to snap proof.'
+                    : 'Pick a status — your photo library opens for the proof shot.'}
                 </Text>
               ) : null}
             </>
@@ -935,6 +976,38 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
+  },
+  capturedActions: {
+    gap: Spacing.xs,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  sourceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    minHeight: 40,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgSecondary,
+  },
+  sourceBtnActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.bgElevated,
+  },
+  sourceText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  sourceTextActive: {
+    color: Colors.accent,
   },
   uploadingRow: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import {
   View,
+  Text,
   Image,
   TouchableOpacity,
   ActivityIndicator,
@@ -7,18 +8,27 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MediaItem } from '@/types/database';
-import { Colors, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 interface MediaRowProps {
   media: MediaItem[];
   uploading: boolean;
-  onAdd: () => void;
+  /** Take a new photo with the camera. */
+  onAddFromCamera: () => void;
+  /** Pick an existing photo from the device library. */
+  onAddFromLibrary: () => void;
   onRemove: (index: number) => void;
 }
 
-/** Thumbnail strip with remove buttons plus a dashed add tile — shared by the
- * task-list and SOP item editors. */
-export default function MediaRow({ media, uploading, onAdd, onRemove }: MediaRowProps) {
+/** Thumbnail strip with remove buttons plus dashed camera/library add tiles —
+ * shared by the task-list and SOP item editors. */
+export default function MediaRow({
+  media,
+  uploading,
+  onAddFromCamera,
+  onAddFromLibrary,
+  onRemove,
+}: MediaRowProps) {
   return (
     <View style={s.mediaRow}>
       {media.map((m, mi) => (
@@ -35,18 +45,30 @@ export default function MediaRow({ media, uploading, onAdd, onRemove }: MediaRow
           </TouchableOpacity>
         </View>
       ))}
-      <TouchableOpacity
-        style={s.mediaAdd}
-        onPress={onAdd}
-        disabled={uploading}
-        accessibilityLabel="Add image"
-      >
-        {uploading ? (
+      {uploading ? (
+        <View style={s.mediaAdd}>
           <ActivityIndicator size="small" color={Colors.accent} />
-        ) : (
-          <Ionicons name="add" size={22} color={Colors.accent} />
-        )}
-      </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={s.mediaAdd}
+            onPress={onAddFromCamera}
+            accessibilityLabel="Take photo"
+          >
+            <Ionicons name="camera" size={20} color={Colors.accent} />
+            <Text style={s.mediaAddLabel}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.mediaAdd}
+            onPress={onAddFromLibrary}
+            accessibilityLabel="Upload photo from library"
+          >
+            <Ionicons name="image-outline" size={20} color={Colors.accent} />
+            <Text style={s.mediaAddLabel}>Upload</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
@@ -91,5 +113,10 @@ const s = StyleSheet.create({
     borderColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
+  },
+  mediaAddLabel: {
+    fontSize: FontSize.xs,
+    color: Colors.accent,
   },
 });

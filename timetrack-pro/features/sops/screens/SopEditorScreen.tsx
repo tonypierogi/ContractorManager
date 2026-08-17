@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import MediaRow from '@/components/ui/MediaRow';
+import { useToast } from '@/components/ui/Toast';
 import {
   EquipmentBox,
   EquipmentPickerModal,
@@ -26,6 +26,7 @@ import {
   useSaveSopTemplate,
   useUploadSopMedia,
 } from '@/features/sops/hooks';
+import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import type { MediaItem, SopItemType } from '@/types/database';
 
@@ -44,6 +45,7 @@ const makeId = () => `draft-${++nextItemId}`;
 export default function SopEditorScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { data: existing } = useSopTemplate(id ?? '');
   const saveSop = useSaveSopTemplate();
   const uploadMedia = useUploadSopMedia();
@@ -96,14 +98,13 @@ export default function SopEditorScreen() {
 
   // Upload immediately on selection (legacy parity); removing an image only
   // clears it from the draft — uploaded files are never deleted.
-  const handleAddImage = async (itemId: string) => {
+  const handleAddImage = async (itemId: string, source: PhotoSource) => {
     if (!user) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
+    const asset = await pickPhotoAsset(source, {
+      onCameraDenied: () =>
+        showToast('Camera access denied — upload from your library instead', 'error'),
     });
-    if (picked.canceled || !picked.assets?.length) return;
-    const asset = picked.assets[0];
+    if (!asset) return;
     setUploadingItemId(itemId);
     try {
       const url = await uploadMedia.mutateAsync({
@@ -294,7 +295,8 @@ export default function SopEditorScreen() {
                 <MediaRow
                   media={item.media}
                   uploading={uploadingItemId === item.id}
-                  onAdd={() => handleAddImage(item.id)}
+                  onAddFromCamera={() => handleAddImage(item.id, 'camera')}
+                  onAddFromLibrary={() => handleAddImage(item.id, 'library')}
                   onRemove={(mi) => removeImage(item.id, mi)}
                 />
                 <Text style={styles.fieldLabel}>Equipment</Text>
