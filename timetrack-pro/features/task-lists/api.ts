@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, EDGE_FUNCTION_URL } from '@/lib/supabase';
 import {
   uploadImageToMediaBucket,
   uploadVideoToMediaBucket,
@@ -108,6 +108,8 @@ export async function importTaskVideo({
 
 export interface TaskChecklistItemWithCheck extends TaskListItem {
   checked: boolean;
+  /** True when the check came in through the public share page. */
+  checkedViaShare: boolean;
 }
 
 export interface SaveTaskListInput {
@@ -508,14 +510,14 @@ export async function fetchMyTaskAssignments(userId: string) {
 export async function fetchTaskChecklist(assignmentId: string) {
   const { data: assignment } = await supabase
     .from('task_list_assignments')
-    .select('*, task_lists(id, title, description, source_video_url)')
+    .select('*, task_lists(id, title, description, source_video_url, share_token)')
     .eq('id', assignmentId)
     .single();
   if (!assignment) throw new Error('Assignment not found');
 
   const taskListId = assignment.task_lists?.id ?? assignment.task_list_id;
 
-  const [itemsResult, checksResult] = await Promise.all([
+  const [itemsResult, checksResult, anonChecksResult] = await Promise.all([
     supabase
       .from('task_list_items')
       .select('*')
@@ -525,6 +527,13 @@ export async function fetchTaskChecklist(assignmentId: string) {
       .from('task_list_item_checks')
       .select('*')
       .eq('assignment_id', assignmentId),
+    // Checks made through the public share page count too — the crew working
+    // off the shared link and the assignee are ticking the same list.
+    // Best-effort: readable only once the share-page migration is applied.
+    supabase
+      .from('task_list_anonymous_checks')
+      .select('task_list_item_id')
+      .eq('task_list_id', taskListId),
   ]);
   if (itemsResult.error) throw itemsResult.error;
   if (checksResult.error) throw checksResult.error;
@@ -533,11 +542,15 @@ export async function fetchTaskChecklist(assignmentId: string) {
   (checksResult.data ?? []).forEach((c: any) => {
     checkMap[c.task_list_item_id] = true;
   });
+  const anonChecked = new Set(
+    (anonChecksResult.data ?? []).map((c: any) => c.task_list_item_id),
+  );
 
   const items: TaskChecklistItemWithCheck[] = (itemsResult.data ?? []).map(
     (item: any) => ({
       ...item,
-      checked: !!checkMap[item.id],
+      checked: !!checkMap[item.id] || anonChecked.has(item.id),
+      checkedViaShare: !checkMap[item.id] && anonChecked.has(item.id),
     }),
   );
 
@@ -545,7 +558,7 @@ export async function fetchTaskChecklist(assignmentId: string) {
     assignment,
     taskList: assignment.task_lists,
     items,
-    checkedCount: Object.keys(checkMap).length,
+    checkedCount: items.filter((i) => i.checked).length,
     totalCount: items.length,
   };
 }
@@ -561,6 +574,8 @@ export async function toggleTaskCheck(input: {
   checkedBy: string;
   checkedCountAfter?: number;
   totalCount?: number;
+  /** When the list is shared, mirror the check onto the share page's state. */
+  shareToken?: string | null;
 }): Promise<void> {
   const { error } = await supabase.from('task_list_item_checks').insert({
     assignment_id: input.assignmentId,
@@ -568,6 +583,19 @@ export async function toggleTaskCheck(input: {
     checked_by: input.checkedBy,
   });
   if (error) throw error;
+
+  if (input.shareToken) {
+    // Best-effort: viewers of the share link see this check land in real time.
+    // The in-app check above already succeeded, so don't fail the tap if the
+    // share migration isn't applied yet.
+    await supabase
+      .rpc('set_shared_task_check', {
+        p_token: input.shareToken,
+        p_item_id: input.taskListItemId,
+        p_checked: true,
+      })
+      .then(() => undefined, () => undefined);
+  }
 
   let checkedCount = input.checkedCountAfter;
   let totalCount = input.totalCount;
@@ -603,6 +631,26 @@ export async function toggleTaskCheck(input: {
       .update({ status: 'in_progress' })
       .eq('id', input.assignmentId);
   }
+}
+
+/**
+ * Mint (or fetch the existing) share token for a list. Goes through a
+ * SECURITY DEFINER function because task_lists updates are admin-only under
+ * RLS, but anyone signed in should be able to share a list they can see.
+ */
+export async function ensureShareToken(taskListId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('ensure_task_list_share_token', {
+    p_task_list_id: taskListId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No share token returned');
+  return data as string;
+}
+
+/** Public web page for a shared list, served by the share-task-list edge
+ * function (deployed with --no-verify-jwt so a plain browser can open it). */
+export function shareUrlForToken(token: string): string {
+  return `${EDGE_FUNCTION_URL}/share-task-list?t=${token}`;
 }
 
 export async function fetchPendingTaskAssignments(userId: string) {

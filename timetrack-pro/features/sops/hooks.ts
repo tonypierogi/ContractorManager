@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
+import { supabase } from '@/lib/supabase';
 import {
   addAdHocTask,
   addSopComment,
@@ -95,6 +97,50 @@ export function useCreateDailySop() {
       queryClient.invalidateQueries({ queryKey: qk.sops.checklists });
     },
   });
+}
+
+/**
+ * Live-refresh today's SOP checklist: checks (and unchecks) from teammates'
+ * devices land without a manual refresh. No-op until the tables are added to
+ * the realtime publication (share-page migration) — subscribing to a table
+ * outside the publication just never fires.
+ */
+export function useSopChecksRealtime(dailySopId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!dailySopId) return;
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: qk.sops.checklist(dailySopId) });
+      queryClient.invalidateQueries({ queryKey: qk.sops.daily });
+    };
+    const channel = supabase
+      .channel(`sop-checks-${dailySopId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sop_item_checks',
+          filter: `daily_sop_id=eq.${dailySopId}`,
+        },
+        invalidate,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ad_hoc_tasks',
+          filter: `daily_sop_id=eq.${dailySopId}`,
+        },
+        invalidate,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dailySopId, queryClient]);
 }
 
 export function useSopChecklist(dailySopId: string, sopTemplateId?: string) {

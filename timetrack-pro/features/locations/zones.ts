@@ -107,6 +107,16 @@ export function getLocationLabel(zoneId: string | null | undefined): string {
   return ALL_ZONES.find((z) => z.id === zoneId)?.label ?? zoneId;
 }
 
+/** "Big Room → Loft", a single zone's label, or null when neither is set. */
+export function formatZoneSpan(
+  from?: string | null,
+  to?: string | null,
+): string | null {
+  if (from && to) return `${getLocationLabel(from)} → ${getLocationLabel(to)}`;
+  if (from || to) return getLocationLabel(from ?? to);
+  return null;
+}
+
 export function floorPrefix(floor: Floor): 'up' | 'down' {
   return floor === 'upstairs' ? 'up' : 'down';
 }

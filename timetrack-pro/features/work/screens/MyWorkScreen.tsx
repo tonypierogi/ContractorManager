@@ -3,8 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useMyTaskAssignments } from '@/features/task-lists/hooks';
+import { useSopChecklist, useTodayDailySop } from '@/features/sops/hooks';
 import { parseDateString, toDateString } from '@/features/schedule/lib';
-import DailySopSection from '@/features/sops/components/DailySopSection';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 function formatFullDate(date: Date): string {
@@ -31,13 +31,29 @@ const statusBadgeStyles: Record<string, { bg: string; color: string }> = {
 
 /**
  * Unified contractor work page: anything assigned specifically to this user
- * sits above today's shared SOP checklist. Replaces the separate SOPs and
- * Tasks destinations, which drew a distinction contractors don't care about.
+ * sits above a summary card for today's shared SOP checklist. Every checklist
+ * opens on its own dedicated page — nothing renders inline here anymore.
  */
 export default function MyWorkScreen() {
   const { user } = useAuth();
   const { data: assignments } = useMyTaskAssignments(user?.id ?? '');
   const today = toDateString(new Date());
+
+  // Summary numbers for the SOP card; the dedicated page owns the details.
+  const { data: todaySop } = useTodayDailySop();
+  const { data: sopChecklist } = useSopChecklist(
+    todaySop?.id ?? '',
+    todaySop?.sop_template_id,
+  );
+  const sopCheckable =
+    sopChecklist?.templateItems.filter((i) => i.item_type !== 'section') ?? [];
+  const sopChecked = sopCheckable.filter((i) => i.checked).length;
+  const sopComplete = !!todaySop?.completed_at;
+  const sopSubtitle = sopComplete
+    ? 'Complete ✓'
+    : todaySop
+      ? `${sopChecked} of ${sopCheckable.length} tasks complete`
+      : "Start today's checklist";
 
   const active =
     assignments?.filter(
@@ -132,7 +148,35 @@ export default function MyWorkScreen() {
           <View style={s.accentDot} />
           <Text style={s.sectionTitle}>Today's SOP</Text>
         </View>
-        <DailySopSection />
+        <TouchableOpacity
+          style={s.card}
+          onPress={() => router.push('/(employee)/sop-checklist' as any)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Open today's SOP checklist"
+        >
+          <View style={s.cardLeft}>
+            <Text style={s.cardTitle}>
+              {todaySop?.sop_templates?.name ?? "Today's SOP"}
+            </Text>
+            <Text style={s.cardDesc}>{sopSubtitle}</Text>
+            {todaySop && !sopComplete && sopCheckable.length > 0 ? (
+              <View style={s.sopProgressTrack}>
+                <View
+                  style={[
+                    s.sopProgressFill,
+                    {
+                      width: `${Math.round(
+                        (sopChecked / sopCheckable.length) * 100,
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+            ) : null}
+          </View>
+          <Text style={s.chevron}>›</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,5 +272,17 @@ const s = StyleSheet.create({
   chevron: {
     fontSize: FontSize.xl,
     color: Colors.textMuted,
+  },
+  sopProgressTrack: {
+    height: 4,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.sm,
+    overflow: 'hidden',
+  },
+  sopProgressFill: {
+    height: 4,
+    backgroundColor: Colors.accent,
+    borderRadius: BorderRadius.full,
   },
 });

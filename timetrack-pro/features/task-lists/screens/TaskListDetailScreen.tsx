@@ -29,6 +29,7 @@ import {
   useDeleteRecurrence,
 } from '@/features/task-lists/hooks';
 import { RECURRENCE_WINDOW_DAYS } from '@/features/task-lists/api';
+import ShareListButton from '@/features/task-lists/components/ShareListButton';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
 import { getLocationLabel } from '@/features/locations/zones';
@@ -250,17 +251,20 @@ export default function TaskListDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() =>
-            router.push(`/(admin)/task-lists/editor?id=${taskListId}` as any)
-          }
-          style={styles.editBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Edit task list"
-        >
-          <Ionicons name="pencil-outline" size={16} color={Colors.accent} />
-          <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
+        <View style={styles.topBarActions}>
+          <ShareListButton taskListId={taskListId} />
+          <TouchableOpacity
+            onPress={() =>
+              router.push(`/(admin)/task-lists/editor?id=${taskListId}` as any)
+            }
+            style={styles.editBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Edit task list"
+          >
+            <Ionicons name="pencil-outline" size={16} color={Colors.accent} />
+            <Text style={styles.editText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -623,6 +627,7 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.sm,
   },
   backText: { fontSize: FontSize.md, color: Colors.text },
+  topBarActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
