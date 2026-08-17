@@ -6,8 +6,10 @@ import {
   type UploadVideoInput,
 } from '@/lib/uploads';
 import { addDays, toDateString } from '@/features/schedule/lib';
+import { parseEquipmentRefs } from '@/features/equipment/refs';
 import type {
   MediaItem,
+  TaskEquipmentRef,
   TaskList,
   TaskListItem,
   TaskListRecurrence,
@@ -126,7 +128,7 @@ export interface SaveTaskListInput {
     item_type?: string | null;
     location_from?: string | null;
     location_to?: string | null;
-    equipment?: string[];
+    equipment?: TaskEquipmentRef[];
     video_timestamp?: number | null;
   }>;
 }
@@ -161,7 +163,7 @@ export interface TemplateItemRef {
   media: MediaItem[];
   location_from: string | null;
   location_to: string | null;
-  equipment: string[];
+  equipment: TaskEquipmentRef[];
 }
 
 export async function fetchAllTemplateItems(): Promise<TemplateItemRef[]> {
@@ -191,7 +193,7 @@ export async function fetchAllTemplateItems(): Promise<TemplateItemRef[]> {
     media: it.media ?? [],
     location_from: it.location_from,
     location_to: it.location_to,
-    equipment: it.equipment ?? [],
+    equipment: parseEquipmentRefs(it.equipment),
   }));
   const fromSops: TemplateItemRef[] = (sopItems.data ?? [])
     .filter((it: any) => it.item_type !== 'section')
@@ -206,7 +208,7 @@ export async function fetchAllTemplateItems(): Promise<TemplateItemRef[]> {
       media: it.media ?? [],
       location_from: null,
       location_to: null,
-      equipment: it.equipment ?? [],
+      equipment: parseEquipmentRefs(it.equipment),
     }));
   return [...fromLists, ...fromSops];
 }
@@ -323,7 +325,7 @@ export async function duplicateTaskList(input: {
       item_type: it.item_type ?? 'task',
       location_from: it.location_from ?? null,
       location_to: it.location_to ?? null,
-      equipment: it.equipment ?? [],
+      equipment: parseEquipmentRefs(it.equipment),
       video_timestamp: it.video_timestamp ?? null,
     }));
     const { error: itemsError } = await supabase

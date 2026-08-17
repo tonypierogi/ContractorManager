@@ -31,6 +31,10 @@ import {
 import { RECURRENCE_WINDOW_DAYS } from '@/features/task-lists/api';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
+import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
+import TaskEquipmentDetailModal, {
+  type TaskEquipmentDetailItem,
+} from '@/features/task-lists/components/TaskEquipmentDetailModal';
 import { getLocationLabel } from '@/features/locations/zones';
 import { qk } from '@/lib/query-keys';
 import {
@@ -136,6 +140,7 @@ export default function TaskListDetailScreen() {
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [fullImageUri, setFullImageUri] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
 
   const { data: upcomingShifts, isLoading: shiftsLoading } = useUpcomingShifts(
     pendingMember?.id ?? null,
@@ -402,7 +407,13 @@ export default function TaskListDetailScreen() {
                       />
                     </TouchableOpacity>
                   ) : null}
-                  <View style={styles.itemBody}>
+                  <TouchableOpacity
+                    style={styles.itemBody}
+                    onPress={() => setDetailItem(item)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.title} details`}
+                  >
                     <Text style={styles.itemTitle}>{item.title}</Text>
                     {item.description ? (
                       <Text style={styles.itemDesc}>{item.description}</Text>
@@ -423,17 +434,26 @@ export default function TaskListDetailScreen() {
                         </Text>
                       </View>
                     )}
-                    {Array.isArray(item.equipment) && item.equipment.length > 0 && (
-                      <View style={styles.tagRow}>
-                        {item.equipment.map((eqId: string) => (
-                          <View key={eqId} style={styles.tag}>
-                            <Text style={styles.tagText}>
-                              {equipmentNames.get(eqId) ?? 'Equipment'}
+                    {parseEquipmentRefs(item.equipment).map((ref) => {
+                      const { from, to } = resolvePlacement(ref, item);
+                      return (
+                        <View key={ref.id} style={styles.equipmentRow}>
+                          <Ionicons
+                            name="cube-outline"
+                            size={13}
+                            color={Colors.textSecondary}
+                          />
+                          <Text style={styles.equipmentText} numberOfLines={2}>
+                            <Text style={styles.equipmentName}>
+                              {equipmentNames.get(ref.id) ?? 'Equipment'}
                             </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+                            {from || to
+                              ? `  ${getLocationLabel(from) || '?'} → ${getLocationLabel(to) || '?'}`
+                              : ''}
+                          </Text>
+                        </View>
+                      );
+                    })}
                     {item.media && item.media.length > 1 && (
                       <View style={styles.mediaRow}>
                         {item.media.slice(1).map(
@@ -453,7 +473,7 @@ export default function TaskListDetailScreen() {
                         )}
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 </View>
               ),
             )}
@@ -601,6 +621,12 @@ export default function TaskListDetailScreen() {
             ) : null}
           </TouchableOpacity>
         </RNModal>
+
+        <TaskEquipmentDetailModal
+          item={detailItem}
+          equipment={equipment}
+          onClose={() => setDetailItem(null)}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -687,14 +713,9 @@ const styles = StyleSheet.create({
   itemDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   zoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.xs },
   zoneText: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs },
-  tag: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  tagText: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  equipmentRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.xs },
+  equipmentText: { flex: 1, fontSize: FontSize.xs, color: Colors.textSecondary },
+  equipmentName: { fontWeight: '600', color: Colors.text },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.sm },
   extraThumb: {
     width: 48,
