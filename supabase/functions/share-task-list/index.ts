@@ -1,15 +1,18 @@
-// Public share page for a task list / SOP.
+// Public share page for a task list or a day's SOP checklist.
 //
 // The app generates links of the form:
-//   {SUPABASE_URL}/functions/v1/share-task-list?t={share_token}
+//   {SUPABASE_URL}/functions/v1/share-task-list?t={share_token}       (task list)
+//   {SUPABASE_URL}/functions/v1/share-task-list?t={token}&k=sop      (daily SOP)
 // Anyone with the link can view the list and check items off — no account
-// needed. State lives in task_list_anonymous_checks (one row per checked item,
-// shared by every viewer) and syncs live over Supabase Realtime, so a crew can
-// split up a list and watch each other's progress.
+// needed. State lives in task_list_anonymous_checks / sop_anonymous_checks (one
+// row per checked item, shared by every viewer) and syncs live over Supabase
+// Realtime, so a crew can split up a list and watch each other's progress.
 //
 // All data access goes through the token-gated SECURITY DEFINER functions from
-// migration 20260817120000_task_list_share_page.sql (get_shared_task_list /
-// set_shared_task_check) — the anon key alone can't enumerate lists.
+// migrations 20260817130000_task_list_share_page.sql and
+// 20260818090000_daily_sop_share_page.sql — the anon key alone can't enumerate
+// lists. Both kinds return the same JSON shape, so the page below differs only
+// in which RPCs and which realtime table it talks to.
 //
 // IMPORTANT — deploy with JWT verification off, since browsers hit this URL
 // with no Authorization header:
@@ -160,7 +163,26 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = ${JSON.stringify(supabaseUrl)};
 const ANON_KEY = ${JSON.stringify(anonKey)};
-const TOKEN = new URLSearchParams(location.search).get('t') || '';
+const PARAMS = new URLSearchParams(location.search);
+const TOKEN = PARAMS.get('t') || '';
+// 'sop' links point at one day's SOP run; anything else is a task list.
+// Older links carry no k= at all, so task list stays the default.
+const KIND = PARAMS.get('k') === 'sop' ? 'sop' : 'list';
+const API = KIND === 'sop'
+  ? {
+      read: 'get_shared_daily_sop',
+      write: 'set_shared_sop_check',
+      table: 'sop_anonymous_checks',
+      idColumn: 'sop_item_id',
+      filterColumn: 'daily_sop_id',
+    }
+  : {
+      read: 'get_shared_task_list',
+      write: 'set_shared_task_check',
+      table: 'task_list_anonymous_checks',
+      idColumn: 'task_list_item_id',
+      filterColumn: 'task_list_id',
+    };
 
 // Mirrors features/locations/zones.ts — zone ids are stored verbatim in the DB.
 const ZONES = {
@@ -231,7 +253,7 @@ async function toggle(item) {
   // Optimistic — realtime (or the error path) reconciles.
   if (next) checked.add(item.id); else checked.delete(item.id);
   render();
-  const { error } = await supabase.rpc('set_shared_task_check', {
+  const { error } = await supabase.rpc(API.write, {
     p_token: TOKEN, p_item_id: item.id, p_checked: next,
   });
   if (error) {
@@ -368,7 +390,7 @@ function renderError(title, message) {
 }
 
 async function refresh() {
-  const { data, error } = await supabase.rpc('get_shared_task_list', { p_token: TOKEN });
+  const { data, error } = await supabase.rpc(API.read, { p_token: TOKEN });
   if (error) {
     // A transient failure must not replace a working checklist; realtime and
     // the next visibility refresh will catch us up.
@@ -393,17 +415,17 @@ let channel = null;
 function subscribe() {
   if (channel || !list) return;
   channel = supabase
-    .channel('shared-list-' + list.id)
+    .channel('shared-' + KIND + '-' + list.id)
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
-      table: 'task_list_anonymous_checks',
-      filter: 'task_list_id=eq.' + list.id,
+      table: API.table,
+      filter: API.filterColumn + '=eq.' + list.id,
     }, (payload) => {
       if (payload.eventType === 'INSERT' && payload.new) {
-        checked.add(payload.new.task_list_item_id);
+        checked.add(payload.new[API.idColumn]);
       } else if (payload.eventType === 'DELETE' && payload.old) {
-        checked.delete(payload.old.task_list_item_id);
+        checked.delete(payload.old[API.idColumn]);
       }
       render();
     })

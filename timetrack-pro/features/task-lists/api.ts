@@ -650,9 +650,15 @@ export async function ensureShareToken(taskListId: string): Promise<string> {
 }
 
 /** Public web page for a shared list, served by the share-task-list edge
- * function (deployed with --no-verify-jwt so a plain browser can open it). */
-export function shareUrlForToken(token: string): string {
-  return `${EDGE_FUNCTION_URL}/share-task-list?t=${token}`;
+ * function (deployed with --no-verify-jwt so a plain browser can open it).
+ * `kind` tells the page which token it holds; task-list links predate the
+ * parameter, so they stay bare. */
+export function shareUrlForToken(
+  token: string,
+  kind: 'list' | 'sop' = 'list',
+): string {
+  const base = `${EDGE_FUNCTION_URL}/share-task-list?t=${token}`;
+  return kind === 'sop' ? `${base}&k=sop` : base;
 }
 
 export async function fetchPendingTaskAssignments(userId: string) {

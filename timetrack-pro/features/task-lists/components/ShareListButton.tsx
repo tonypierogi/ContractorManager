@@ -9,29 +9,41 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useEnsureShareToken } from '@/features/task-lists/hooks';
+import { useEnsureDailySopShareToken } from '@/features/sops/hooks';
 import { shareUrlForToken } from '@/features/task-lists/api';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
 /**
- * Top-bar "Share" action for a task list / SOP. Mints the list's share token
- * (first tap only — after that the same link is reused) and hands the public
- * web-page URL to the native share sheet, so someone without the app can open
- * the checklist in a browser and check items off with the crew in real time.
+ * Top-bar "Share" action for a task list or a day's SOP checklist. Mints the
+ * share token (first tap only — after that the same link is reused) and hands
+ * the public web-page URL to the native share sheet, so a helper without an
+ * account can open the checklist in a browser and tick items off with the crew
+ * in real time.
+ *
+ * Pass exactly one of `taskListId` / `dailySopId` — they mint different tokens
+ * and resolve to different share pages.
  */
 export default function ShareListButton({
   taskListId,
+  dailySopId,
 }: {
-  taskListId: string | undefined;
+  taskListId?: string | undefined;
+  dailySopId?: string | undefined;
 }) {
   const { showToast } = useToast();
-  const ensureToken = useEnsureShareToken();
+  const ensureListToken = useEnsureShareToken();
+  const ensureSopToken = useEnsureDailySopShareToken();
+
+  const isSop = !dailySopId ? false : !taskListId;
+  const targetId = isSop ? dailySopId : taskListId;
+  const ensureToken = isSop ? ensureSopToken : ensureListToken;
 
   const handleShare = async () => {
-    if (!taskListId || ensureToken.isPending) return;
+    if (!targetId || ensureToken.isPending) return;
     try {
-      const token = await ensureToken.mutateAsync(taskListId);
-      const url = shareUrlForToken(token);
+      const token = await ensureToken.mutateAsync(targetId);
+      const url = shareUrlForToken(token, isSop ? 'sop' : 'list');
       if (Platform.OS === 'web') {
         // No native share sheet on web — copy instead.
         await Clipboard.setStringAsync(url);
@@ -50,7 +62,7 @@ export default function ShareListButton({
   return (
     <TouchableOpacity
       onPress={handleShare}
-      disabled={!taskListId || ensureToken.isPending}
+      disabled={!targetId || ensureToken.isPending}
       style={s.btn}
       accessibilityRole="button"
       accessibilityLabel="Share this checklist"
