@@ -97,13 +97,25 @@ BEGIN
             FROM public.task_list_anonymous_checks c
             WHERE c.task_list_id = v_list.id
         ), '[]'::jsonb),
+        -- The equipment column stores two shapes (see
+        -- 20260817120000_task_item_equipment_placement.sql): legacy bare id
+        -- strings and {"id","from","to"} objects. Match either.
         'equipment', COALESCE((
             SELECT jsonb_agg(DISTINCT jsonb_build_object('id', e.id, 'name', e.name))
             FROM public.equipment e
             WHERE EXISTS (
-                SELECT 1 FROM public.task_list_items i
+                SELECT 1
+                FROM public.task_list_items i
+                CROSS JOIN LATERAL jsonb_array_elements(
+                    CASE WHEN jsonb_typeof(i.equipment) = 'array'
+                         THEN i.equipment ELSE '[]'::jsonb END
+                ) AS elem(value)
                 WHERE i.task_list_id = v_list.id
-                  AND i.equipment ? e.id::text
+                  AND CASE jsonb_typeof(elem.value)
+                        WHEN 'string' THEN elem.value #>> '{}'
+                        WHEN 'object' THEN elem.value ->> 'id'
+                        ELSE NULL
+                      END = e.id::text
             )
         ), '[]'::jsonb)
     );

@@ -119,11 +119,10 @@ function pageHtml(supabaseUrl: string, anonKey: string): string {
     display: flex; align-items: center; gap: 6px; margin-top: 8px;
     font-size: 12px; color: var(--text-secondary);
   }
-  .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  .tag {
-    background: var(--elevated); border-radius: 999px;
-    padding: 2px 8px; font-size: 12px; color: var(--text-secondary);
-  }
+  .eq-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .eq-row { font-size: 12px; color: var(--text-secondary); }
+  .eq-name { color: var(--text); font-weight: 600; margin-right: 6px; }
+  .eq-move { color: var(--text-secondary); }
   .extra-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .extra-thumbs .thumb { width: 64px; height: 64px; }
   .done-banner {
@@ -196,6 +195,30 @@ function imagesOf(item) {
     .map((m) => m.url);
 }
 
+// Mirrors features/equipment/refs.ts — the equipment column stores bare id
+// strings (legacy) or {id, from, to} objects with per-equipment zones.
+function equipmentRefs(item) {
+  const raw = Array.isArray(item.equipment) ? item.equipment : [];
+  const refs = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      if (entry) refs.push({ id: entry, from: null, to: null });
+    } else if (entry && typeof entry === 'object' && typeof entry.id === 'string' && entry.id) {
+      refs.push({ id: entry.id, from: entry.from || null, to: entry.to || null });
+    }
+  }
+  return refs;
+}
+
+// Equipment-level zones win; unset ones inherit the task's own from/to.
+function placementLabel(ref, item) {
+  const from = ref.from || item.location_from || null;
+  const to = ref.to || item.location_to || null;
+  if (from && to) return zoneLabel(from) + ' \\u2192 ' + zoneLabel(to);
+  if (from || to) return zoneLabel(from || to);
+  return null;
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -221,15 +244,13 @@ function renderItem(item) {
   const isChecked = checked.has(item.id);
   const isOpen = expanded.has(item.id);
   const images = imagesOf(item);
-  const eqNames = (Array.isArray(item.equipment) ? item.equipment : [])
-    .map((id) => equipmentNames.get(id) || null)
-    .filter(Boolean);
+  const eqRefs = equipmentRefs(item);
   const location = item.location_from && item.location_to
     ? zoneLabel(item.location_from) + ' \\u2192 ' + zoneLabel(item.location_to)
     : (item.location_from || item.location_to)
       ? zoneLabel(item.location_from || item.location_to)
       : null;
-  const hasDetails = !!item.description || !!location || eqNames.length > 0 || images.length > 1;
+  const hasDetails = !!item.description || !!location || eqRefs.length > 0 || images.length > 1;
 
   const card = el('div', 'card' + (isChecked ? ' checked' : '') + (isOpen ? ' open' : ''));
   const main = el('div', 'main-row');
@@ -252,7 +273,7 @@ function renderItem(item) {
     const parts = [];
     if (location) parts.push(location);
     if (images.length > 1) parts.push(images.length + ' photos');
-    if (eqNames.length) parts.push(eqNames.length + ' equipment');
+    if (eqRefs.length) parts.push(eqRefs.length + ' equipment');
     hint.appendChild(el('span', null, isOpen ? 'Hide details' : (parts.join(' \\u00B7 ') || 'Details')));
     body.appendChild(hint);
     body.addEventListener('click', () => {
@@ -279,10 +300,16 @@ function renderItem(item) {
       row.appendChild(el('span', null, '\\uD83D\\uDCCD ' + location));
       details.appendChild(row);
     }
-    if (eqNames.length) {
-      const tags = el('div', 'tags');
-      eqNames.forEach((name) => tags.appendChild(el('span', 'tag', name)));
-      details.appendChild(tags);
+    if (eqRefs.length) {
+      const eqWrap = el('div', 'eq-list');
+      eqRefs.forEach((ref) => {
+        const row = el('div', 'eq-row');
+        row.appendChild(el('span', 'eq-name', equipmentNames.get(ref.id) || 'Equipment'));
+        const move = placementLabel(ref, item);
+        if (move) row.appendChild(el('span', 'eq-move', move));
+        eqWrap.appendChild(row);
+      });
+      details.appendChild(eqWrap);
     }
     if (images.length > 1) {
       const extra = el('div', 'extra-thumbs');

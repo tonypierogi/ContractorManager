@@ -151,6 +151,25 @@ export interface Equipment {
   updated_at: string;
 }
 
+/**
+ * One piece of equipment tagged on a task, with where to pick it up and where
+ * to put it down. `from`/`to` are zone ids (see features/locations/zones.ts);
+ * null means "inherit the task's own location_from / location_to".
+ */
+export interface TaskEquipmentRef {
+  id: string;
+  from: string | null;
+  to: string | null;
+}
+
+/**
+ * How a task's equipment tags come back from the database. Rows written before
+ * per-equipment zones existed are bare equipment-id strings; newer rows are
+ * TaskEquipmentRef objects. Never index into this directly — run it through
+ * `parseEquipmentRefs()` (features/equipment/refs.ts), which handles both.
+ */
+export type StoredEquipmentRef = string | TaskEquipmentRef;
+
 export interface TaskList {
   id: string;
   title: string;
@@ -175,7 +194,7 @@ export interface TaskListItem {
   media: MediaItem[];
   location_from: string | null;
   location_to: string | null;
-  equipment: string[];
+  equipment: StoredEquipmentRef[];
   video_timestamp: number | null;
   created_at: string;
 }

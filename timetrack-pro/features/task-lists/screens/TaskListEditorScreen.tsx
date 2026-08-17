@@ -19,6 +19,12 @@ import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
 import { EquipmentPickerModal } from '@/features/equipment/components/EquipmentTagging';
 import {
+  equipmentIds,
+  parseEquipmentRefs,
+  setEquipmentPlacement,
+  toggleEquipmentRef,
+} from '@/features/equipment/refs';
+import {
   useImportTaskVideo,
   useSaveTaskList,
   useTaskList,
@@ -86,7 +92,7 @@ export default function TaskListEditorScreen() {
         media: it.media ?? [],
         location_from: it.location_from ?? null,
         location_to: it.location_to ?? null,
-        equipment: it.equipment ?? [],
+        equipment: parseEquipmentRefs(it.equipment),
         video_timestamp: it.video_timestamp ?? null,
       })),
     );
@@ -110,7 +116,7 @@ export default function TaskListEditorScreen() {
         media: [...tpl.media],
         location_from: tpl.location_from,
         location_to: tpl.location_to,
-        equipment: [...tpl.equipment],
+        equipment: tpl.equipment.map((ref) => ({ ...ref })),
       },
     ]);
     setExistingPickerOpen(false);
@@ -227,11 +233,24 @@ export default function TaskListEditorScreen() {
     setItems((prev) =>
       prev.map((i) =>
         i.id === itemId
+          ? { ...i, equipment: toggleEquipmentRef(i.equipment, equipmentId) }
+          : i,
+      ),
+    );
+  };
+
+  const setPlacement = (
+    itemId: string,
+    equipmentId: string,
+    field: 'from' | 'to',
+    zoneId: string | null,
+  ) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
           ? {
               ...i,
-              equipment: i.equipment.includes(equipmentId)
-                ? i.equipment.filter((e) => e !== equipmentId)
-                : [...i.equipment, equipmentId],
+              equipment: setEquipmentPlacement(i.equipment, equipmentId, field, zoneId),
             }
           : i,
       ),
@@ -369,6 +388,9 @@ export default function TaskListEditorScreen() {
             uploading={uploadingItemId === item.id}
             onUpdateField={(field, value) => updateItem(item.id, field, value)}
             onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
+            onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
+              setPlacement(item.id, equipmentId, field, zoneId)
+            }
             onAddImage={() => handleAddImage(item.id)}
             onRemoveImage={(mi) => removeImage(item.id, mi)}
             onEditEquipment={() => setEquipmentPickerFor(item.id)}
@@ -402,7 +424,7 @@ export default function TaskListEditorScreen() {
       <EquipmentPickerModal
         visible={equipmentPickerFor != null}
         equipment={equipment}
-        selectedIds={equipmentPickerItem?.equipment ?? []}
+        selectedIds={equipmentIds(equipmentPickerItem?.equipment ?? [])}
         onToggle={(equipmentId) =>
           equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
         }

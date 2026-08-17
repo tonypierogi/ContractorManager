@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,10 @@ import {
 import ShareListButton from '@/features/task-lists/components/ShareListButton';
 import ChecklistItemRow from '@/components/ui/ChecklistItemRow';
 import { useEquipment } from '@/features/equipment/hooks';
+import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
+import TaskEquipmentDetailModal, {
+  type TaskEquipmentDetailItem,
+} from '@/features/task-lists/components/TaskEquipmentDetailModal';
 import { formatZoneSpan } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -45,6 +49,7 @@ export default function TaskChecklistScreen() {
   const { data, isLoading } = useTaskChecklistItems(assignmentId);
   const toggleCheck = useToggleTaskCheck();
   const { data: equipment } = useEquipment();
+  const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
 
   const taskListId = data?.taskList?.id as string | undefined;
   const shareToken = (data?.taskList as any)?.share_token ?? null;
@@ -132,12 +137,14 @@ export default function TaskChecklistScreen() {
                       item.location_from,
                       item.location_to,
                     )}
-                    equipmentNames={(Array.isArray(item.equipment)
-                      ? item.equipment
-                      : []
-                    ).map(
-                      (eqId: string) => equipmentNames.get(eqId) ?? 'Equipment',
-                    )}
+                    equipment={parseEquipmentRefs(item.equipment).map((ref) => {
+                      const { from, to } = resolvePlacement(ref, item);
+                      return {
+                        name: equipmentNames.get(ref.id) ?? 'Equipment',
+                        placement: formatZoneSpan(from, to),
+                      };
+                    })}
+                    onPressEquipment={() => setDetailItem(item)}
                     checked={item.checked}
                     checkedByName={
                       item.checkedViaShare ? 'shared link' : null
@@ -156,6 +163,12 @@ export default function TaskChecklistScreen() {
           </>
         )}
       </ScrollView>
+
+      <TaskEquipmentDetailModal
+        item={detailItem}
+        equipment={equipment}
+        onClose={() => setDetailItem(null)}
+      />
     </SafeAreaView>
   );
 }

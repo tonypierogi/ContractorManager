@@ -4,6 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Lightbox from '@/components/ui/Lightbox';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
+export interface ChecklistRowEquipment {
+  /** Already-resolved display name (not an id). */
+  name: string;
+  /** Pre-formatted movement label, e.g. "Back Closet → Lobby". */
+  placement?: string | null;
+}
+
 interface ChecklistItemRowProps {
   title: string;
   description?: string | null;
@@ -11,8 +18,10 @@ interface ChecklistItemRowProps {
   images?: string[];
   /** Pre-formatted zone label, e.g. "Big Room → Loft". */
   locationLabel?: string | null;
-  /** Already-resolved equipment names (not ids). */
-  equipmentNames?: string[];
+  equipment?: ChecklistRowEquipment[];
+  /** When set, the expanded equipment block is tappable — e.g. to open the
+   * zone/floor-plan detail modal. */
+  onPressEquipment?: () => void;
   checked: boolean;
   checkedByName?: string | null;
   disabled?: boolean;
@@ -30,7 +39,8 @@ function ChecklistItemRow({
   description,
   images = [],
   locationLabel,
-  equipmentNames = [],
+  equipment = [],
+  onPressEquipment,
   checked,
   checkedByName,
   disabled = false,
@@ -42,7 +52,7 @@ function ChecklistItemRow({
   const hasDetails =
     !!description ||
     !!locationLabel ||
-    equipmentNames.length > 0 ||
+    equipment.length > 0 ||
     images.length > 1;
 
   // Collapsed one-line summary so a closed row still says what's inside.
@@ -50,9 +60,9 @@ function ChecklistItemRow({
     const parts: string[] = [];
     if (locationLabel) parts.push(locationLabel);
     if (images.length > 1) parts.push(`${images.length} photos`);
-    if (equipmentNames.length > 0) parts.push(`${equipmentNames.length} equipment`);
+    if (equipment.length > 0) parts.push(`${equipment.length} equipment`);
     return parts.join(' · ');
-  }, [locationLabel, images.length, equipmentNames.length]);
+  }, [locationLabel, images.length, equipment.length]);
 
   return (
     <View style={[s.card, checked && s.cardChecked]}>
@@ -126,14 +136,41 @@ function ChecklistItemRow({
               <Text style={s.zoneText}>{locationLabel}</Text>
             </View>
           ) : null}
-          {equipmentNames.length > 0 && (
-            <View style={s.tagRow}>
-              {equipmentNames.map((name, i) => (
-                <View key={`${name}-${i}`} style={s.tag}>
-                  <Text style={s.tagText}>{name}</Text>
+          {equipment.length > 0 && (
+            <TouchableOpacity
+              style={s.equipmentBlock}
+              onPress={onPressEquipment}
+              disabled={!onPressEquipment}
+              activeOpacity={0.7}
+              accessibilityRole={onPressEquipment ? 'button' : undefined}
+              accessibilityLabel={
+                onPressEquipment ? `Equipment details for ${title}` : undefined
+              }
+            >
+              {equipment.map((eq, i) => (
+                <View key={`${eq.name}-${i}`} style={s.equipmentRow}>
+                  <Ionicons
+                    name="cube-outline"
+                    size={13}
+                    color={Colors.textSecondary}
+                  />
+                  <Text style={s.equipmentText} numberOfLines={2}>
+                    <Text style={s.equipmentName}>{eq.name}</Text>
+                    {eq.placement ? `  ${eq.placement}` : ''}
+                  </Text>
                 </View>
               ))}
-            </View>
+              {onPressEquipment ? (
+                <View style={s.equipmentHint}>
+                  <Ionicons
+                    name="map-outline"
+                    size={13}
+                    color={Colors.accent}
+                  />
+                  <Text style={s.equipmentHintText}>Zones & floor plans</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
           )}
           {images.length > 1 && (
             <View style={s.mediaRow}>
@@ -250,21 +287,34 @@ const s = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
   },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
+  equipmentBlock: {
     marginTop: Spacing.sm,
+    gap: 4,
   },
-  tag: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+  equipmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  tagText: {
+  equipmentText: {
+    flex: 1,
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
+  },
+  equipmentName: {
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  equipmentHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  equipmentHintText: {
+    fontSize: FontSize.xs,
+    color: Colors.accent,
+    fontWeight: '500',
   },
   mediaRow: {
     flexDirection: 'row',
