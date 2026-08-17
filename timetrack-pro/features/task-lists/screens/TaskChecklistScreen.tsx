@@ -5,29 +5,42 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
-  Modal as RNModal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/features/auth/auth-provider';
 import {
+  useSharedChecksRealtime,
   useTaskChecklistItems,
   useToggleTaskCheck,
 } from '@/features/task-lists/hooks';
+import ShareListButton from '@/features/task-lists/components/ShareListButton';
+import ChecklistItemRow from '@/components/ui/ChecklistItemRow';
 import { useEquipment } from '@/features/equipment/hooks';
 import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
 import TaskEquipmentDetailModal, {
   type TaskEquipmentDetailItem,
 } from '@/features/task-lists/components/TaskEquipmentDetailModal';
-import { getLocationLabel } from '@/features/locations/zones';
+import { formatZoneSpan } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+
+/** Media URLs that render as images (walkthrough videos live elsewhere). */
+function imageUrls(media: unknown): string[] {
+  if (!Array.isArray(media)) return [];
+  return media
+    .filter((m: any) => m?.url && !String(m.type ?? '').startsWith('video'))
+    .map((m: any) => m.url as string);
+}
 
 /**
  * Contractor-facing checklist for one assigned task list. The `id` param is a
  * task_list_assignments id, not a task_lists id — checks are recorded per
  * assignment so two people working the same list don't collide.
+ *
+ * Checks made through the list's public share link are merged in and stream in
+ * live, so the assignee and a crew working off the shared web page see one
+ * combined state.
  */
 export default function TaskChecklistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,8 +49,11 @@ export default function TaskChecklistScreen() {
   const { data, isLoading } = useTaskChecklistItems(assignmentId);
   const toggleCheck = useToggleTaskCheck();
   const { data: equipment } = useEquipment();
-  const [fullImageUri, setFullImageUri] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
+
+  const taskListId = data?.taskList?.id as string | undefined;
+  const shareToken = (data?.taskList as any)?.share_token ?? null;
+  useSharedChecksRealtime(taskListId, assignmentId);
 
   const equipmentNames = useMemo(
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name])),
@@ -60,6 +76,7 @@ export default function TaskChecklistScreen() {
       checkedBy: user.id,
       checkedCountAfter: checked + 1,
       totalCount: total,
+      shareToken,
     });
   };
 
@@ -75,6 +92,7 @@ export default function TaskChecklistScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
           <Text style={s.backText}>Back</Text>
         </TouchableOpacity>
+        <ShareListButton taskListId={taskListId} />
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
@@ -110,102 +128,29 @@ export default function TaskChecklistScreen() {
                     {item.title}
                   </Text>
                 ) : (
-                  <View
+                  <ChecklistItemRow
                     key={item.id}
-                    style={[s.item, item.checked && s.itemChecked]}
-                  >
-                    <TouchableOpacity
-                      onPress={() => handleToggle(item)}
-                      activeOpacity={item.checked ? 1 : 0.7}
-                      style={s.checkboxHit}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: item.checked }}
-                      accessibilityLabel={`Mark ${item.title} complete`}
-                    >
-                      <Ionicons
-                        name={item.checked ? 'checkbox' : 'square-outline'}
-                        size={22}
-                        color={item.checked ? Colors.accent : Colors.textMuted}
-                      />
-                    </TouchableOpacity>
-                    {/* Tapping the body opens the equipment/zone detail rather
-                        than checking off, so people can look up where a thing
-                        lives without marking work they haven't done. */}
-                    <TouchableOpacity
-                      style={s.itemBody}
-                      onPress={() => setDetailItem(item)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${item.title} details`}
-                    >
-                      <Text
-                        style={[
-                          s.itemTitle,
-                          item.checked && s.itemTitleChecked,
-                        ]}
-                      >
-                        {item.title}
-                      </Text>
-                      {item.description ? (
-                        <Text style={s.itemDesc}>{item.description}</Text>
-                      ) : null}
-                      {(item.location_from || item.location_to) && (
-                        <View style={s.zoneRow}>
-                          <Ionicons
-                            name="location-outline"
-                            size={13}
-                            color={Colors.textSecondary}
-                          />
-                          <Text style={s.zoneText}>
-                            {item.location_from && item.location_to
-                              ? `${getLocationLabel(item.location_from)} → ${getLocationLabel(item.location_to)}`
-                              : getLocationLabel(
-                                  item.location_from ?? item.location_to,
-                                )}
-                          </Text>
-                        </View>
-                      )}
-                      {parseEquipmentRefs(item.equipment).map((ref) => {
-                        const { from, to } = resolvePlacement(ref, item);
-                        return (
-                          <View key={ref.id} style={s.equipmentRow}>
-                            <Ionicons
-                              name="cube-outline"
-                              size={13}
-                              color={Colors.textSecondary}
-                            />
-                            <Text style={s.equipmentText} numberOfLines={2}>
-                              <Text style={s.equipmentName}>
-                                {equipmentNames.get(ref.id) ?? 'Equipment'}
-                              </Text>
-                              {from || to
-                                ? `  ${getLocationLabel(from) || '?'} → ${getLocationLabel(to) || '?'}`
-                                : ''}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                      {Array.isArray(item.media) && item.media.length > 0 && (
-                        <View style={s.mediaRow}>
-                          {item.media.map(
-                            (m: { url: string }, i: number) => (
-                              <TouchableOpacity
-                                key={i}
-                                onPress={() => setFullImageUri(m.url)}
-                                activeOpacity={0.8}
-                              >
-                                <Image
-                                  source={{ uri: m.url }}
-                                  style={s.thumbnail}
-                                  resizeMode="cover"
-                                />
-                              </TouchableOpacity>
-                            ),
-                          )}
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+                    title={item.title}
+                    description={item.description}
+                    images={imageUrls(item.media)}
+                    locationLabel={formatZoneSpan(
+                      item.location_from,
+                      item.location_to,
+                    )}
+                    equipment={parseEquipmentRefs(item.equipment).map((ref) => {
+                      const { from, to } = resolvePlacement(ref, item);
+                      return {
+                        name: equipmentNames.get(ref.id) ?? 'Equipment',
+                        placement: formatZoneSpan(from, to),
+                      };
+                    })}
+                    onPressEquipment={() => setDetailItem(item)}
+                    checked={item.checked}
+                    checkedByName={
+                      item.checkedViaShare ? 'shared link' : null
+                    }
+                    onToggle={() => handleToggle(item)}
+                  />
                 ),
               )}
             </View>
@@ -218,27 +163,6 @@ export default function TaskChecklistScreen() {
           </>
         )}
       </ScrollView>
-
-      <RNModal
-        visible={!!fullImageUri}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFullImageUri(null)}
-      >
-        <TouchableOpacity
-          style={s.fullImageOverlay}
-          activeOpacity={1}
-          onPress={() => setFullImageUri(null)}
-        >
-          {fullImageUri ? (
-            <Image
-              source={{ uri: fullImageUri }}
-              style={s.fullImage}
-              resizeMode="contain"
-            />
-          ) : null}
-        </TouchableOpacity>
-      </RNModal>
 
       <TaskEquipmentDetailModal
         item={detailItem}
@@ -255,13 +179,15 @@ const s = StyleSheet.create({
     backgroundColor: Colors.bgPrimary,
   },
   topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     paddingVertical: Spacing.xs,
     paddingRight: Spacing.sm,
   },
@@ -313,91 +239,6 @@ const s = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: Spacing.md,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    backgroundColor: Colors.bgPanel,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-  },
-  itemChecked: {
-    opacity: 0.6,
-  },
-  itemBody: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: FontSize.sm,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  itemTitleChecked: {
-    textDecorationLine: 'line-through',
-    color: Colors.textSecondary,
-  },
-  itemDesc: {
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  zoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: Spacing.xs,
-  },
-  zoneText: {
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-  },
-  checkboxHit: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    marginLeft: -Spacing.xs,
-    paddingLeft: Spacing.xs,
-  },
-  equipmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: Spacing.xs,
-  },
-  equipmentText: {
-    flex: 1,
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-  },
-  equipmentName: {
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  mediaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-  },
-  thumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.bgElevated,
-  },
-  fullImageOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullImage: {
-    width: '100%',
-    height: '100%',
   },
   doneBanner: {
     marginTop: Spacing.lg,

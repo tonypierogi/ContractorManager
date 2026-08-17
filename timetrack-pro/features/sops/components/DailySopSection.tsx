@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import SopCheckItem from '@/features/sops/components/SopCheckItem';
 import { useAuth } from '@/features/auth/auth-provider';
 import {
   useTodayDailySop,
   useSopChecklist,
+  useSopChecksRealtime,
   useToggleSopCheck,
   useCompleteDailySop,
   useCompletedDailySops,
@@ -13,6 +14,7 @@ import {
   useAddAdHocTask,
   useToggleAdHocTask,
 } from '@/features/sops/hooks';
+import { useEquipment } from '@/features/equipment/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate } from '@/utils/format';
@@ -42,9 +44,17 @@ export default function DailySopSection() {
   const createDailySop = useCreateDailySop();
   const addAdHocTask = useAddAdHocTask();
   const toggleAdHocTask = useToggleAdHocTask();
+  const { data: equipment } = useEquipment();
   const [newAdHocTitle, setNewAdHocTitle] = useState('');
 
+  const equipmentNames = useMemo(
+    () => new Map((equipment ?? []).map((e: any) => [e.id, e.name] as const)),
+    [equipment],
+  );
+
   const dailySopId = todaySop?.id;
+  // Teammates share this checklist — stream their checks in live.
+  useSopChecksRealtime(dailySopId);
   const userId = user?.id;
   const handleToggle = useCallback(
     (itemId: string, checked: boolean) => {
@@ -128,7 +138,12 @@ export default function DailySopSection() {
 
       <View style={s.checklistItems}>
         {checklist?.templateItems.map((item) => (
-          <SopCheckItem key={item.id} item={item} onToggle={handleToggle} />
+          <SopCheckItem
+            key={item.id}
+            item={item}
+            onToggle={handleToggle}
+            equipmentNames={equipmentNames}
+          />
         ))}
       </View>
 

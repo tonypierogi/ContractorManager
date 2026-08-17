@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
+import { supabase } from '@/lib/supabase';
 import {
   deleteRecurrence,
+  ensureShareToken,
   deleteTaskList,
   duplicateTaskList,
   fetchAllTemplateItems,
@@ -181,4 +184,51 @@ export function usePendingTaskAssignments(userId: string) {
     queryFn: () => fetchPendingTaskAssignments(userId),
     enabled: !!userId,
   });
+}
+
+/** Generates (or reuses) a list's share token. Errors are handled at the
+ * share button, not by the global mutation toast. */
+export function useEnsureShareToken() {
+  return useMutation({
+    mutationFn: ensureShareToken,
+    meta: { suppressGlobalError: true },
+  });
+}
+
+/**
+ * Live-sync a checklist with its public share page: any check/uncheck made
+ * through the shared link invalidates the cached checklist so the app view
+ * updates in real time. No-op until realtime is enabled for the table (share
+ * page migration) — subscribing to a table outside the publication just never
+ * fires.
+ */
+export function useSharedChecksRealtime(
+  taskListId: string | undefined,
+  assignmentId: string,
+) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!taskListId || !assignmentId) return;
+    const channel = supabase
+      .channel(`shared-checks-${taskListId}-${assignmentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_list_anonymous_checks',
+          filter: `task_list_id=eq.${taskListId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: qk.taskLists.checklist(assignmentId),
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [taskListId, assignmentId, queryClient]);
 }

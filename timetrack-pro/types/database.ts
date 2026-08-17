@@ -236,3 +236,12 @@ export interface TaskListItemCheck {
   checked_by: string;
   checked_at: string;
 }
+
+/** A check made through a list's public share link. One row per checked item,
+ * shared by every viewer of the link (no per-viewer state). */
+export interface TaskListAnonymousCheck {
+  id: string;
+  task_list_id: string;
+  task_list_item_id: string;
+  checked_at: string;
+}
