@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Image, Alert, StyleSheet } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -11,6 +11,7 @@ import {
   useDeleteEquipment,
   useUploadEquipmentImage,
 } from '@/features/equipment/hooks';
+import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import type { Equipment } from '@/types/database';
 
@@ -45,16 +46,18 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
     }
   }, [visible, item]);
 
-  const handlePickImage = async () => {
+  const handleAddPhoto = async (source: PhotoSource) => {
     if (!user) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
+    const asset = await pickPhotoAsset(source, {
+      onCameraDenied: () =>
+        Alert.alert(
+          'Camera unavailable',
+          'Camera access denied — upload from your library instead.',
+        ),
     });
-    if (picked.canceled || !picked.assets?.length) return;
+    if (!asset) return;
     try {
       // Upload immediately on selection (same flow as the inventory editor).
-      const asset = picked.assets[0];
       const url = await uploadImage.mutateAsync({
         userId: user.id,
         uri: asset.uri,
@@ -116,20 +119,48 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
       {imageUrl ? (
         <View style={styles.imagePreviewRow}>
           <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
-          <Button
-            title="Remove"
-            variant="danger"
-            size="sm"
-            onPress={() => setImageUrl(null)}
-          />
+          <View style={styles.imageActions}>
+            <View style={styles.imageActionsRow}>
+              <Button
+                title="Retake"
+                variant="secondary"
+                size="sm"
+                icon={<Ionicons name="camera-outline" size={16} color={Colors.text} />}
+                onPress={() => handleAddPhoto('camera')}
+                loading={uploadImage.isPending}
+              />
+              <Button
+                title="Upload"
+                variant="secondary"
+                size="sm"
+                icon={<Ionicons name="image-outline" size={16} color={Colors.text} />}
+                onPress={() => handleAddPhoto('library')}
+                loading={uploadImage.isPending}
+              />
+            </View>
+            <Button
+              title="Remove"
+              variant="danger"
+              size="sm"
+              onPress={() => setImageUrl(null)}
+            />
+          </View>
         </View>
       ) : (
         <View style={styles.uploadRow}>
           <Button
-            title="Upload Image"
+            title="Take Photo"
+            size="sm"
+            icon={<Ionicons name="camera" size={16} color={Colors.bgPrimary} />}
+            onPress={() => handleAddPhoto('camera')}
+            loading={uploadImage.isPending}
+          />
+          <Button
+            title="Upload Photo"
             variant="secondary"
             size="sm"
-            onPress={handlePickImage}
+            icon={<Ionicons name="image-outline" size={16} color={Colors.text} />}
+            onPress={() => handleAddPhoto('library')}
             loading={uploadImage.isPending}
           />
         </View>
@@ -168,7 +199,18 @@ const styles = StyleSheet.create({
   },
   uploadRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
+  },
+  imageActions: {
+    flex: 1,
+    gap: Spacing.sm,
+  },
+  imageActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
   imagePreviewRow: {
     flexDirection: 'row',

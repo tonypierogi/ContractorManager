@@ -38,6 +38,7 @@ import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import type { TemplateItemRef } from '@/features/task-lists/api';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
+import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 export default function TaskListEditorScreen() {
@@ -138,14 +139,13 @@ export default function TaskListEditorScreen() {
 
   // Upload immediately on selection (legacy parity); removing an image only
   // clears it from the draft — uploaded files are never deleted.
-  const handleAddImage = async (itemId: string) => {
+  const handleAddImage = async (itemId: string, source: PhotoSource) => {
     if (!user) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
+    const asset = await pickPhotoAsset(source, {
+      onCameraDenied: () =>
+        showToast('Camera access denied — upload from your library instead', 'error'),
     });
-    if (picked.canceled || !picked.assets?.length) return;
-    const asset = picked.assets[0];
+    if (!asset) return;
     setUploadingItemId(itemId);
     try {
       const url = await uploadMedia.mutateAsync({
@@ -391,7 +391,7 @@ export default function TaskListEditorScreen() {
             onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
               setPlacement(item.id, equipmentId, field, zoneId)
             }
-            onAddImage={() => handleAddImage(item.id)}
+            onAddImage={(source) => handleAddImage(item.id, source)}
             onRemoveImage={(mi) => removeImage(item.id, mi)}
             onEditEquipment={() => setEquipmentPickerFor(item.id)}
             onMove={(direction) => moveItem(index, direction)}

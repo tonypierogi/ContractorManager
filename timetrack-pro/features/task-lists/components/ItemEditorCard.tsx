@@ -7,6 +7,7 @@ import MediaRow from '@/components/ui/MediaRow';
 import { EquipmentBox } from '@/features/equipment/components/EquipmentTagging';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { getLocationLabel } from '@/features/locations/zones';
+import type { PhotoSource } from '@/lib/photo-picker';
 import type { MediaItem, TaskEquipmentRef } from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -50,7 +51,7 @@ interface ItemEditorCardProps {
     field: 'from' | 'to',
     zoneId: string | null,
   ) => void;
-  onAddImage: () => void;
+  onAddImage: (source: PhotoSource) => void;
   onRemoveImage: (mediaIndex: number) => void;
   onEditEquipment: () => void;
   onMove: (direction: 'up' | 'down') => void;
@@ -184,7 +185,8 @@ export default function ItemEditorCard({
           <MediaRow
             media={item.media}
             uploading={uploading}
-            onAdd={onAddImage}
+            onAddFromCamera={() => onAddImage('camera')}
+            onAddFromLibrary={() => onAddImage('library')}
             onRemove={onRemoveImage}
           />
 

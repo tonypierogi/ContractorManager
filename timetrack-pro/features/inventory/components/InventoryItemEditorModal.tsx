@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/auth-provider';
+import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSaveInventoryItem, useUploadInventoryImage } from '../hooks';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
@@ -69,30 +70,17 @@ export default function InventoryItemEditorModal({
     }
   };
 
-  const handlePickImage = async () => {
+  const handleAddPhoto = async (source: PhotoSource) => {
     if (!user) return;
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
+    const asset = await pickPhotoAsset(source, {
+      onCameraDenied: () =>
+        showToast('Camera access denied — upload from your library instead', 'error'),
     });
-    if (picked.canceled || !picked.assets?.length) return;
-    await uploadAsset(picked.assets[0]);
+    if (!asset) return;
+    await uploadAsset(asset);
   };
 
-  const handleTakePhoto = async () => {
-    if (!user) return;
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      showToast('Camera access denied — pick from library instead', 'error');
-      return;
-    }
-    const picked = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (picked.canceled || !picked.assets?.length) return;
-    await uploadAsset(picked.assets[0]);
-  };
+  const handleTakePhoto = () => handleAddPhoto('camera');
 
   // Camera-first add flow: opening the modal in add mode jumps straight to
   // the camera, then the user fills in name and location below.
@@ -149,7 +137,15 @@ export default function InventoryItemEditorModal({
               variant="secondary"
               size="sm"
               icon={<Ionicons name="camera-outline" size={16} color={Colors.text} />}
-              onPress={handleTakePhoto}
+              onPress={() => handleAddPhoto('camera')}
+              loading={uploadImage.isPending}
+            />
+            <Button
+              title="Upload"
+              variant="secondary"
+              size="sm"
+              icon={<Ionicons name="image-outline" size={16} color={Colors.text} />}
+              onPress={() => handleAddPhoto('library')}
               loading={uploadImage.isPending}
             />
             <Button
@@ -166,15 +162,15 @@ export default function InventoryItemEditorModal({
             title="Take Photo"
             size="sm"
             icon={<Ionicons name="camera" size={16} color={Colors.bgPrimary} />}
-            onPress={handleTakePhoto}
+            onPress={() => handleAddPhoto('camera')}
             loading={uploadImage.isPending}
           />
           <Button
-            title="Library"
+            title="Upload Photo"
             variant="secondary"
             size="sm"
             icon={<Ionicons name="image-outline" size={16} color={Colors.text} />}
-            onPress={handlePickImage}
+            onPress={() => handleAddPhoto('library')}
             loading={uploadImage.isPending}
           />
         </View>
