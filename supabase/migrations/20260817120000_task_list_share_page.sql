@@ -16,25 +16,35 @@ CREATE OR REPLACE FUNCTION ensure_task_list_share_token(p_task_list_id UUID)
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
     v_token TEXT;
 BEGIN
-    SELECT share_token INTO v_token FROM task_lists WHERE id = p_task_list_id;
+    SELECT share_token INTO v_token
+    FROM public.task_lists WHERE id = p_task_list_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Task list not found';
     END IF;
     IF v_token IS NULL THEN
-        -- Two UUIDs' worth of hex = 64 chars of unguessability.
-        v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
-        UPDATE task_lists SET share_token = v_token WHERE id = p_task_list_id;
+        -- Two UUIDs' worth of hex = 64 chars of unguessability. Guarded
+        -- against a concurrent first mint, then re-read so both callers get
+        -- whichever token won — a just-shared link must never go dead.
+        UPDATE public.task_lists
+        SET share_token = replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+        WHERE id = p_task_list_id AND share_token IS NULL;
+        SELECT share_token INTO v_token
+        FROM public.task_lists WHERE id = p_task_list_id;
     END IF;
     RETURN v_token;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION ensure_task_list_share_token(UUID) FROM PUBLIC;
+-- Revoke from anon explicitly: Supabase's default privileges grant EXECUTE on
+-- new functions directly to anon, which a bare REVOKE FROM PUBLIC leaves in
+-- place — and this function must not let the anon key turn a list UUID into a
+-- valid share token.
+REVOKE ALL ON FUNCTION ensure_task_list_share_token(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION ensure_task_list_share_token(UUID) TO authenticated;
 
 -- ============================================================
@@ -47,15 +57,15 @@ RETURNS JSONB
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
-    v_list task_lists%ROWTYPE;
+    v_list public.task_lists%ROWTYPE;
 BEGIN
     IF p_token IS NULL OR p_token = '' THEN
         RETURN NULL;
     END IF;
-    SELECT * INTO v_list FROM task_lists WHERE share_token = p_token;
+    SELECT * INTO v_list FROM public.task_lists WHERE share_token = p_token;
     IF NOT FOUND THEN
         RETURN NULL;
     END IF;
@@ -79,19 +89,19 @@ BEGIN
                 'location_to', i.location_to,
                 'equipment', i.equipment
             ) ORDER BY i.sort_order)
-            FROM task_list_items i
+            FROM public.task_list_items i
             WHERE i.task_list_id = v_list.id
         ), '[]'::jsonb),
         'checked_item_ids', COALESCE((
             SELECT jsonb_agg(c.task_list_item_id)
-            FROM task_list_anonymous_checks c
+            FROM public.task_list_anonymous_checks c
             WHERE c.task_list_id = v_list.id
         ), '[]'::jsonb),
         'equipment', COALESCE((
             SELECT jsonb_agg(DISTINCT jsonb_build_object('id', e.id, 'name', e.name))
-            FROM equipment e
+            FROM public.equipment e
             WHERE EXISTS (
-                SELECT 1 FROM task_list_items i
+                SELECT 1 FROM public.task_list_items i
                 WHERE i.task_list_id = v_list.id
                   AND i.equipment ? e.id::text
             )
@@ -117,27 +127,27 @@ CREATE OR REPLACE FUNCTION set_shared_task_check(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
     v_list_id UUID;
 BEGIN
-    SELECT id INTO v_list_id FROM task_lists WHERE share_token = p_token;
+    SELECT id INTO v_list_id FROM public.task_lists WHERE share_token = p_token;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Invalid share link';
     END IF;
     IF NOT EXISTS (
-        SELECT 1 FROM task_list_items
+        SELECT 1 FROM public.task_list_items
         WHERE id = p_item_id AND task_list_id = v_list_id
     ) THEN
         RAISE EXCEPTION 'Item does not belong to this list';
     END IF;
     IF p_checked THEN
-        INSERT INTO task_list_anonymous_checks (task_list_id, task_list_item_id)
+        INSERT INTO public.task_list_anonymous_checks (task_list_id, task_list_item_id)
         VALUES (v_list_id, p_item_id)
         ON CONFLICT (task_list_id, task_list_item_id) DO NOTHING;
     ELSE
-        DELETE FROM task_list_anonymous_checks
+        DELETE FROM public.task_list_anonymous_checks
         WHERE task_list_id = v_list_id AND task_list_item_id = p_item_id;
     END IF;
 END;
@@ -151,25 +161,30 @@ GRANT EXECUTE ON FUNCTION set_shared_task_check(TEXT, UUID, BOOLEAN) TO anon, au
 -- ============================================================
 -- These allowed any anonymous client to enumerate every shared list (the
 -- predicate was `share_token IS NOT NULL`, not a token match). All reads and
--- writes now go through the token-gated functions above. The SELECT policy on
--- task_list_anonymous_checks stays (and gains authenticated) because realtime
--- subscriptions evaluate RLS — the rows expose only item UUIDs and timestamps.
+-- writes now go through the token-gated functions above.
 DROP POLICY IF EXISTS "Anon can read shared task_lists" ON task_lists;
 DROP POLICY IF EXISTS "Anon can read items of shared task_lists" ON task_list_items;
 DROP POLICY IF EXISTS "Anon can insert anonymous_checks for shared lists" ON task_list_anonymous_checks;
 DROP POLICY IF EXISTS "Anon can delete anonymous_checks for shared lists" ON task_list_anonymous_checks;
 DROP POLICY IF EXISTS "Anon can read equipment" ON equipment;
 
--- The app (signed-in users) merges shared-page checks into the checklist view.
-DROP POLICY IF EXISTS "Authenticated can read anonymous_checks" ON task_list_anonymous_checks;
-CREATE POLICY "Authenticated can read anonymous_checks" ON task_list_anonymous_checks
-    FOR SELECT TO authenticated USING (true);
+-- Realtime delivery evaluates the subscriber's SELECT RLS, so both the share
+-- page (anon) and the app (authenticated) need SELECT here. It must be a bare
+-- `true`: the old anon policy's EXISTS-on-task_lists predicate re-checks
+-- task_lists under the subscriber's own RLS, which the drop above just removed
+-- for anon — realtime INSERT events would silently never be delivered. The
+-- rows expose only opaque UUIDs and timestamps.
+DROP POLICY IF EXISTS "Anon can read anonymous_checks for shared lists" ON task_list_anonymous_checks;
+DROP POLICY IF EXISTS "Anyone can read anonymous_checks" ON task_list_anonymous_checks;
+CREATE POLICY "Anyone can read anonymous_checks" ON task_list_anonymous_checks
+    FOR SELECT TO anon, authenticated USING (true);
 
 -- ============================================================
 -- 5. Realtime
 -- ============================================================
--- FULL replica identity so DELETE events (unchecking) still carry the
--- task_list_id / daily_sop_id columns that subscription filters match on.
+-- FULL replica identity so DELETE events (unchecking) carry the full old row —
+-- subscribers need its item id (payload.old) and its task_list_id /
+-- daily_sop_id for filter matching.
 ALTER TABLE task_list_anonymous_checks REPLICA IDENTITY FULL;
 ALTER TABLE sop_item_checks REPLICA IDENTITY FULL;
 ALTER TABLE ad_hoc_tasks REPLICA IDENTITY FULL;

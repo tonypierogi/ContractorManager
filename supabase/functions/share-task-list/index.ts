@@ -343,7 +343,11 @@ function renderError(title, message) {
 async function refresh() {
   const { data, error } = await supabase.rpc('get_shared_task_list', { p_token: TOKEN });
   if (error) {
-    renderError('Something went wrong', 'Could not load this checklist. Pull to refresh or try again later.');
+    // A transient failure must not replace a working checklist; realtime and
+    // the next visibility refresh will catch us up.
+    if (!list) {
+      renderError('Something went wrong', 'Could not load this checklist. Check your connection and reopen this page.');
+    }
     return;
   }
   if (!data) {
@@ -384,9 +388,9 @@ function subscribe() {
 }
 
 // Catch anything missed while the tab was backgrounded (mobile browsers
-// suspend websockets aggressively).
+// suspend websockets aggressively). Also retries a failed initial load.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && list) refresh();
+  if (document.visibilityState === 'visible' && TOKEN) refresh();
 });
 
 if (!TOKEN) {
