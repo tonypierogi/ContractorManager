@@ -56,6 +56,9 @@ export default function DailySopSection() {
   // Teammates share this checklist — stream their checks in live.
   useSopChecksRealtime(dailySopId);
   const userId = user?.id;
+  // Set once this SOP has been shared by link; keeps the public page's state
+  // in step with checks made here in the app.
+  const shareToken = (todaySop as any)?.share_token ?? null;
   const handleToggle = useCallback(
     (itemId: string, checked: boolean) => {
       if (!dailySopId || !userId) return;
@@ -64,9 +67,10 @@ export default function DailySopSection() {
         sopItemId: itemId,
         checkedBy: userId,
         checked,
+        shareToken,
       });
     },
-    [dailySopId, userId, toggleCheck.mutate],
+    [dailySopId, userId, shareToken, toggleCheck.mutate],
   );
 
   const handleRefresh = () => {

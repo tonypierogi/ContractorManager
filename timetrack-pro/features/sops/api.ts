@@ -195,22 +195,30 @@ export async function fetchSopChecklist(dailySopId: string, sopTemplateId?: stri
     templateId = daily.sop_template_id as string;
   }
 
-  const [itemsResult, adHocResult, checksResult] = await Promise.all([
-    supabase
-      .from('sop_items')
-      .select('*')
-      .eq('sop_template_id', templateId)
-      .order('sort_order'),
-    supabase
-      .from('ad_hoc_tasks')
-      .select('*')
-      .eq('daily_sop_id', dailySopId)
-      .order('created_at'),
-    supabase
-      .from('sop_item_checks')
-      .select('sop_item_id, checked_by, checked_at, profiles(first_name, last_name)')
-      .eq('daily_sop_id', dailySopId),
-  ]);
+  const [itemsResult, adHocResult, checksResult, anonChecksResult] =
+    await Promise.all([
+      supabase
+        .from('sop_items')
+        .select('*')
+        .eq('sop_template_id', templateId)
+        .order('sort_order'),
+      supabase
+        .from('ad_hoc_tasks')
+        .select('*')
+        .eq('daily_sop_id', dailySopId)
+        .order('created_at'),
+      supabase
+        .from('sop_item_checks')
+        .select('sop_item_id, checked_by, checked_at, profiles(first_name, last_name)')
+        .eq('daily_sop_id', dailySopId),
+      // Checks made through the SOP's public share link count too — the helper
+      // working off the link and the crew in the app tick the same list.
+      // Best-effort: readable only once the SOP share migration is applied.
+      supabase
+        .from('sop_anonymous_checks')
+        .select('sop_item_id')
+        .eq('daily_sop_id', dailySopId),
+    ]);
 
   const checkMap: Record<string, { checked_by: string; name: string }> = {};
   (checksResult.data ?? []).forEach((c: any) => {
@@ -222,12 +230,18 @@ export async function fetchSopChecklist(dailySopId: string, sopTemplateId?: stri
     }
   });
 
+  const anonChecked = new Set(
+    (anonChecksResult.data ?? []).map((c: any) => c.sop_item_id),
+  );
+
   const templateItems: SopChecklistItem[] = (itemsResult.data ?? []).map(
     (item: any) => ({
       ...item,
-      checked: !!checkMap[item.id],
+      checked: !!checkMap[item.id] || anonChecked.has(item.id),
       checked_by: checkMap[item.id]?.checked_by ?? null,
-      checked_by_name: checkMap[item.id]?.name ?? null,
+      checked_by_name:
+        checkMap[item.id]?.name ??
+        (anonChecked.has(item.id) ? 'shared link' : null),
     }),
   );
 
@@ -241,6 +255,8 @@ export async function toggleSopCheck(input: {
   sopItemId: string;
   checkedBy: string;
   checked: boolean;
+  /** When the SOP is shared, mirror the check onto the share page's state. */
+  shareToken?: string | null;
 }): Promise<void> {
   if (input.checked) {
     const { error } = await supabase.from('sop_item_checks').insert({
@@ -257,6 +273,35 @@ export async function toggleSopCheck(input: {
       .eq('sop_item_id', input.sopItemId);
     if (error) throw error;
   }
+
+  if (input.shareToken) {
+    // Best-effort: viewers of the share link see this land in real time. The
+    // in-app write above already succeeded, so a missing migration must not
+    // fail the tap.
+    await supabase
+      .rpc('set_shared_sop_check', {
+        p_token: input.shareToken,
+        p_item_id: input.sopItemId,
+        p_checked: input.checked,
+      })
+      .then(() => undefined, () => undefined);
+  }
+}
+
+/**
+ * Mint (or fetch the existing) share token for a day's SOP. Goes through a
+ * SECURITY DEFINER function because daily_sops updates are restricted under
+ * RLS, but anyone running the checklist should be able to share it.
+ */
+export async function ensureDailySopShareToken(
+  dailySopId: string,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('ensure_daily_sop_share_token', {
+    p_daily_sop_id: dailySopId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('No share token returned');
+  return data as string;
 }
 
 export async function completeDailySop(dailySopId: string): Promise<void> {

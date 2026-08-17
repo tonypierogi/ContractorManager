@@ -111,6 +111,8 @@ export interface DailySop {
   sop_template_id: string;
   created_by: string | null;
   completed_at: string | null;
+  /** Set once someone shares this day's checklist by link. */
+  share_token: string | null;
   created_at: string;
 }
 

@@ -9,6 +9,7 @@ import {
   createDailySop,
   deleteSopTemplate,
   duplicateSopTemplate,
+  ensureDailySopShareToken,
   fetchAdHocTasks,
   fetchCompletedDailySops,
   fetchSopChecklist,
@@ -28,6 +29,15 @@ export type { DailySopWithTemplate, SopChecklistItem };
 
 export function useUploadSopMedia() {
   return useMutation({ mutationFn: uploadSopMedia });
+}
+
+/** Generates (or reuses) a day's SOP share token. Errors are handled at the
+ * share button, not by the global mutation toast. */
+export function useEnsureDailySopShareToken() {
+  return useMutation({
+    mutationFn: ensureDailySopShareToken,
+    meta: { suppressGlobalError: true },
+  });
 }
 
 export function useSopTemplates() {
@@ -132,6 +142,18 @@ export function useSopChecksRealtime(dailySopId: string | undefined) {
           event: '*',
           schema: 'public',
           table: 'ad_hoc_tasks',
+          filter: `daily_sop_id=eq.${dailySopId}`,
+        },
+        invalidate,
+      )
+      // Checks coming in from the public share link — someone without an
+      // account working the same checklist in a browser.
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sop_anonymous_checks',
           filter: `daily_sop_id=eq.${dailySopId}`,
         },
         invalidate,
