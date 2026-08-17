@@ -19,8 +19,9 @@ import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
 import { EquipmentPickerModal } from '@/features/equipment/components/EquipmentTagging';
 import {
-  equipmentIds,
+  equipmentModes,
   parseEquipmentRefs,
+  setEquipmentMode,
   setEquipmentPlacement,
   toggleEquipmentRef,
 } from '@/features/equipment/refs';
@@ -37,6 +38,7 @@ import ItemEditorCard, {
 import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import type { TemplateItemRef } from '@/features/task-lists/api';
+import type { EquipmentLinkMode } from '@/types/database';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -229,11 +231,29 @@ export default function TaskListEditorScreen() {
     );
   };
 
-  const toggleEquipment = (itemId: string, equipmentId: string) => {
+  const toggleEquipment = (
+    itemId: string,
+    equipmentId: string,
+    mode: EquipmentLinkMode,
+  ) => {
     setItems((prev) =>
       prev.map((i) =>
         i.id === itemId
-          ? { ...i, equipment: toggleEquipmentRef(i.equipment, equipmentId) }
+          ? { ...i, equipment: toggleEquipmentRef(i.equipment, equipmentId, mode) }
+          : i,
+      ),
+    );
+  };
+
+  const changeEquipmentMode = (
+    itemId: string,
+    equipmentId: string,
+    mode: EquipmentLinkMode,
+  ) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, equipment: setEquipmentMode(i.equipment, equipmentId, mode) }
           : i,
       ),
     );
@@ -391,6 +411,9 @@ export default function TaskListEditorScreen() {
             onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
               setPlacement(item.id, equipmentId, field, zoneId)
             }
+            onSetEquipmentMode={(equipmentId, mode) =>
+              changeEquipmentMode(item.id, equipmentId, mode)
+            }
             onAddImage={(source) => handleAddImage(item.id, source)}
             onRemoveImage={(mi) => removeImage(item.id, mi)}
             onEditEquipment={() => setEquipmentPickerFor(item.id)}
@@ -424,9 +447,10 @@ export default function TaskListEditorScreen() {
       <EquipmentPickerModal
         visible={equipmentPickerFor != null}
         equipment={equipment}
-        selectedIds={equipmentIds(equipmentPickerItem?.equipment ?? [])}
-        onToggle={(equipmentId) =>
-          equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
+        selected={equipmentModes(equipmentPickerItem?.equipment ?? [])}
+        onSelect={(equipmentId, mode) =>
+          equipmentPickerFor &&
+          toggleEquipment(equipmentPickerFor, equipmentId, mode)
         }
         onClose={() => setEquipmentPickerFor(null)}
       />

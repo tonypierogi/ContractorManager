@@ -124,6 +124,11 @@ function pageHtml(supabaseUrl: string, anonKey: string): string {
   }
   .eq-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
   .eq-row { font-size: 12px; color: var(--text-secondary); }
+  .eq-mode {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px;
+    color: var(--accent); margin-right: 6px;
+  }
+  .eq-mode-return { color: #f59e0b; }
   .eq-name { color: var(--text); font-weight: 600; margin-right: 6px; }
   .eq-move { color: var(--text-secondary); }
   .extra-thumbs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -218,24 +223,36 @@ function imagesOf(item) {
 }
 
 // Mirrors features/equipment/refs.ts — the equipment column stores bare id
-// strings (legacy) or {id, from, to} objects with per-equipment zones.
+// strings (legacy), {id, from, to} objects from before link modes, or full
+// {id, mode, from, to} refs. A pre-mode row with only a dropoff zone reads as
+// a return, everything else as a use.
 function equipmentRefs(item) {
   const raw = Array.isArray(item.equipment) ? item.equipment : [];
   const refs = [];
   for (const entry of raw) {
     if (typeof entry === 'string') {
-      if (entry) refs.push({ id: entry, from: null, to: null });
+      if (entry) refs.push({ id: entry, mode: 'use', from: null, to: null });
     } else if (entry && typeof entry === 'object' && typeof entry.id === 'string' && entry.id) {
-      refs.push({ id: entry.id, from: entry.from || null, to: entry.to || null });
+      const from = entry.from || null;
+      const to = entry.to || null;
+      const mode = entry.mode === 'use' || entry.mode === 'return'
+        ? entry.mode
+        : (to && !from ? 'return' : 'use');
+      refs.push({ id: entry.id, mode, from, to });
     }
   }
   return refs;
 }
 
-// Equipment-level zones win; unset ones inherit the task's own from/to.
+// Equipment-level zones win; unset ones inherit the task's own from/to. A
+// return names where it goes back to, a use names where to grab it.
 function placementLabel(ref, item) {
   const from = ref.from || item.location_from || null;
   const to = ref.to || item.location_to || null;
+  if (ref.mode === 'return') {
+    if (to) return 'Back to ' + zoneLabel(to);
+    return from ? 'From ' + zoneLabel(from) : null;
+  }
   if (from && to) return zoneLabel(from) + ' \\u2192 ' + zoneLabel(to);
   if (from || to) return zoneLabel(from || to);
   return null;
@@ -326,6 +343,10 @@ function renderItem(item) {
       const eqWrap = el('div', 'eq-list');
       eqRefs.forEach((ref) => {
         const row = el('div', 'eq-row');
+        row.appendChild(
+          el('span', 'eq-mode' + (ref.mode === 'return' ? ' eq-mode-return' : ''),
+            ref.mode === 'return' ? 'RETURN' : 'USE'),
+        );
         row.appendChild(el('span', 'eq-name', equipmentNames.get(ref.id) || 'Equipment'));
         const move = placementLabel(ref, item);
         if (move) row.appendChild(el('span', 'eq-move', move));

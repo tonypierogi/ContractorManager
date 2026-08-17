@@ -18,10 +18,14 @@ import {
 import ShareListButton from '@/features/task-lists/components/ShareListButton';
 import ChecklistItemRow from '@/components/ui/ChecklistItemRow';
 import { useEquipment } from '@/features/equipment/hooks';
-import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
-import TaskEquipmentDetailModal, {
-  type TaskEquipmentDetailItem,
-} from '@/features/task-lists/components/TaskEquipmentDetailModal';
+import {
+  EQUIPMENT_MODE_LABEL,
+  parseEquipmentRefs,
+  placementSummary,
+} from '@/features/equipment/refs';
+import TaskDetailSheet, {
+  type TaskDetailItem,
+} from '@/features/task-lists/components/TaskDetailSheet';
 import { formatZoneSpan } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -49,7 +53,7 @@ export default function TaskChecklistScreen() {
   const { data, isLoading } = useTaskChecklistItems(assignmentId);
   const toggleCheck = useToggleTaskCheck();
   const { data: equipment } = useEquipment();
-  const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
+  const [detailItem, setDetailItem] = useState<TaskDetailItem | null>(null);
 
   const taskListId = data?.taskList?.id as string | undefined;
   const shareToken = (data?.taskList as any)?.share_token ?? null;
@@ -137,14 +141,13 @@ export default function TaskChecklistScreen() {
                       item.location_from,
                       item.location_to,
                     )}
-                    equipment={parseEquipmentRefs(item.equipment).map((ref) => {
-                      const { from, to } = resolvePlacement(ref, item);
-                      return {
-                        name: equipmentNames.get(ref.id) ?? 'Equipment',
-                        placement: formatZoneSpan(from, to),
-                      };
-                    })}
-                    onPressEquipment={() => setDetailItem(item)}
+                    equipment={parseEquipmentRefs(item.equipment).map((ref) => ({
+                      name: equipmentNames.get(ref.id) ?? 'Equipment',
+                      placement: placementSummary(ref, item),
+                      modeLabel: EQUIPMENT_MODE_LABEL[ref.mode],
+                      isReturn: ref.mode === 'return',
+                    }))}
+                    onOpenDetails={() => setDetailItem(item)}
                     checked={item.checked}
                     checkedByName={
                       item.checkedViaShare ? 'shared link' : null
@@ -164,7 +167,7 @@ export default function TaskChecklistScreen() {
         )}
       </ScrollView>
 
-      <TaskEquipmentDetailModal
+      <TaskDetailSheet
         item={detailItem}
         equipment={equipment}
         onClose={() => setDetailItem(null)}

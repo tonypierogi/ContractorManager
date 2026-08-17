@@ -301,9 +301,9 @@ export default function SopEditorScreen() {
                 />
                 <Text style={styles.fieldLabel}>Equipment</Text>
                 <EquipmentBox
-                  labels={item.equipment.map(
-                    (eqId) => equipmentById.get(eqId) ?? 'Unknown',
-                  )}
+                  items={item.equipment.map((eqId) => ({
+                    label: equipmentById.get(eqId) ?? 'Unknown',
+                  }))}
                   onPress={() => setEquipmentPickerFor(item.id)}
                 />
               </>
@@ -331,8 +331,15 @@ export default function SopEditorScreen() {
       <EquipmentPickerModal
         visible={equipmentPickerFor != null}
         equipment={equipment}
-        selectedIds={equipmentPickerItem?.equipment ?? []}
-        onToggle={(equipmentId) =>
+        selected={
+          new Map(
+            (equipmentPickerItem?.equipment ?? []).map(
+              (eqId) => [eqId, 'use' as const],
+            ),
+          )
+        }
+        showModes={false}
+        onSelect={(equipmentId) =>
           equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
         }
         onClose={() => setEquipmentPickerFor(null)}

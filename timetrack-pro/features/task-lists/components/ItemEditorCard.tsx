@@ -5,10 +5,19 @@ import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import MediaRow from '@/components/ui/MediaRow';
 import { EquipmentBox } from '@/features/equipment/components/EquipmentTagging';
+import {
+  EQUIPMENT_MODE_DESCRIPTION,
+  EQUIPMENT_MODE_LABEL,
+  EQUIPMENT_ZONE_LABEL,
+} from '@/features/equipment/refs';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { getLocationLabel } from '@/features/locations/zones';
 import type { PhotoSource } from '@/lib/photo-picker';
-import type { MediaItem, TaskEquipmentRef } from '@/types/database';
+import type {
+  EquipmentLinkMode,
+  MediaItem,
+  TaskEquipmentRef,
+} from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 export interface ItemDraft {
@@ -51,6 +60,7 @@ interface ItemEditorCardProps {
     field: 'from' | 'to',
     zoneId: string | null,
   ) => void;
+  onSetEquipmentMode: (equipmentId: string, mode: EquipmentLinkMode) => void;
   onAddImage: (source: PhotoSource) => void;
   onRemoveImage: (mediaIndex: number) => void;
   onEditEquipment: () => void;
@@ -67,6 +77,7 @@ export default function ItemEditorCard({
   onUpdateField,
   onSetLocation,
   onSetEquipmentPlacement,
+  onSetEquipmentMode,
   onAddImage,
   onRemoveImage,
   onEditEquipment,
@@ -76,16 +87,22 @@ export default function ItemEditorCard({
   // New (blank) items open for editing; items that already have a title start
   // collapsed so long lists stay scannable.
   const [expanded, setExpanded] = useState(() => !item.title.trim());
-  const equipmentLabels = item.equipment.map(
-    (ref) => equipmentById.get(ref.id) ?? 'Unknown',
-  );
+  const equipmentChips = item.equipment.map((ref) => ({
+    label: equipmentById.get(ref.id) ?? 'Unknown',
+    mode: ref.mode,
+  }));
 
   const summaryParts: string[] = [];
   if (item.media.length > 0) {
     summaryParts.push(`${item.media.length} photo${item.media.length === 1 ? '' : 's'}`);
   }
-  if (equipmentLabels.length > 0) {
-    summaryParts.push(`${equipmentLabels.length} equipment`);
+  if (equipmentChips.length > 0) {
+    const returning = item.equipment.filter((ref) => ref.mode === 'return').length;
+    summaryParts.push(
+      returning > 0
+        ? `${equipmentChips.length} equipment (${returning} return)`
+        : `${equipmentChips.length} equipment`,
+    );
   }
   const routedCount = item.equipment.filter((ref) => ref.from || ref.to).length;
   if (routedCount > 0) {
@@ -191,23 +208,47 @@ export default function ItemEditorCard({
           />
 
           <Text style={s.fieldLabel}>Equipment</Text>
-          <EquipmentBox labels={equipmentLabels} onPress={onEditEquipment} />
+          <EquipmentBox items={equipmentChips} onPress={onEditEquipment} />
 
           {item.equipment.map((ref) => (
             <View key={ref.id} style={s.placementCard}>
               <Text style={s.placementName}>
                 {equipmentById.get(ref.id) ?? 'Unknown equipment'}
               </Text>
-              <LocationZonePicker
-                label="Get it from"
-                value={ref.from}
-                onChange={(z) => onSetEquipmentPlacement(ref.id, 'from', z)}
-              />
-              <LocationZonePicker
-                label="Put it back / take it to"
-                value={ref.to}
-                onChange={(z) => onSetEquipmentPlacement(ref.id, 'to', z)}
-              />
+              <View style={s.modeRow}>
+                {(['use', 'return'] as EquipmentLinkMode[]).map((option) => {
+                  const active = ref.mode === option;
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      style={[s.modeBtn, active && s.modeBtnActive]}
+                      onPress={() => onSetEquipmentMode(ref.id, option)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Text style={[s.modeText, active && s.modeTextActive]}>
+                        {EQUIPMENT_MODE_LABEL[option]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={s.placementHint}>
+                {EQUIPMENT_MODE_DESCRIPTION[ref.mode]}.
+              </Text>
+              <View style={s.placementPickers}>
+                <LocationZonePicker
+                  label={EQUIPMENT_ZONE_LABEL[ref.mode].from}
+                  value={ref.from}
+                  onChange={(z) => onSetEquipmentPlacement(ref.id, 'from', z)}
+                />
+                <LocationZonePicker
+                  label={EQUIPMENT_ZONE_LABEL[ref.mode].to}
+                  value={ref.to}
+                  onChange={(z) => onSetEquipmentPlacement(ref.id, 'to', z)}
+                />
+              </View>
               <Text style={s.placementHint}>
                 Leave a zone blank to use the task&apos;s own from/to below.
               </Text>
@@ -317,6 +358,36 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
     marginBottom: Spacing.sm,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  modeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgPanel,
+  },
+  modeBtnActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  modeText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modeTextActive: {
+    color: Colors.bgPrimary,
+  },
+  placementPickers: {
+    marginTop: Spacing.sm,
   },
   placementHint: {
     fontSize: FontSize.xs,

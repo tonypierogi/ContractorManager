@@ -11,6 +11,8 @@ interface SopCheckItemProps {
   /** equipment id → display name; unresolved entries fall back to the raw
    * value (legacy SOP items stored names directly). */
   equipmentNames?: Map<string, string>;
+  /** Opens the full-detail sheet for this task. */
+  onOpenDetails?: () => void;
   disabled?: boolean;
 }
 
@@ -18,6 +20,7 @@ function SopCheckItem({
   item,
   onToggle,
   equipmentNames,
+  onOpenDetails,
   disabled = false,
 }: SopCheckItemProps) {
   if (item.item_type === 'section') {
@@ -45,6 +48,7 @@ function SopCheckItem({
         // name instead of an id, so fall back to the raw value.
         name: equipmentNames?.get(ref.id) ?? ref.id,
       }))}
+      onOpenDetails={onOpenDetails}
       checked={item.checked}
       checkedByName={item.checked_by_name}
       disabled={disabled}

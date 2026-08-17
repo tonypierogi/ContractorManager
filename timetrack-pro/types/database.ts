@@ -154,12 +154,20 @@ export interface Equipment {
 }
 
 /**
- * One piece of equipment tagged on a task, with where to pick it up and where
- * to put it down. `from`/`to` are zone ids (see features/locations/zones.ts);
- * null means "inherit the task's own location_from / location_to".
+ * Why a piece of equipment is linked to a task:
+ * - 'use': fetch it and put it to work ('from' is where to grab it).
+ * - 'return': take it back where it belongs ('to' is where it goes).
+ */
+export type EquipmentLinkMode = 'use' | 'return';
+
+/**
+ * One piece of equipment tagged on a task, with why it's linked and where it
+ * travels. `from`/`to` are zone ids (see features/locations/zones.ts); null
+ * means "inherit the task's own location_from / location_to".
  */
 export interface TaskEquipmentRef {
   id: string;
+  mode: EquipmentLinkMode;
   from: string | null;
   to: string | null;
 }
@@ -167,8 +175,9 @@ export interface TaskEquipmentRef {
 /**
  * How a task's equipment tags come back from the database. Rows written before
  * per-equipment zones existed are bare equipment-id strings; newer rows are
- * TaskEquipmentRef objects. Never index into this directly — run it through
- * `parseEquipmentRefs()` (features/equipment/refs.ts), which handles both.
+ * TaskEquipmentRef objects (and rows written before link modes existed carry
+ * no `mode`). Never index into this directly — run it through
+ * `parseEquipmentRefs()` (features/equipment/refs.ts), which handles all three.
  */
 export type StoredEquipmentRef = string | TaskEquipmentRef;
 
