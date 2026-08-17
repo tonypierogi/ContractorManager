@@ -32,10 +32,14 @@ import { RECURRENCE_WINDOW_DAYS } from '@/features/task-lists/api';
 import ShareListButton from '@/features/task-lists/components/ShareListButton';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
-import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
-import TaskEquipmentDetailModal, {
-  type TaskEquipmentDetailItem,
-} from '@/features/task-lists/components/TaskEquipmentDetailModal';
+import {
+  EQUIPMENT_MODE_LABEL,
+  parseEquipmentRefs,
+  placementSummary,
+} from '@/features/equipment/refs';
+import TaskDetailSheet, {
+  type TaskDetailItem,
+} from '@/features/task-lists/components/TaskDetailSheet';
 import { getLocationLabel } from '@/features/locations/zones';
 import { qk } from '@/lib/query-keys';
 import {
@@ -141,7 +145,7 @@ export default function TaskListDetailScreen() {
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [fullImageUri, setFullImageUri] = useState<string | null>(null);
-  const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
+  const [detailItem, setDetailItem] = useState<TaskDetailItem | null>(null);
 
   const { data: upcomingShifts, isLoading: shiftsLoading } = useUpcomingShifts(
     pendingMember?.id ?? null,
@@ -439,7 +443,7 @@ export default function TaskListDetailScreen() {
                       </View>
                     )}
                     {parseEquipmentRefs(item.equipment).map((ref) => {
-                      const { from, to } = resolvePlacement(ref, item);
+                      const placement = placementSummary(ref, item);
                       return (
                         <View key={ref.id} style={styles.equipmentRow}>
                           <Ionicons
@@ -448,12 +452,19 @@ export default function TaskListDetailScreen() {
                             color={Colors.textSecondary}
                           />
                           <Text style={styles.equipmentText} numberOfLines={2}>
+                            <Text
+                              style={[
+                                styles.equipmentMode,
+                                ref.mode === 'return' && styles.equipmentModeReturn,
+                              ]}
+                            >
+                              {EQUIPMENT_MODE_LABEL[ref.mode].toUpperCase()}
+                              {'  '}
+                            </Text>
                             <Text style={styles.equipmentName}>
                               {equipmentNames.get(ref.id) ?? 'Equipment'}
                             </Text>
-                            {from || to
-                              ? `  ${getLocationLabel(from) || '?'} → ${getLocationLabel(to) || '?'}`
-                              : ''}
+                            {placement ? `  ${placement}` : ''}
                           </Text>
                         </View>
                       );
@@ -626,7 +637,7 @@ export default function TaskListDetailScreen() {
           </TouchableOpacity>
         </RNModal>
 
-        <TaskEquipmentDetailModal
+        <TaskDetailSheet
           item={detailItem}
           equipment={equipment}
           onClose={() => setDetailItem(null)}
@@ -721,6 +732,8 @@ const styles = StyleSheet.create({
   equipmentRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.xs },
   equipmentText: { flex: 1, fontSize: FontSize.xs, color: Colors.textSecondary },
   equipmentName: { fontWeight: '600', color: Colors.text },
+  equipmentMode: { fontSize: FontSize.xxs, fontWeight: '700', color: Colors.accent },
+  equipmentModeReturn: { color: Colors.warning },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.sm },
   extraThumb: {
     width: 48,

@@ -9,6 +9,10 @@ export interface ChecklistRowEquipment {
   name: string;
   /** Pre-formatted movement label, e.g. "Back Closet → Lobby". */
   placement?: string | null;
+  /** 'Use' / 'Return' badge; omitted where links carry no mode. */
+  modeLabel?: string | null;
+  /** Tints the badge for returns. */
+  isReturn?: boolean;
 }
 
 interface ChecklistItemRowProps {
@@ -19,9 +23,9 @@ interface ChecklistItemRowProps {
   /** Pre-formatted zone label, e.g. "Big Room → Loft". */
   locationLabel?: string | null;
   equipment?: ChecklistRowEquipment[];
-  /** When set, the expanded equipment block is tappable — e.g. to open the
-   * zone/floor-plan detail modal. */
-  onPressEquipment?: () => void;
+  /** When set, tapping the row opens the full-detail sheet instead of
+   * expanding the inline dropdown. */
+  onOpenDetails?: () => void;
   checked: boolean;
   checkedByName?: string | null;
   disabled?: boolean;
@@ -31,8 +35,9 @@ interface ChecklistItemRowProps {
 /**
  * One checkable task row, shared by the task-list and SOP checklists (and
  * mirrored by the public share page): photo thumbnail on the left (tap to view
- * full screen), title with a collapsible details dropdown under it (notes,
- * location, equipment, extra photos), and the complete checkbox on the right.
+ * full screen), title with the details under it, and the complete checkbox on
+ * the right. The details open in a bottom sheet when the screen passes
+ * `onOpenDetails`, and in an inline dropdown otherwise.
  */
 function ChecklistItemRow({
   title,
@@ -40,7 +45,7 @@ function ChecklistItemRow({
   images = [],
   locationLabel,
   equipment = [],
-  onPressEquipment,
+  onOpenDetails,
   checked,
   checkedByName,
   disabled = false,
@@ -84,15 +89,28 @@ function ChecklistItemRow({
 
         <TouchableOpacity
           style={s.body}
-          onPress={() => setExpanded((v) => !v)}
-          disabled={!hasDetails}
+          onPress={() =>
+            onOpenDetails ? onOpenDetails() : setExpanded((v) => !v)
+          }
+          disabled={!onOpenDetails && !hasDetails}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityState={{ expanded }}
-          accessibilityLabel={title}
+          accessibilityState={onOpenDetails ? undefined : { expanded }}
+          accessibilityLabel={onOpenDetails ? `${title}, view details` : title}
         >
           <Text style={[s.title, checked && s.titleChecked]}>{title}</Text>
-          {hasDetails ? (
+          {onOpenDetails ? (
+            <View style={s.hintRow}>
+              <Ionicons
+                name="information-circle-outline"
+                size={13}
+                color={Colors.textMuted}
+              />
+              <Text style={s.hintText} numberOfLines={1}>
+                {summary || 'View details'}
+              </Text>
+            </View>
+          ) : hasDetails ? (
             <View style={s.hintRow}>
               <Ionicons
                 name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -123,7 +141,7 @@ function ChecklistItemRow({
         </TouchableOpacity>
       </View>
 
-      {expanded && hasDetails && (
+      {expanded && hasDetails && !onOpenDetails && (
         <View style={s.details}>
           {description ? <Text style={s.detailDesc}>{description}</Text> : null}
           {locationLabel ? (
@@ -137,16 +155,7 @@ function ChecklistItemRow({
             </View>
           ) : null}
           {equipment.length > 0 && (
-            <TouchableOpacity
-              style={s.equipmentBlock}
-              onPress={onPressEquipment}
-              disabled={!onPressEquipment}
-              activeOpacity={0.7}
-              accessibilityRole={onPressEquipment ? 'button' : undefined}
-              accessibilityLabel={
-                onPressEquipment ? `Equipment details for ${title}` : undefined
-              }
-            >
+            <View style={s.equipmentBlock}>
               {equipment.map((eq, i) => (
                 <View key={`${eq.name}-${i}`} style={s.equipmentRow}>
                   <Ionicons
@@ -155,22 +164,22 @@ function ChecklistItemRow({
                     color={Colors.textSecondary}
                   />
                   <Text style={s.equipmentText} numberOfLines={2}>
+                    {eq.modeLabel ? (
+                      <Text
+                        style={[
+                          s.equipmentMode,
+                          eq.isReturn && s.equipmentModeReturn,
+                        ]}
+                      >
+                        {eq.modeLabel.toUpperCase()}{'  '}
+                      </Text>
+                    ) : null}
                     <Text style={s.equipmentName}>{eq.name}</Text>
                     {eq.placement ? `  ${eq.placement}` : ''}
                   </Text>
                 </View>
               ))}
-              {onPressEquipment ? (
-                <View style={s.equipmentHint}>
-                  <Ionicons
-                    name="map-outline"
-                    size={13}
-                    color={Colors.accent}
-                  />
-                  <Text style={s.equipmentHintText}>Zones & floor plans</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
+            </View>
           )}
           {images.length > 1 && (
             <View style={s.mediaRow}>
@@ -305,16 +314,13 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
   },
-  equipmentHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  equipmentHintText: {
-    fontSize: FontSize.xs,
+  equipmentMode: {
+    fontSize: FontSize.xxs,
+    fontWeight: '700',
     color: Colors.accent,
-    fontWeight: '500',
+  },
+  equipmentModeReturn: {
+    color: Colors.warning,
   },
   mediaRow: {
     flexDirection: 'row',

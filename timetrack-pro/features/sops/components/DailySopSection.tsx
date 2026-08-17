@@ -15,6 +15,9 @@ import {
   useToggleAdHocTask,
 } from '@/features/sops/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
+import TaskDetailSheet, {
+  type TaskDetailItem,
+} from '@/features/task-lists/components/TaskDetailSheet';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate } from '@/utils/format';
@@ -46,6 +49,7 @@ export default function DailySopSection() {
   const toggleAdHocTask = useToggleAdHocTask();
   const { data: equipment } = useEquipment();
   const [newAdHocTitle, setNewAdHocTitle] = useState('');
+  const [detailItem, setDetailItem] = useState<TaskDetailItem | null>(null);
 
   const equipmentNames = useMemo(
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name] as const)),
@@ -143,6 +147,7 @@ export default function DailySopSection() {
             item={item}
             onToggle={handleToggle}
             equipmentNames={equipmentNames}
+            onOpenDetails={() => setDetailItem(item)}
           />
         ))}
       </View>
@@ -276,6 +281,12 @@ export default function DailySopSection() {
   return (
     <View>
       {renderMainContent()}
+
+      <TaskDetailSheet
+        item={detailItem}
+        equipment={equipment}
+        onClose={() => setDetailItem(null)}
+      />
 
       {(completedSops?.length ?? 0) > 0 && (
         <View style={s.completedSection}>
