@@ -17,6 +17,10 @@ import {
   useToggleTaskCheck,
 } from '@/features/task-lists/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
+import { parseEquipmentRefs, resolvePlacement } from '@/features/equipment/refs';
+import TaskEquipmentDetailModal, {
+  type TaskEquipmentDetailItem,
+} from '@/features/task-lists/components/TaskEquipmentDetailModal';
 import { getLocationLabel } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -33,6 +37,7 @@ export default function TaskChecklistScreen() {
   const toggleCheck = useToggleTaskCheck();
   const { data: equipment } = useEquipment();
   const [fullImageUri, setFullImageUri] = useState<string | null>(null);
+  const [detailItem, setDetailItem] = useState<TaskEquipmentDetailItem | null>(null);
 
   const equipmentNames = useMemo(
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name])),
@@ -105,18 +110,34 @@ export default function TaskChecklistScreen() {
                     {item.title}
                   </Text>
                 ) : (
-                  <TouchableOpacity
+                  <View
                     key={item.id}
                     style={[s.item, item.checked && s.itemChecked]}
-                    onPress={() => handleToggle(item)}
-                    activeOpacity={item.checked ? 1 : 0.7}
                   >
-                    <Ionicons
-                      name={item.checked ? 'checkbox' : 'square-outline'}
-                      size={22}
-                      color={item.checked ? Colors.accent : Colors.textMuted}
-                    />
-                    <View style={s.itemBody}>
+                    <TouchableOpacity
+                      onPress={() => handleToggle(item)}
+                      activeOpacity={item.checked ? 1 : 0.7}
+                      style={s.checkboxHit}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: item.checked }}
+                      accessibilityLabel={`Mark ${item.title} complete`}
+                    >
+                      <Ionicons
+                        name={item.checked ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color={item.checked ? Colors.accent : Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                    {/* Tapping the body opens the equipment/zone detail rather
+                        than checking off, so people can look up where a thing
+                        lives without marking work they haven't done. */}
+                    <TouchableOpacity
+                      style={s.itemBody}
+                      onPress={() => setDetailItem(item)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.title} details`}
+                    >
                       <Text
                         style={[
                           s.itemTitle,
@@ -144,18 +165,26 @@ export default function TaskChecklistScreen() {
                           </Text>
                         </View>
                       )}
-                      {Array.isArray(item.equipment) &&
-                        item.equipment.length > 0 && (
-                          <View style={s.tagRow}>
-                            {item.equipment.map((eqId: string) => (
-                              <View key={eqId} style={s.tag}>
-                                <Text style={s.tagText}>
-                                  {equipmentNames.get(eqId) ?? 'Equipment'}
-                                </Text>
-                              </View>
-                            ))}
+                      {parseEquipmentRefs(item.equipment).map((ref) => {
+                        const { from, to } = resolvePlacement(ref, item);
+                        return (
+                          <View key={ref.id} style={s.equipmentRow}>
+                            <Ionicons
+                              name="cube-outline"
+                              size={13}
+                              color={Colors.textSecondary}
+                            />
+                            <Text style={s.equipmentText} numberOfLines={2}>
+                              <Text style={s.equipmentName}>
+                                {equipmentNames.get(ref.id) ?? 'Equipment'}
+                              </Text>
+                              {from || to
+                                ? `  ${getLocationLabel(from) || '?'} → ${getLocationLabel(to) || '?'}`
+                                : ''}
+                            </Text>
                           </View>
-                        )}
+                        );
+                      })}
                       {Array.isArray(item.media) && item.media.length > 0 && (
                         <View style={s.mediaRow}>
                           {item.media.map(
@@ -175,8 +204,8 @@ export default function TaskChecklistScreen() {
                           )}
                         </View>
                       )}
-                    </View>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </View>
                 ),
               )}
             </View>
@@ -210,6 +239,12 @@ export default function TaskChecklistScreen() {
           ) : null}
         </TouchableOpacity>
       </RNModal>
+
+      <TaskEquipmentDetailModal
+        item={detailItem}
+        equipment={equipment}
+        onClose={() => setDetailItem(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -319,21 +354,28 @@ const s = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
   },
-  tagRow: {
+  checkboxHit: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -Spacing.xs,
+    paddingLeft: Spacing.xs,
+  },
+  equipmentRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.xs,
+    alignItems: 'center',
+    gap: 4,
     marginTop: Spacing.xs,
   },
-  tag: {
-    backgroundColor: Colors.bgElevated,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  tagText: {
+  equipmentText: {
+    flex: 1,
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
+  },
+  equipmentName: {
+    fontWeight: '600',
+    color: Colors.text,
   },
   mediaRow: {
     flexDirection: 'row',

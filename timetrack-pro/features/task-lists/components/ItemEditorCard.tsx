@@ -8,7 +8,7 @@ import { EquipmentBox } from '@/features/equipment/components/EquipmentTagging';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { getLocationLabel } from '@/features/locations/zones';
 import type { PhotoSource } from '@/lib/photo-picker';
-import type { MediaItem } from '@/types/database';
+import type { MediaItem, TaskEquipmentRef } from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 export interface ItemDraft {
@@ -19,7 +19,7 @@ export interface ItemDraft {
   media: MediaItem[];
   location_from: string | null;
   location_to: string | null;
-  equipment: string[];
+  equipment: TaskEquipmentRef[];
   video_timestamp: number | null;
 }
 
@@ -46,6 +46,11 @@ interface ItemEditorCardProps {
   uploading: boolean;
   onUpdateField: (field: 'title' | 'description', value: string) => void;
   onSetLocation: (field: 'location_from' | 'location_to', zoneId: string | null) => void;
+  onSetEquipmentPlacement: (
+    equipmentId: string,
+    field: 'from' | 'to',
+    zoneId: string | null,
+  ) => void;
   onAddImage: (source: PhotoSource) => void;
   onRemoveImage: (mediaIndex: number) => void;
   onEditEquipment: () => void;
@@ -61,6 +66,7 @@ export default function ItemEditorCard({
   uploading,
   onUpdateField,
   onSetLocation,
+  onSetEquipmentPlacement,
   onAddImage,
   onRemoveImage,
   onEditEquipment,
@@ -70,7 +76,9 @@ export default function ItemEditorCard({
   // New (blank) items open for editing; items that already have a title start
   // collapsed so long lists stay scannable.
   const [expanded, setExpanded] = useState(() => !item.title.trim());
-  const equipmentLabels = item.equipment.map((eqId) => equipmentById.get(eqId) ?? 'Unknown');
+  const equipmentLabels = item.equipment.map(
+    (ref) => equipmentById.get(ref.id) ?? 'Unknown',
+  );
 
   const summaryParts: string[] = [];
   if (item.media.length > 0) {
@@ -78,6 +86,10 @@ export default function ItemEditorCard({
   }
   if (equipmentLabels.length > 0) {
     summaryParts.push(`${equipmentLabels.length} equipment`);
+  }
+  const routedCount = item.equipment.filter((ref) => ref.from || ref.to).length;
+  if (routedCount > 0) {
+    summaryParts.push(`${routedCount} routed`);
   }
   if (item.location_from && item.location_to) {
     summaryParts.push(
@@ -181,6 +193,28 @@ export default function ItemEditorCard({
           <Text style={s.fieldLabel}>Equipment</Text>
           <EquipmentBox labels={equipmentLabels} onPress={onEditEquipment} />
 
+          {item.equipment.map((ref) => (
+            <View key={ref.id} style={s.placementCard}>
+              <Text style={s.placementName}>
+                {equipmentById.get(ref.id) ?? 'Unknown equipment'}
+              </Text>
+              <LocationZonePicker
+                label="Get it from"
+                value={ref.from}
+                onChange={(z) => onSetEquipmentPlacement(ref.id, 'from', z)}
+              />
+              <LocationZonePicker
+                label="Put it back / take it to"
+                value={ref.to}
+                onChange={(z) => onSetEquipmentPlacement(ref.id, 'to', z)}
+              />
+              <Text style={s.placementHint}>
+                Leave a zone blank to use the task&apos;s own from/to below.
+              </Text>
+            </View>
+          ))}
+
+          <Text style={s.fieldLabel}>Task locations</Text>
           <LocationZonePicker
             label="From location"
             value={item.location_from}
@@ -269,5 +303,23 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: Spacing.xs,
     marginTop: Spacing.xs,
+  },
+  placementCard: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.bgSecondary,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  placementName: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  placementHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
   },
 });
