@@ -1,3 +1,7 @@
+import type { ImageAnnotation } from '@/lib/annotations';
+
+export type { ImageAnnotation };
+
 export type UserRole = 'admin' | 'employee';
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'cancelled';
 export type TaskAssignmentStatus = 'pending' | 'in_progress' | 'completed';
@@ -169,6 +173,12 @@ export interface Equipment {
   name: string;
   location: string | null;
   image_url: string | null;
+  /**
+   * Circles, arrows and freehand marks drawn over image_url, in normalised
+   * 0..1 coordinates. Kept beside the photo rather than burnt into it so the
+   * original stays intact and the marks scale to any size it's shown at.
+   */
+  image_annotations: ImageAnnotation[] | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

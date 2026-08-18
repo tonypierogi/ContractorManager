@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ImageSourcePropType } from 'react-native';
 import Modal from '@/components/ui/Modal';
 import Lightbox from '@/components/ui/Lightbox';
+import AnnotatedImage from '@/components/ui/AnnotatedImage';
 import Button from '@/components/ui/Button';
 import EquipmentEditorModal from '@/features/equipment/components/EquipmentEditorModal';
 import EquipmentTagChips from '@/features/equipment/components/EquipmentTagChips';
@@ -124,6 +125,13 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
     return images;
   }, [selected?.image_url, selectedZonePhoto, selectedPlan]);
 
+  // Positional match to lightboxImages: only the item photo can carry marks,
+  // and it is always first when it's there at all.
+  const lightboxAnnotations = useMemo(
+    () => (selected?.image_url ? [selected.image_annotations ?? []] : []),
+    [selected?.image_url, selected?.image_annotations],
+  );
+
   const openLightbox = (image: string | ImageSourcePropType | undefined) => {
     const index = image ? lightboxImages.indexOf(image) : -1;
     if (index < 0) return;
@@ -226,7 +234,16 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
             style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >
             {item.image_url ? (
-              <Image source={{ uri: item.image_url }} style={s.thumb} resizeMode="cover" />
+              // Thumbnails crop, which would slice a circle in half — so they
+              // show a badge instead, and the marks appear once it's opened.
+              <View>
+                <Image source={{ uri: item.image_url }} style={s.thumb} resizeMode="cover" />
+                {item.image_annotations?.length ? (
+                  <View style={s.thumbBadge}>
+                    <Ionicons name="brush" size={9} color={Colors.bgPrimary} />
+                  </View>
+                ) : null}
+              </View>
             ) : (
               <View style={[s.thumb, s.thumbPlaceholder]}>
                 <Ionicons name="construct-outline" size={20} color={Colors.textMuted} />
@@ -292,10 +309,12 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
                 accessibilityRole="imagebutton"
                 accessibilityLabel={selected.name}
               >
-                <Image
-                  source={{ uri: selected.image_url }}
+                {/* Contained rather than cropped: a circle drawn round the
+                    handle is no use if the crop cuts the handle off. */}
+                <AnnotatedImage
+                  uri={selected.image_url}
+                  annotations={selected.image_annotations ?? []}
                   style={s.detailImage}
-                  resizeMode="cover"
                 />
               </Pressable>
             ) : (
@@ -405,6 +424,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
       {lightboxImages.length > 0 ? (
         <Lightbox
           images={lightboxImages}
+          annotations={lightboxAnnotations}
           startIndex={lightboxIndex}
           visible={lightboxOpen}
           onClose={() => setLightboxOpen(false)}
@@ -514,6 +534,19 @@ const s = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     backgroundColor: Colors.bgElevated,
   },
+  thumbBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 16,
+    height: 16,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.accent,
+    borderWidth: 1,
+    borderColor: Colors.bgPanel,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   thumbPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -567,6 +600,7 @@ const s = StyleSheet.create({
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.bgElevated,
     marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
   detailImagePlaceholder: {
     alignItems: 'center',
