@@ -77,7 +77,10 @@ export default function ItemEditorSheet({
   return (
     <>
       <Sheet
-        visible={item != null}
+        // Two sibling modals on screen at once don't stack reliably in React
+        // Native: the picker mounts underneath this sheet's window, so taps on
+        // equipment rows never land. Step aside while the picker is open.
+        visible={item != null && pickerMode == null}
         onClose={close}
         title={item?.title.trim() || (isSection ? 'New section' : 'New task')}
         subtitle={`${isSection ? 'Section' : 'Task'} ${index + 1}`}
