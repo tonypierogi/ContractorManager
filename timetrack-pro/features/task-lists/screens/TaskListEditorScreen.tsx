@@ -315,6 +315,28 @@ export default function TaskListEditorScreen() {
     });
   };
 
+  /**
+   * A section travels with the tasks under it: holding its grip picks up the
+   * whole run, down to the next section or the end of the list.
+   */
+  const blockSizeAt = (index: number) => {
+    if (items[index]?.item_type !== 'section') return 1;
+    let n = 1;
+    while (index + n < items.length && items[index + n].item_type !== 'section') n += 1;
+    return n;
+  };
+
+  /** Drop `count` rows starting at `from` back in at `to` (post-removal index). */
+  const moveBlock = (from: number, count: number, to: number) => {
+    setItems((prev) => {
+      if (from < 0 || count <= 0 || from + count > prev.length) return prev;
+      const arr = [...prev];
+      const moved = arr.splice(from, count);
+      arr.splice(Math.max(0, Math.min(to, arr.length)), 0, ...moved);
+      return arr;
+    });
+  };
+
   const sections = useMemo(() => {
     const found: { id: string; title: string; taskCount: number }[] = [];
     items.forEach((it) => {
@@ -516,13 +538,16 @@ export default function TaskListEditorScreen() {
 
         {items.length > 0 && (
           <Text style={styles.reorderHint}>
-            Drag the grip to reorder · hold it to move a task to a section
+            Drag the grip to reorder · hold a task&apos;s grip to move it to a section ·
+            hold a section&apos;s grip to drag it with its tasks
           </Text>
         )}
         <DraggableList
           data={items}
           keyExtractor={(item) => item.id}
           onReorder={reorderItems}
+          blockSize={blockSizeAt}
+          onMoveBlock={moveBlock}
           onDragActiveChange={setReordering}
           onLongPress={(item) => {
             if (item.item_type !== 'section') setMovingItemId(item.id);
