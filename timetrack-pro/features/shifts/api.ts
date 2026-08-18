@@ -11,6 +11,14 @@ export type TimeEntryWithProfile = TimeEntry & {
   profiles: Pick<Profile, 'first_name' | 'last_name' | 'hourly_rate'> | null;
 };
 
+// 'YYYY-MM-DD' parses as UTC midnight, which in US timezones pulls in the
+// previous evening's shifts. Anchor the boundary to the user's own day.
+function startOfLocalDay(date: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return new Date(date);
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
 async function runShiftQuery(select: string, filters: ShiftFilters) {
   let query = supabase
     .from('time_entries')
@@ -21,10 +29,10 @@ async function runShiftQuery(select: string, filters: ShiftFilters) {
     query = query.eq('user_id', filters.userId);
   }
   if (filters.startDate) {
-    query = query.gte('clock_in', new Date(filters.startDate).toISOString());
+    query = query.gte('clock_in', startOfLocalDay(filters.startDate).toISOString());
   }
   if (filters.endDate) {
-    const end = new Date(filters.endDate);
+    const end = startOfLocalDay(filters.endDate);
     end.setDate(end.getDate() + 1);
     query = query.lt('clock_in', end.toISOString());
   }

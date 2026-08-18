@@ -8,6 +8,11 @@ interface ShiftRowProps {
   shift: TimeEntry;
   hourlyRate?: number;
   onDelete?: () => void;
+  /**
+   * 'table' packs seven columns across the width — only legible on a tablet or
+   * browser. 'card' stacks the same data so nothing wraps mid-word on a phone.
+   */
+  layout?: 'table' | 'card';
 }
 
 function getShiftHours(clockIn: string, clockOut: string | null): number {
@@ -19,11 +24,54 @@ function getShiftHours(clockIn: string, clockOut: string | null): number {
   return (end - start) / 3600000;
 }
 
-export default function ShiftRow({ shift, hourlyRate = 0, onDelete }: ShiftRowProps) {
+export default function ShiftRow({
+  shift,
+  hourlyRate = 0,
+  onDelete,
+  layout = 'table',
+}: ShiftRowProps) {
   const hours = getShiftHours(shift.clock_in, shift.clock_out);
   const isActive = !shift.clock_out;
   const amount = hours * hourlyRate;
   const isPaid = shift.paid;
+
+  const statusBadge = (
+    <View style={[styles.badge, isPaid ? styles.badgePaid : styles.badgePending]}>
+      <Text style={[styles.badgeText, isPaid ? styles.badgePaidText : styles.badgePendingText]}>
+        {isPaid ? 'Paid' : 'Pending'}
+      </Text>
+    </View>
+  );
+
+  if (layout === 'card') {
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <Text style={styles.cardDate}>{formatDate(shift.clock_in)}</Text>
+          <Text style={styles.amountText}>{formatCurrency(amount)}</Text>
+          {onDelete && (
+            <TouchableOpacity onPress={onDelete} hitSlop={12}>
+              <Text style={styles.deleteIcon}>{'✕'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.cardMeta}>
+          <Text style={styles.cardTimes} numberOfLines={1}>
+            {formatTime(shift.clock_in)}
+            {' – '}
+            {isActive ? 'in progress' : formatTime(shift.clock_out!)}
+          </Text>
+          <Text style={styles.cardHours}>{hours.toFixed(2)} hrs</Text>
+          {statusBadge}
+        </View>
+        {shift.description ? (
+          <Text style={styles.cardDescription} numberOfLines={2}>
+            {shift.description}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row}>
@@ -43,13 +91,7 @@ export default function ShiftRow({ shift, hourlyRate = 0, onDelete }: ShiftRowPr
       <View style={styles.colHours}>
         <Text style={styles.cellText}>{hours.toFixed(1)}</Text>
       </View>
-      <View style={styles.colStatus}>
-        <View style={[styles.badge, isPaid ? styles.badgePaid : styles.badgePending]}>
-          <Text style={[styles.badgeText, isPaid ? styles.badgePaidText : styles.badgePendingText]}>
-            {isPaid ? 'Paid' : 'Pending'}
-          </Text>
-        </View>
-      </View>
+      <View style={styles.colStatus}>{statusBadge}</View>
       <View style={styles.colAmount}>
         <Text style={styles.amountText}>{formatCurrency(amount)}</Text>
       </View>
@@ -72,6 +114,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  card: {
+    backgroundColor: Colors.bgPanel,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  cardDate: {
+    flex: 1,
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  cardTimes: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+  },
+  cardHours: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+  },
+  cardDescription: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
   },
   colDate: {
     flex: 2.2,
