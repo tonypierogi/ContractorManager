@@ -3,9 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/features/auth/auth-provider';
-import { useCurrentClockIn, useClockIn, useClockOut, useTodayStats } from '@/features/timeclock/hooks';
+import { useCurrentClockIn, useClockIn, useClockOut } from '@/features/timeclock/hooks';
 import ClockButton from '@/features/timeclock/components/ClockButton';
-import TodayStats from '@/features/timeclock/components/TodayStats';
 import Button from '@/components/ui/Button';
 import { Colors, Spacing, FontSize, FontWeight, BorderRadius, Shadows } from '@/constants/theme';
 import { formatTime } from '@/utils/format';
@@ -43,18 +42,14 @@ function formatElapsedDuration(startTime: string): string {
 }
 
 export default function TimeClockScreen() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id ?? '';
   const { data: currentClockIn } = useCurrentClockIn(userId);
   const clockIn = useClockIn();
   const clockOut = useClockOut();
-  const { data: todayStats } = useTodayStats(userId);
   const now = useCurrentTime();
 
   const isClockedIn = !!currentClockIn;
-  const hourlyRate = profile?.hourly_rate ?? 0;
-  const totalHours = todayStats?.totalHours ?? 0;
-  const estimatedEarnings = totalHours * hourlyRate;
 
   const today = now.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -106,7 +101,8 @@ export default function TimeClockScreen() {
             <Button
               title="Add Manual Shift"
               variant="secondary"
-              size="sm"
+              size="md"
+              fullWidth
               onPress={() => {}}
             />
           </View>
@@ -136,12 +132,6 @@ export default function TimeClockScreen() {
             </>
           )}
         </View>
-
-        <TodayStats
-          totalHours={totalHours}
-          estimatedEarnings={estimatedEarnings}
-          hourlyRate={hourlyRate}
-        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -157,9 +147,10 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   header: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   heading: {
     fontSize: FontSize.xl,
@@ -176,8 +167,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.xl,
-    alignItems: 'center',
+    padding: Spacing.lg,
+    alignItems: 'stretch',
     ...Shadows.md,
   },
   clockDisplay: {
@@ -207,10 +198,7 @@ const styles = StyleSheet.create({
     color: Colors.success,
   },
   clockActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
   },
   sessionInfo: {
     flexDirection: 'row',
@@ -219,6 +207,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     width: '100%',
+    marginTop: Spacing.lg,
   },
   sessionStat: {
     flex: 1,
