@@ -4,7 +4,6 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   Alert,
 } from 'react-native';
@@ -12,18 +11,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
-import MediaRow from '@/components/ui/MediaRow';
 import { useToast } from '@/components/ui/Toast';
-import EquipmentModeSection from '@/features/equipment/components/EquipmentModeSection';
-import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
+import SopItemCard from '@/features/sops/components/SopItemCard';
+import SopItemEditorSheet from '@/features/sops/components/SopItemEditorSheet';
 import {
   equipmentHomeZones,
-  equipmentModes,
+  equipmentImages,
   parseEquipmentRefs,
   removeEquipmentRef,
   setEquipmentMode,
   setEquipmentPlacement,
+  syncEquipmentMedia,
   toggleEquipmentRef,
 } from '@/features/equipment/refs';
 import { useAuth } from '@/features/auth/auth-provider';
@@ -34,13 +32,8 @@ import {
   useUploadSopMedia,
 } from '@/features/sops/hooks';
 import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
-import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
-import type {
-  EquipmentLinkMode,
-  MediaItem,
-  SopItemType,
-  TaskEquipmentRef,
-} from '@/types/database';
+import { Colors, Spacing, FontSize } from '@/constants/theme';
+import type { MediaItem, SopItemType, TaskEquipmentRef } from '@/types/database';
 
 interface ItemDraft {
   id: string;
@@ -68,11 +61,8 @@ export default function SopEditorScreen() {
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  // Which item's equipment is being picked, and for which side of the task.
-  const [equipmentPicker, setEquipmentPicker] = useState<{
-    itemId: string;
-    mode: EquipmentLinkMode;
-  } | null>(null);
+  // Which item is open in the editing sheet; the list itself stays collapsed.
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -81,6 +71,8 @@ export default function SopEditorScreen() {
   // Where each piece of equipment lives, so tagging it on a task fills the
   // room in instead of asking for it again.
   const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
+  // ...and what it looks like, so tagging it also shows the crew the thing.
+  const equipmentPhotos = useMemo(() => equipmentImages(equipment), [equipment]);
 
   // One-shot hydration: a focus refetch must not clobber in-progress edits,
   // and item media/equipment must round-trip so editing never strips them.
@@ -103,18 +95,19 @@ export default function SopEditorScreen() {
     setHydrated(true);
   }, [id, existing, hydrated]);
 
+  // A brand new item opens straight into the sheet — there is nothing to see
+  // on its collapsed row yet.
   const addItem = (type: SopItemType) => {
-    setItems((prev) => [
-      ...prev,
-      {
-        id: makeId(),
-        title: '',
-        description: '',
-        item_type: type,
-        media: [],
-        equipment: [],
-      },
-    ]);
+    const draft: ItemDraft = {
+      id: makeId(),
+      title: '',
+      description: '',
+      item_type: type,
+      media: [],
+      equipment: [],
+    };
+    setItems((prev) => [...prev, draft]);
+    setEditingItemId(draft.id);
   };
 
   // Upload immediately on selection (legacy parity); removing an image only
@@ -156,17 +149,27 @@ export default function SopEditorScreen() {
     );
   };
 
+  // Every equipment change goes through here so the item's photos follow the
+  // gear: tagging something copies its picture in, untagging takes it out.
   const patchEquipment = (
     itemId: string,
     update: (refs: TaskEquipmentRef[]) => TaskEquipmentRef[],
   ) => {
     setItems((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, equipment: update(i.equipment) } : i)),
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        const equipmentRefs = update(i.equipment);
+        return {
+          ...i,
+          equipment: equipmentRefs,
+          media: syncEquipmentMedia(i.media, i.equipment, equipmentRefs, equipmentPhotos),
+        };
+      }),
     );
   };
 
-  const equipmentPickerItem =
-    items.find((i) => i.id === equipmentPicker?.itemId) ?? null;
+  const editingItem = items.find((i) => i.id === editingItemId) ?? null;
+  const editingIndex = items.findIndex((i) => i.id === editingItemId);
 
   const updateItem = (itemId: string, field: keyof ItemDraft, value: string) => {
     setItems((prev) =>
@@ -176,6 +179,7 @@ export default function SopEditorScreen() {
 
   const removeItem = (itemId: string) => {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
+    setEditingItemId((current) => (current === itemId ? null : current));
   };
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -254,100 +258,15 @@ export default function SopEditorScreen() {
         <Text style={styles.subheading}>Items</Text>
 
         {items.map((item, index) => (
-          <Card key={item.id} style={styles.itemCard}>
-            <View style={styles.itemHeader}>
-              <View
-                style={[
-                  styles.typeBadge,
-                  item.item_type === 'section' && styles.sectionBadge,
-                ]}
-              >
-                <Text style={styles.typeText}>
-                  {item.item_type === 'section' ? 'Section' : 'Task'}
-                </Text>
-              </View>
-              <View style={styles.itemControls}>
-                <TouchableOpacity
-                  onPress={() => moveItem(index, 'up')}
-                  disabled={index === 0}
-                  style={styles.arrowBtn}
-                >
-                  <Text style={[styles.arrow, index === 0 && styles.arrowDisabled]}>
-                    ↑
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => moveItem(index, 'down')}
-                  disabled={index === items.length - 1}
-                  style={styles.arrowBtn}
-                >
-                  <Text
-                    style={[
-                      styles.arrow,
-                      index === items.length - 1 && styles.arrowDisabled,
-                    ]}
-                  >
-                    ↓
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => removeItem(item.id)}>
-                  <Text style={styles.removeBtn}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <Input
-              placeholder="Title"
-              value={item.title}
-              onChangeText={(v) => updateItem(item.id, 'title', v)}
-            />
-            <Input
-              placeholder="Description (optional)"
-              value={item.description}
-              onChangeText={(v) => updateItem(item.id, 'description', v)}
-            />
-            {item.item_type === 'task' && (
-              <>
-                <Text style={styles.fieldLabel}>Images</Text>
-                <MediaRow
-                  media={item.media}
-                  uploading={uploadingItemId === item.id}
-                  onAddFromCamera={() => handleAddImage(item.id, 'camera')}
-                  onAddFromLibrary={() => handleAddImage(item.id, 'library')}
-                  onRemove={(mi) => removeImage(item.id, mi)}
-                />
-                {(['use', 'return'] as EquipmentLinkMode[]).map((mode) => (
-                  <EquipmentModeSection
-                    key={mode}
-                    mode={mode}
-                    refs={item.equipment}
-                    equipmentById={equipmentById}
-                    homeZones={equipmentHomes}
-                    onAdd={() => setEquipmentPicker({ itemId: item.id, mode })}
-                    onSetPlacement={(equipmentId, field, zoneId) =>
-                      patchEquipment(item.id, (refs) =>
-                        setEquipmentPlacement(refs, equipmentId, field, zoneId),
-                      )
-                    }
-                    onSetMode={(equipmentId, nextMode) =>
-                      patchEquipment(item.id, (refs) =>
-                        setEquipmentMode(
-                          refs,
-                          equipmentId,
-                          nextMode,
-                          equipmentHomes.get(equipmentId) ?? null,
-                        ),
-                      )
-                    }
-                    onRemove={(equipmentId) =>
-                      patchEquipment(item.id, (refs) =>
-                        removeEquipmentRef(refs, equipmentId),
-                      )
-                    }
-                  />
-                ))}
-              </>
-            )}
-          </Card>
+          <SopItemCard
+            key={item.id}
+            item={item}
+            index={index}
+            count={items.length}
+            onOpen={() => setEditingItemId(item.id)}
+            onMove={(direction) => moveItem(index, direction)}
+            onRemove={() => removeItem(item.id)}
+          />
         ))}
 
         <View style={styles.addButtons}>
@@ -367,13 +286,36 @@ export default function SopEditorScreen() {
 
       </ScrollView>
 
-      <EquipmentPickerSheet
-        mode={equipmentPicker?.mode ?? null}
+      <SopItemEditorSheet
+        item={editingItem}
+        index={editingIndex}
         equipment={equipment}
-        selected={equipmentModes(equipmentPickerItem?.equipment ?? [])}
-        onToggle={(equipmentId, mode) =>
-          equipmentPicker &&
-          patchEquipment(equipmentPicker.itemId, (refs) =>
+        equipmentById={equipmentById}
+        equipmentHomes={equipmentHomes}
+        uploading={!!editingItem && uploadingItemId === editingItem.id}
+        onUpdateField={(field, value) =>
+          editingItem && updateItem(editingItem.id, field, value)
+        }
+        onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
+            setEquipmentPlacement(refs, equipmentId, field, zoneId),
+          )
+        }
+        onSetEquipmentMode={(equipmentId, mode) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
+            setEquipmentMode(
+              refs,
+              equipmentId,
+              mode,
+              equipmentHomes.get(equipmentId) ?? null,
+            ),
+          )
+        }
+        onToggleEquipment={(equipmentId, mode) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
             toggleEquipmentRef(
               refs,
               equipmentId,
@@ -382,7 +324,13 @@ export default function SopEditorScreen() {
             ),
           )
         }
-        onClose={() => setEquipmentPicker(null)}
+        onRemoveEquipment={(equipmentId) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) => removeEquipmentRef(refs, equipmentId))
+        }
+        onAddImage={(source) => editingItem && handleAddImage(editingItem.id, source)}
+        onRemoveImage={(mi) => editingItem && removeImage(editingItem.id, mi)}
+        onClose={() => setEditingItemId(null)}
       />
     </SafeAreaView>
   );
@@ -397,15 +345,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fieldLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: Spacing.xs,
-    marginTop: Spacing.xs,
   },
   topBar: {
     flexDirection: 'row',
@@ -431,50 +370,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
     marginTop: Spacing.sm,
-  },
-  itemCard: {
-    marginBottom: Spacing.sm,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  typeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.accent + '20',
-  },
-  sectionBadge: {
-    backgroundColor: Colors.warning + '20',
-  },
-  typeText: {
-    fontSize: FontSize.xs,
-    fontWeight: '600',
-    color: Colors.accent,
-  },
-  itemControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  arrowBtn: {
-    padding: 4,
-  },
-  arrow: {
-    fontSize: FontSize.lg,
-    color: Colors.accent,
-  },
-  arrowDisabled: {
-    color: Colors.textMuted,
-  },
-  removeBtn: {
-    fontSize: FontSize.md,
-    color: Colors.danger,
-    fontWeight: '600',
-    padding: 4,
   },
   addButtons: {
     flexDirection: 'row',
