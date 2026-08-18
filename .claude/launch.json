@@ -8,17 +8,17 @@
       "port": 8081
     },
     {
+      "name": "expo-web-worktree-timeclock",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/equipment-location-auto-populate-e072ec/timetrack-pro && npx expo start --web --port ${PORT:-8084}"],
+      "port": 8084,
+      "autoPort": true
+    },
+    {
       "name": "expo-web-worktree",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/admin-task-floor-plan-view-794134/timetrack-pro && npx expo start --web --port ${PORT:-8082}"],
       "port": 8082,
-      "autoPort": true
-    },
-    {
-      "name": "expo-web-worktree-task-list-creation",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd /Users/Tony-Work/Documents/CodingProjects/contractortimesheet-invoice/timetrack-pro/.claude/worktrees/task-list-creation-145818/timetrack-pro && npx expo start --web --port ${PORT:-8084}"],
-      "port": 8084,
       "autoPort": true
     },
     {
