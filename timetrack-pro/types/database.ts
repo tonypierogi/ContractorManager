@@ -100,7 +100,8 @@ export interface SopItem {
   title: string;
   description: string | null;
   media: MediaItem[];
-  equipment: string[];
+  /** Same three shapes as task items carry — run through parseEquipmentRefs(). */
+  equipment: StoredEquipmentRef[];
   created_at: string;
   updated_at: string;
 }
@@ -141,6 +142,20 @@ export interface AdHocTask {
   completed_at: string | null;
   created_by: string;
   created_at: string;
+}
+
+/**
+ * An admin's edits to one floor-plan room, keyed by the zone id from
+ * features/locations/zones.ts. Rooms with no row here show their bundled name
+ * and photo; a null column means "keep the bundled one" for that field.
+ */
+export interface LocationZoneOverride {
+  zone_id: string;
+  label: string | null;
+  photo_url: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Equipment {

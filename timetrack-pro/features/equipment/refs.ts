@@ -13,16 +13,26 @@ import type { EquipmentLinkMode, TaskEquipmentRef } from '@/types/database';
 
 export const EQUIPMENT_LINK_MODES: EquipmentLinkMode[] = ['use', 'return'];
 
-/** Short badge text, e.g. on a checklist row. */
+/**
+ * Short badge text, e.g. on a checklist row. The stored values stay 'use' and
+ * 'return' (they are written into the equipment JSONB on every task ever
+ * saved); only what people read says Get / Bring.
+ */
 export const EQUIPMENT_MODE_LABEL: Record<EquipmentLinkMode, string> = {
-  use: 'Use',
-  return: 'Return',
+  use: 'Get',
+  return: 'Bring',
+};
+
+/** Field label in the editors, e.g. "Equipment to get". */
+export const EQUIPMENT_MODE_FIELD_LABEL: Record<EquipmentLinkMode, string> = {
+  use: 'Equipment to get',
+  return: 'Equipment to bring',
 };
 
 /** Full sentence for pickers and the detail sheet. */
 export const EQUIPMENT_MODE_DESCRIPTION: Record<EquipmentLinkMode, string> = {
-  use: 'Bring it out and use it here',
-  return: 'Put it back where it belongs',
+  use: 'Go get it — it starts somewhere else',
+  return: 'Bring it back where it belongs',
 };
 
 /** Zone-picker labels: what "from" and "to" mean for each mode. */
@@ -31,8 +41,24 @@ export const EQUIPMENT_ZONE_LABEL: Record<
   { from: string; to: string }
 > = {
   use: { from: 'Get it from', to: 'Use it in' },
-  return: { from: 'Pick it up from', to: 'Return it to' },
+  return: { from: 'Pick it up from', to: 'Bring it to' },
 };
+
+/** The refs linked in one mode, for the editors' two equipment fields. */
+export function refsForMode(
+  refs: readonly TaskEquipmentRef[],
+  mode: EquipmentLinkMode,
+): TaskEquipmentRef[] {
+  return refs.filter((r) => r.mode === mode);
+}
+
+/** Drop one piece of equipment from a task entirely. */
+export function removeEquipmentRef(
+  refs: readonly TaskEquipmentRef[],
+  equipmentId: string,
+): TaskEquipmentRef[] {
+  return refs.filter((r) => r.id !== equipmentId);
+}
 
 function parseMode(
   raw: unknown,

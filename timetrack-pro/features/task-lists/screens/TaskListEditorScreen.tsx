@@ -17,10 +17,11 @@ import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
-import { EquipmentPickerModal } from '@/features/equipment/components/EquipmentTagging';
+import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
 import {
   equipmentModes,
   parseEquipmentRefs,
+  removeEquipmentRef,
   setEquipmentMode,
   setEquipmentPlacement,
   toggleEquipmentRef,
@@ -65,7 +66,11 @@ export default function TaskListEditorScreen() {
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  const [equipmentPickerFor, setEquipmentPickerFor] = useState<string | null>(null);
+  // Which item's equipment is being picked, and for which side of the task.
+  const [equipmentPicker, setEquipmentPicker] = useState<{
+    itemId: string;
+    mode: EquipmentLinkMode;
+  } | null>(null);
   const [existingPickerOpen, setExistingPickerOpen] = useState(false);
 
   const equipmentById = useMemo(
@@ -277,7 +282,18 @@ export default function TaskListEditorScreen() {
     );
   };
 
-  const equipmentPickerItem = items.find((i) => i.id === equipmentPickerFor) ?? null;
+  const removeEquipment = (itemId: string, equipmentId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId
+          ? { ...i, equipment: removeEquipmentRef(i.equipment, equipmentId) }
+          : i,
+      ),
+    );
+  };
+
+  const equipmentPickerItem =
+    items.find((i) => i.id === equipmentPicker?.itemId) ?? null;
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
     setItems((prev) => {
@@ -414,9 +430,10 @@ export default function TaskListEditorScreen() {
             onSetEquipmentMode={(equipmentId, mode) =>
               changeEquipmentMode(item.id, equipmentId, mode)
             }
+            onRemoveEquipment={(equipmentId) => removeEquipment(item.id, equipmentId)}
             onAddImage={(source) => handleAddImage(item.id, source)}
             onRemoveImage={(mi) => removeImage(item.id, mi)}
-            onEditEquipment={() => setEquipmentPickerFor(item.id)}
+            onEditEquipment={(mode) => setEquipmentPicker({ itemId: item.id, mode })}
             onMove={(direction) => moveItem(index, direction)}
             onRemove={() => removeItem(item.id)}
           />
@@ -444,15 +461,14 @@ export default function TaskListEditorScreen() {
 
       </ScrollView>
 
-      <EquipmentPickerModal
-        visible={equipmentPickerFor != null}
+      <EquipmentPickerSheet
+        mode={equipmentPicker?.mode ?? null}
         equipment={equipment}
         selected={equipmentModes(equipmentPickerItem?.equipment ?? [])}
-        onSelect={(equipmentId, mode) =>
-          equipmentPickerFor &&
-          toggleEquipment(equipmentPickerFor, equipmentId, mode)
+        onToggle={(equipmentId, mode) =>
+          equipmentPicker && toggleEquipment(equipmentPicker.itemId, equipmentId, mode)
         }
-        onClose={() => setEquipmentPickerFor(null)}
+        onClose={() => setEquipmentPicker(null)}
       />
 
       <ExistingItemPickerModal

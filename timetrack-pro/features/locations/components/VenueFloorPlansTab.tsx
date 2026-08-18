@@ -13,14 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Badge from '@/components/ui/Badge';
 import Lightbox from '@/components/ui/Lightbox';
 import { useAuth } from '@/features/auth/auth-provider';
-import { useLinkedTaskLists } from '@/features/locations/hooks';
+import { useLinkedTaskLists, useLocationZones } from '@/features/locations/hooks';
+import RoomEditorSheet from '@/features/locations/components/RoomEditorSheet';
 import {
-  LOCATION_ZONES,
   ZONE_OVERLAYS,
   FLOOR_PLAN_ASPECT,
   FLOOR_PLAN_DEFAULT,
   FLOOR_PLAN_HIGHLIGHT,
-  ZONE_PHOTOS,
+  getZonePhoto,
   type Floor,
 } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
@@ -38,14 +38,16 @@ const FLOORS: { key: Floor; label: string }[] = [
 export default function VenueFloorPlansTab() {
   const router = useRouter();
   const { role } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = width >= 900;
 
   const [floor, setFloor] = useState<Floor>('upstairs');
   const [selected, setSelected] = useState<string | null>(null);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null);
+  const [editingZone, setEditingZone] = useState<string | null>(null);
 
-  const zones = LOCATION_ZONES[floor];
+  const { floors } = useLocationZones();
+  const zones = floors[floor];
   const overlays = ZONE_OVERLAYS[floor];
   const aspectRatio = FLOOR_PLAN_ASPECT[floor];
 
@@ -55,18 +57,34 @@ export default function VenueFloorPlansTab() {
       : FLOOR_PLAN_DEFAULT[floor];
 
   const selectedZone = selected ? zones.find((z) => z.id === selected) ?? null : null;
-  const selectedPhoto = selected ? ZONE_PHOTOS[selected] : undefined;
+  const selectedPhoto = getZonePhoto(selected);
 
   const linkedQuery = useLinkedTaskLists(selected);
 
-  // The plan PNGs are tall and narrow (311x1024), so size them from a
-  // height budget and let the photo pane take the remaining width.
+  // The plan PNGs are tall and narrow (311x1024), so a width-driven size runs
+  // off the bottom of a phone. Size from a height budget capped against the
+  // window instead, leaving room for the room photo and task list below, and
+  // let a tap open the plan full screen when someone needs the detail.
   const contentWidth = width - Spacing.lg * 2;
+  const planHeightBudget = isWide ? 560 : Math.min(300, height * 0.32);
   const planWidth = Math.min(
-    (isWide ? 560 : 380) * aspectRatio,
+    planHeightBudget * aspectRatio,
     (contentWidth - Spacing.md) * (isWide ? 0.4 : 0.45),
   );
   const planHeight = planWidth / aspectRatio;
+  // Overlay captions stop fitting once the plan is this narrow; the room chips
+  // above and the highlight itself carry the labelling from there.
+  const compactPlan = planWidth < 120;
+
+  // Room photo first, then the highlighted plan, so a tap on either opens the
+  // lightbox on that image and swipes to the other.
+  const lightboxImages = [selectedPhoto, floorPlanSource].filter(
+    (img): img is NonNullable<typeof img> => !!img,
+  );
+  const openLightbox = (image: (typeof lightboxImages)[number]) => {
+    const index = lightboxImages.indexOf(image);
+    if (index >= 0) setLightboxAt(index);
+  };
 
   const selectFloor = (f: Floor) => {
     setFloor(f);
@@ -122,6 +140,15 @@ export default function VenueFloorPlansTab() {
         resizeMode="contain"
         accessibilityLabel={`${floor} floor plan`}
       />
+      <Pressable
+        onPress={() => openLightbox(floorPlanSource)}
+        accessibilityRole="button"
+        accessibilityLabel="View floor plan full screen"
+        hitSlop={6}
+        style={s.expandBtn}
+      >
+        <Ionicons name="expand-outline" size={14} color={Colors.text} />
+      </Pressable>
       {overlays.map((ov) => {
         const zone = zones.find((z) => z.id === ov.id);
         if (!zone) return null;
@@ -143,9 +170,11 @@ export default function VenueFloorPlansTab() {
               isActive && s.zoneOverlayActive,
             ]}
           >
-            <Text style={s.zoneOverlayLabel} numberOfLines={1}>
-              {zone.label}
-            </Text>
+            {compactPlan ? null : (
+              <Text style={s.zoneOverlayLabel} numberOfLines={1}>
+                {zone.label}
+              </Text>
+            )}
           </Pressable>
         );
       })}
@@ -161,13 +190,27 @@ export default function VenueFloorPlansTab() {
         </View>
       ) : (
         <>
-          <Text style={s.detailTitle} numberOfLines={1}>
-            {selectedZone.label}
-          </Text>
+          <View style={s.detailTitleRow}>
+            <Text style={s.detailTitle} numberOfLines={1}>
+              {selectedZone.label}
+            </Text>
+            {role === 'admin' ? (
+              <Pressable
+                onPress={() => setEditingZone(selectedZone.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${selectedZone.label}`}
+                hitSlop={6}
+                style={s.editRoomBtn}
+              >
+                <Ionicons name="create-outline" size={14} color={Colors.accent} />
+                <Text style={s.editRoomText}>Edit</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           {selectedPhoto ? (
             <Pressable
-              onPress={() => setLightboxOpen(true)}
+              onPress={() => openLightbox(selectedPhoto)}
               accessibilityRole="imagebutton"
               accessibilityLabel={selectedZone.label}
             >
@@ -249,12 +292,17 @@ export default function VenueFloorPlansTab() {
         </View>
       </ScrollView>
 
-      {selected && selectedPhoto ? (
+      {lightboxImages.length > 0 ? (
         <Lightbox
-          images={[selectedPhoto]}
-          visible={lightboxOpen}
-          onClose={() => setLightboxOpen(false)}
+          images={lightboxImages}
+          startIndex={lightboxAt ?? 0}
+          visible={lightboxAt != null}
+          onClose={() => setLightboxAt(null)}
         />
+      ) : null}
+
+      {role === 'admin' ? (
+        <RoomEditorSheet zoneId={editingZone} onClose={() => setEditingZone(null)} />
       ) : null}
     </>
   );
@@ -382,10 +430,43 @@ const s = StyleSheet.create({
     minWidth: 0,
     gap: Spacing.sm,
   },
+  detailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
   detailTitle: {
+    flex: 1,
     fontSize: FontSize.md,
     fontWeight: '700',
     color: Colors.text,
+  },
+  editRoomBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  editRoomText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  expandBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 15, 26, 0.7)',
   },
   emptyPane: {
     borderRadius: BorderRadius.lg,
@@ -403,15 +484,18 @@ const s = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: 'center',
   },
+  // Fixed height, not an aspect ratio: some room shots are very tall, and
+  // react-native-web ignores aspectRatio on Image, which let those photos
+  // render hundreds of points tall on a phone.
   zonePhoto: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    height: 200,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.bgElevated,
   },
   photoPlaceholder: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    height: 200,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.bgElevated,
     alignItems: 'center',

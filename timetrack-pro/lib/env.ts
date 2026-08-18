@@ -11,4 +11,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const Env = {
   supabaseUrl,
   supabaseAnonKey,
+  /**
+   * Where the public share page (share/index.html) is hosted. Optional: when
+   * unset, share links point at the share-task-list edge function, which
+   * redirects to the same page. See share/README.md.
+   */
+  sharePageUrl: process.env.EXPO_PUBLIC_SHARE_PAGE_URL || '',
 };

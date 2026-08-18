@@ -10,12 +10,13 @@ import {
   parseEquipmentRefs,
   resolvePlacement,
 } from '@/features/equipment/refs';
+import { useZoneOverrides } from '@/features/locations/hooks';
 import {
   FLOOR_PLAN_ASPECT,
   FLOOR_PLAN_HIGHLIGHT,
-  ZONE_PHOTOS,
   formatZoneSpan,
   getLocationLabel,
+  getZonePhoto,
   zoneFloor,
 } from '@/features/locations/zones';
 import type {
@@ -74,6 +75,8 @@ export default function TaskDetailSheet({
   // Which "<equipmentId>:<from|to>" zone row is expanded, if any.
   const [openZoneKey, setOpenZoneKey] = useState<string | null>(null);
   const [lightboxAt, setLightboxAt] = useState<number | null>(null);
+  // Renamed rooms and replaced room photos show through here too.
+  useZoneOverrides();
 
   const refs = parseEquipmentRefs(item?.equipment);
   const equipmentById = new Map((equipment ?? []).map((eq) => [eq.id, eq]));
@@ -238,7 +241,7 @@ function ZoneStep({
 
   const floor = zoneFloor(zoneId);
   const plan = FLOOR_PLAN_HIGHLIGHT[zoneId];
-  const photo = ZONE_PHOTOS[zoneId];
+  const photo = getZonePhoto(zoneId);
   const hasVisual = !!(plan && floor) || !!photo;
 
   return (

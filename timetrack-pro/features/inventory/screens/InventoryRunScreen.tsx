@@ -26,8 +26,8 @@ import {
   ALL_ZONES,
   FLOOR_PLAN_ASPECT,
   FLOOR_PLAN_HIGHLIGHT,
-  ZONE_PHOTOS,
   getLocationLabel,
+  getZonePhoto,
   zoneFloor,
 } from '@/features/locations/zones';
 import { formatDate } from '@/utils/format';
@@ -447,7 +447,7 @@ function ZoneMapModal({
 }) {
   const floor = zone ? zoneFloor(zone.id) : null;
   const plan = zone ? FLOOR_PLAN_HIGHLIGHT[zone.id] : undefined;
-  const photo = zone ? ZONE_PHOTOS[zone.id] : undefined;
+  const photo = getZonePhoto(zone?.id);
 
   return (
     <AppModal visible={!!zone} onClose={onClose} title={zone?.label ?? ''} size="sm">

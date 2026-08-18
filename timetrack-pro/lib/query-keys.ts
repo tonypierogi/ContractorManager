@@ -86,5 +86,6 @@ export const qk = {
   locations: {
     all: ['locations'] as const,
     linkedTasks: (zoneId: string) => ['locations', 'linkedTasks', zoneId] as const,
+    zoneOverrides: ['locations', 'zoneOverrides'] as const,
   },
 } as const;

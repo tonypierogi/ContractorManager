@@ -6,6 +6,7 @@ import type {
   DailySop,
   SopTaskComment,
   AdHocTask,
+  TaskEquipmentRef,
 } from '@/types/database';
 
 export type DailySopWithTemplate = DailySop & {
@@ -28,7 +29,9 @@ export interface SaveSopTemplateInput {
     description?: string;
     item_type?: string;
     media?: unknown[];
-    equipment?: string[];
+    /** Refs carrying a get/bring mode; older rows hold bare ids (see
+     * features/equipment/refs.ts, which reads both). */
+    equipment?: TaskEquipmentRef[];
     sort_order: number;
   }>;
 }
