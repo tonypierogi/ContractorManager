@@ -1,4 +1,5 @@
 import { supabase, EDGE_FUNCTION_URL } from '@/lib/supabase';
+import { Env } from '@/lib/env';
 import {
   uploadImageToMediaBucket,
   uploadVideoToMediaBucket,
@@ -649,15 +650,24 @@ export async function ensureShareToken(taskListId: string): Promise<string> {
   return data as string;
 }
 
-/** Public web page for a shared list, served by the share-task-list edge
- * function (deployed with --no-verify-jwt so a plain browser can open it).
- * `kind` tells the page which token it holds; task-list links predate the
- * parameter, so they stay bare. */
+/**
+ * Public web page for a shared list or SOP run. `kind` tells the page which
+ * token it holds; task-list links predate the parameter, so they stay bare.
+ *
+ * Points straight at the hosted share page when EXPO_PUBLIC_SHARE_PAGE_URL is
+ * set, and otherwise at the share-task-list edge function, which redirects to
+ * the same page. The function cannot serve the page itself: Supabase returns
+ * edge-function HTML on *.supabase.co as text/plain under a sandbox CSP, so a
+ * browser shows the source instead of the checklist (see share/README.md).
+ */
 export function shareUrlForToken(
   token: string,
   kind: 'list' | 'sop' = 'list',
 ): string {
-  const base = `${EDGE_FUNCTION_URL}/share-task-list?t=${token}`;
+  const page = Env.sharePageUrl;
+  const base = page
+    ? `${page}${page.includes('?') ? '&' : '?'}t=${token}`
+    : `${EDGE_FUNCTION_URL}/share-task-list?t=${token}`;
   return kind === 'sop' ? `${base}&k=sop` : base;
 }
 

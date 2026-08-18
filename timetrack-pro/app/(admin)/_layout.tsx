@@ -2,6 +2,7 @@ import { Redirect, Slot } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import TopNavBar, { NavItem } from '@/components/navigation/TopNavBar';
 import { useAuth } from '@/features/auth/auth-provider';
+import { useZoneOverrides } from '@/features/locations/hooks';
 import { Colors } from '@/constants/theme';
 
 const adminNav: NavItem[] = [
@@ -20,6 +21,9 @@ const adminNav: NavItem[] = [
 
 export default function AdminLayout() {
   const { session, role, isLoading } = useAuth();
+  // Loaded once per session so renamed rooms read correctly everywhere,
+  // including in the plain helpers that have no hook access.
+  useZoneOverrides();
 
   if (isLoading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;

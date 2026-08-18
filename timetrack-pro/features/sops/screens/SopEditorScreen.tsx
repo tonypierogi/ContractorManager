@@ -15,10 +15,16 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import MediaRow from '@/components/ui/MediaRow';
 import { useToast } from '@/components/ui/Toast';
+import EquipmentModeSection from '@/features/equipment/components/EquipmentModeSection';
+import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
 import {
-  EquipmentBox,
-  EquipmentPickerModal,
-} from '@/features/equipment/components/EquipmentTagging';
+  equipmentModes,
+  parseEquipmentRefs,
+  removeEquipmentRef,
+  setEquipmentMode,
+  setEquipmentPlacement,
+  toggleEquipmentRef,
+} from '@/features/equipment/refs';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
 import {
@@ -28,7 +34,12 @@ import {
 } from '@/features/sops/hooks';
 import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
-import type { MediaItem, SopItemType } from '@/types/database';
+import type {
+  EquipmentLinkMode,
+  MediaItem,
+  SopItemType,
+  TaskEquipmentRef,
+} from '@/types/database';
 
 interface ItemDraft {
   id: string;
@@ -36,7 +47,7 @@ interface ItemDraft {
   description: string;
   item_type: SopItemType;
   media: MediaItem[];
-  equipment: string[];
+  equipment: TaskEquipmentRef[];
 }
 
 let nextItemId = 0;
@@ -56,7 +67,11 @@ export default function SopEditorScreen() {
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  const [equipmentPickerFor, setEquipmentPickerFor] = useState<string | null>(null);
+  // Which item's equipment is being picked, and for which side of the task.
+  const [equipmentPicker, setEquipmentPicker] = useState<{
+    itemId: string;
+    mode: EquipmentLinkMode;
+  } | null>(null);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -76,7 +91,9 @@ export default function SopEditorScreen() {
         description: i.description ?? '',
         item_type: i.item_type,
         media: i.media ?? [],
-        equipment: i.equipment ?? [],
+        // Older SOP rows stored bare equipment ids (and some, plain names) —
+        // parse normalizes every shape to refs carrying a get/bring mode.
+        equipment: parseEquipmentRefs(i.equipment),
       })),
     );
     setHydrated(true);
@@ -135,22 +152,17 @@ export default function SopEditorScreen() {
     );
   };
 
-  const toggleEquipment = (itemId: string, equipmentId: string) => {
+  const patchEquipment = (
+    itemId: string,
+    update: (refs: TaskEquipmentRef[]) => TaskEquipmentRef[],
+  ) => {
     setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? {
-              ...i,
-              equipment: i.equipment.includes(equipmentId)
-                ? i.equipment.filter((e) => e !== equipmentId)
-                : [...i.equipment, equipmentId],
-            }
-          : i,
-      ),
+      prev.map((i) => (i.id === itemId ? { ...i, equipment: update(i.equipment) } : i)),
     );
   };
 
-  const equipmentPickerItem = items.find((i) => i.id === equipmentPickerFor) ?? null;
+  const equipmentPickerItem =
+    items.find((i) => i.id === equipmentPicker?.itemId) ?? null;
 
   const updateItem = (itemId: string, field: keyof ItemDraft, value: string) => {
     setItems((prev) =>
@@ -299,13 +311,30 @@ export default function SopEditorScreen() {
                   onAddFromLibrary={() => handleAddImage(item.id, 'library')}
                   onRemove={(mi) => removeImage(item.id, mi)}
                 />
-                <Text style={styles.fieldLabel}>Equipment</Text>
-                <EquipmentBox
-                  items={item.equipment.map((eqId) => ({
-                    label: equipmentById.get(eqId) ?? 'Unknown',
-                  }))}
-                  onPress={() => setEquipmentPickerFor(item.id)}
-                />
+                {(['use', 'return'] as EquipmentLinkMode[]).map((mode) => (
+                  <EquipmentModeSection
+                    key={mode}
+                    mode={mode}
+                    refs={item.equipment}
+                    equipmentById={equipmentById}
+                    onAdd={() => setEquipmentPicker({ itemId: item.id, mode })}
+                    onSetPlacement={(equipmentId, field, zoneId) =>
+                      patchEquipment(item.id, (refs) =>
+                        setEquipmentPlacement(refs, equipmentId, field, zoneId),
+                      )
+                    }
+                    onSetMode={(equipmentId, nextMode) =>
+                      patchEquipment(item.id, (refs) =>
+                        setEquipmentMode(refs, equipmentId, nextMode),
+                      )
+                    }
+                    onRemove={(equipmentId) =>
+                      patchEquipment(item.id, (refs) =>
+                        removeEquipmentRef(refs, equipmentId),
+                      )
+                    }
+                  />
+                ))}
               </>
             )}
           </Card>
@@ -328,21 +357,17 @@ export default function SopEditorScreen() {
 
       </ScrollView>
 
-      <EquipmentPickerModal
-        visible={equipmentPickerFor != null}
+      <EquipmentPickerSheet
+        mode={equipmentPicker?.mode ?? null}
         equipment={equipment}
-        selected={
-          new Map(
-            (equipmentPickerItem?.equipment ?? []).map(
-              (eqId) => [eqId, 'use' as const],
-            ),
+        selected={equipmentModes(equipmentPickerItem?.equipment ?? [])}
+        onToggle={(equipmentId, mode) =>
+          equipmentPicker &&
+          patchEquipment(equipmentPicker.itemId, (refs) =>
+            toggleEquipmentRef(refs, equipmentId, mode),
           )
         }
-        showModes={false}
-        onSelect={(equipmentId) =>
-          equipmentPickerFor && toggleEquipment(equipmentPickerFor, equipmentId)
-        }
-        onClose={() => setEquipmentPickerFor(null)}
+        onClose={() => setEquipmentPicker(null)}
       />
     </SafeAreaView>
   );

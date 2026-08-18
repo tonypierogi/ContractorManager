@@ -4,12 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import MediaRow from '@/components/ui/MediaRow';
-import { EquipmentBox } from '@/features/equipment/components/EquipmentTagging';
-import {
-  EQUIPMENT_MODE_DESCRIPTION,
-  EQUIPMENT_MODE_LABEL,
-  EQUIPMENT_ZONE_LABEL,
-} from '@/features/equipment/refs';
+import EquipmentModeSection from '@/features/equipment/components/EquipmentModeSection';
+import { refsForMode } from '@/features/equipment/refs';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { getLocationLabel } from '@/features/locations/zones';
 import type { PhotoSource } from '@/lib/photo-picker';
@@ -61,9 +57,11 @@ interface ItemEditorCardProps {
     zoneId: string | null,
   ) => void;
   onSetEquipmentMode: (equipmentId: string, mode: EquipmentLinkMode) => void;
+  onRemoveEquipment: (equipmentId: string) => void;
   onAddImage: (source: PhotoSource) => void;
   onRemoveImage: (mediaIndex: number) => void;
-  onEditEquipment: () => void;
+  /** Opens the picker for one side of the task: get, or bring back. */
+  onEditEquipment: (mode: EquipmentLinkMode) => void;
   onMove: (direction: 'up' | 'down') => void;
   onRemove: () => void;
 }
@@ -78,6 +76,7 @@ export default function ItemEditorCard({
   onSetLocation,
   onSetEquipmentPlacement,
   onSetEquipmentMode,
+  onRemoveEquipment,
   onAddImage,
   onRemoveImage,
   onEditEquipment,
@@ -87,23 +86,15 @@ export default function ItemEditorCard({
   // New (blank) items open for editing; items that already have a title start
   // collapsed so long lists stay scannable.
   const [expanded, setExpanded] = useState(() => !item.title.trim());
-  const equipmentChips = item.equipment.map((ref) => ({
-    label: equipmentById.get(ref.id) ?? 'Unknown',
-    mode: ref.mode,
-  }));
+  const toGet = refsForMode(item.equipment, 'use').length;
+  const toBring = refsForMode(item.equipment, 'return').length;
 
   const summaryParts: string[] = [];
   if (item.media.length > 0) {
     summaryParts.push(`${item.media.length} photo${item.media.length === 1 ? '' : 's'}`);
   }
-  if (equipmentChips.length > 0) {
-    const returning = item.equipment.filter((ref) => ref.mode === 'return').length;
-    summaryParts.push(
-      returning > 0
-        ? `${equipmentChips.length} equipment (${returning} return)`
-        : `${equipmentChips.length} equipment`,
-    );
-  }
+  if (toGet > 0) summaryParts.push(`${toGet} to get`);
+  if (toBring > 0) summaryParts.push(`${toBring} to bring`);
   const routedCount = item.equipment.filter((ref) => ref.from || ref.to).length;
   if (routedCount > 0) {
     summaryParts.push(`${routedCount} routed`);
@@ -207,53 +198,23 @@ export default function ItemEditorCard({
             onRemove={onRemoveImage}
           />
 
-          <Text style={s.fieldLabel}>Equipment</Text>
-          <EquipmentBox items={equipmentChips} onPress={onEditEquipment} />
-
-          {item.equipment.map((ref) => (
-            <View key={ref.id} style={s.placementCard}>
-              <Text style={s.placementName}>
-                {equipmentById.get(ref.id) ?? 'Unknown equipment'}
-              </Text>
-              <View style={s.modeRow}>
-                {(['use', 'return'] as EquipmentLinkMode[]).map((option) => {
-                  const active = ref.mode === option;
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      style={[s.modeBtn, active && s.modeBtnActive]}
-                      onPress={() => onSetEquipmentMode(ref.id, option)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[s.modeText, active && s.modeTextActive]}>
-                        {EQUIPMENT_MODE_LABEL[option]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <Text style={s.placementHint}>
-                {EQUIPMENT_MODE_DESCRIPTION[ref.mode]}.
-              </Text>
-              <View style={s.placementPickers}>
-                <LocationZonePicker
-                  label={EQUIPMENT_ZONE_LABEL[ref.mode].from}
-                  value={ref.from}
-                  onChange={(z) => onSetEquipmentPlacement(ref.id, 'from', z)}
-                />
-                <LocationZonePicker
-                  label={EQUIPMENT_ZONE_LABEL[ref.mode].to}
-                  value={ref.to}
-                  onChange={(z) => onSetEquipmentPlacement(ref.id, 'to', z)}
-                />
-              </View>
-              <Text style={s.placementHint}>
-                Leave a zone blank to use the task&apos;s own from/to below.
-              </Text>
-            </View>
+          {(['use', 'return'] as EquipmentLinkMode[]).map((mode) => (
+            <EquipmentModeSection
+              key={mode}
+              mode={mode}
+              refs={item.equipment}
+              equipmentById={equipmentById}
+              onAdd={() => onEditEquipment(mode)}
+              onSetPlacement={onSetEquipmentPlacement}
+              onSetMode={onSetEquipmentMode}
+              onRemove={onRemoveEquipment}
+            />
           ))}
+          {item.equipment.length > 0 ? (
+            <Text style={s.placementHint}>
+              Leave a room blank to use the task&apos;s own from/to below.
+            </Text>
+          ) : null}
 
           <Text style={s.fieldLabel}>Task locations</Text>
           <LocationZonePicker
@@ -345,52 +306,9 @@ const s = StyleSheet.create({
     marginBottom: Spacing.xs,
     marginTop: Spacing.xs,
   },
-  placementCard: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.bgSecondary,
-    padding: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  placementName: {
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  modeBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 40,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.bgPanel,
-  },
-  modeBtnActive: {
-    backgroundColor: Colors.accent,
-    borderColor: Colors.accent,
-  },
-  modeText: {
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  modeTextActive: {
-    color: Colors.bgPrimary,
-  },
-  placementPickers: {
-    marginTop: Spacing.sm,
-  },
   placementHint: {
     fontSize: FontSize.xs,
     color: Colors.textMuted,
+    marginBottom: Spacing.sm,
   },
 });

@@ -1,7 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import ChecklistItemRow from '@/components/ui/ChecklistItemRow';
-import { parseEquipmentRefs } from '@/features/equipment/refs';
+import {
+  EQUIPMENT_MODE_LABEL,
+  parseEquipmentRefs,
+  placementSummary,
+} from '@/features/equipment/refs';
 import { Colors, Spacing, FontSize, FontWeight } from '@/constants/theme';
 import type { SopItem } from '@/types/database';
 
@@ -44,9 +48,13 @@ function SopCheckItem({
       description={item.description}
       images={images}
       equipment={parseEquipmentRefs(item.equipment).map((ref) => ({
-        // SOP equipment has no per-item zones; legacy rows may store a plain
-        // name instead of an id, so fall back to the raw value.
+        // Legacy rows may store a plain name instead of an id, so fall back to
+        // the raw value. SOP items carry no zones of their own, so a ref's own
+        // from/to is all there is to show.
         name: equipmentNames?.get(ref.id) ?? ref.id,
+        modeLabel: EQUIPMENT_MODE_LABEL[ref.mode],
+        isReturn: ref.mode === 'return',
+        placement: placementSummary(ref, null),
       }))}
       onOpenDetails={onOpenDetails}
       checked={item.checked}

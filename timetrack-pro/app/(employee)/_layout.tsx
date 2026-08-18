@@ -2,6 +2,7 @@ import { Redirect, Slot } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import TopNavBar, { NavItem } from '@/components/navigation/TopNavBar';
 import { useAuth } from '@/features/auth/auth-provider';
+import { useZoneOverrides } from '@/features/locations/hooks';
 import { Colors } from '@/constants/theme';
 
 // The two hubs still preview the day's work (Home) and the person
@@ -20,6 +21,8 @@ const employeeNav: NavItem[] = [
 
 export default function EmployeeLayout() {
   const { session, isLoading } = useAuth();
+  // See the admin layout: fills the zone-override cache for the session.
+  useZoneOverrides();
 
   if (isLoading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;

@@ -16,11 +16,11 @@ import Lightbox from '@/components/ui/Lightbox';
 import Button from '@/components/ui/Button';
 import EquipmentEditorModal from '@/features/equipment/components/EquipmentEditorModal';
 import { useEquipment } from '@/features/equipment/hooks';
+import { useLocationZones } from '@/features/locations/hooks';
 import {
-  LOCATION_ZONES,
   FLOOR_PLAN_HIGHLIGHT,
-  ZONE_PHOTOS,
   getLocationLabel,
+  getZonePhoto,
   zoneFloor,
 } from '@/features/locations/zones';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
@@ -30,13 +30,6 @@ interface ZoneChip {
   id: string | null;
   label: string;
 }
-
-// "All" first, then zones in floor order — same order the building is walked.
-const ZONE_CHIPS: ZoneChip[] = [
-  { id: null, label: 'All' },
-  ...LOCATION_ZONES.upstairs.map((z) => ({ id: z.id as string | null, label: z.label })),
-  ...LOCATION_ZONES.downstairs.map((z) => ({ id: z.id as string | null, label: z.label })),
-];
 
 interface Props {
   /** Admins get add/edit/delete on equipment items. */
@@ -49,6 +42,17 @@ interface Props {
  */
 export default function VenueItemsTab({ canEdit = false }: Props) {
   const { data: equipment, isLoading, refetch } = useEquipment();
+  const { floors } = useLocationZones();
+
+  // "All" first, then rooms in floor order — the order the building is walked.
+  const zoneChips: ZoneChip[] = useMemo(
+    () => [
+      { id: null, label: 'All' },
+      ...floors.upstairs.map((z) => ({ id: z.id as string | null, label: z.label })),
+      ...floors.downstairs.map((z) => ({ id: z.id as string | null, label: z.label })),
+    ],
+    [floors],
+  );
 
   const [query, setQuery] = useState('');
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
@@ -81,8 +85,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
   const selectedFloor = selected?.location ? zoneFloor(selected.location) : null;
   const selectedPlan =
     selected?.location != null ? FLOOR_PLAN_HIGHLIGHT[selected.location] : undefined;
-  const selectedZonePhoto =
-    selected?.location != null ? ZONE_PHOTOS[selected.location] : undefined;
+  const selectedZonePhoto = getZonePhoto(selected?.location);
   const selectedZoneLabel = selected?.location ? getLocationLabel(selected.location) : '';
 
   // Item photo first, then the location shots, so tapping any of them opens
@@ -143,7 +146,7 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.chipRow}
       >
-        {ZONE_CHIPS.map((chip) => {
+        {zoneChips.map((chip) => {
           const isActive = zoneFilter === chip.id;
           return (
             <Pressable

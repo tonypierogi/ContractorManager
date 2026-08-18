@@ -102,9 +102,52 @@ export const ALL_ZONES: LocationZone[] = [
   ...LOCATION_ZONES.downstairs,
 ];
 
+/** An admin's edits to one room: a renamed label, a replaced photo, or both. */
+export interface ZoneOverride {
+  label: string | null;
+  photo_url: string | null;
+}
+
+/**
+ * Admin overrides, mirrored here from the location_zone_overrides table by
+ * features/locations/hooks.ts. Held in a module cache rather than passed down
+ * because getLocationLabel() is called from plain functions all over the app
+ * (checklist rows, share summaries, placement text) that have no hook access.
+ * Unset rooms keep the bundled name and photo, so the app renders correctly
+ * before the fetch lands — and if it never does.
+ */
+let zoneOverrides: Record<string, ZoneOverride> = {};
+
+export function setZoneOverrides(next: Record<string, ZoneOverride>): void {
+  zoneOverrides = next;
+}
+
+export function getZoneOverride(zoneId: string): ZoneOverride | undefined {
+  return zoneOverrides[zoneId];
+}
+
 export function getLocationLabel(zoneId: string | null | undefined): string {
   if (!zoneId) return '';
+  const renamed = zoneOverrides[zoneId]?.label;
+  if (renamed) return renamed;
   return ALL_ZONES.find((z) => z.id === zoneId)?.label ?? zoneId;
+}
+
+/** The room's photo: an admin's upload if there is one, else the bundled shot. */
+export function getZonePhoto(
+  zoneId: string | null | undefined,
+): ImageSourcePropType | undefined {
+  if (!zoneId) return undefined;
+  const uploaded = zoneOverrides[zoneId]?.photo_url;
+  return uploaded ? { uri: uploaded } : ZONE_PHOTOS[zoneId];
+}
+
+/** One floor's rooms with any renames applied. */
+export function zonesForFloor(floor: Floor): LocationZone[] {
+  return LOCATION_ZONES[floor].map((zone) => ({
+    ...zone,
+    label: getLocationLabel(zone.id),
+  }));
 }
 
 /** "Big Room → Loft", a single zone's label, or null when neither is set. */

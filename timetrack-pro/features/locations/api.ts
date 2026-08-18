@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
+import type { LocationZoneOverride } from '@/types/database';
 
 /** Raw row shape returned by the linked task-lists select. */
 interface LinkedTaskListRow {
@@ -41,4 +43,47 @@ export async function fetchLinkedTaskLists(
     itemCount: (row.task_list_items ?? []).length,
     assignedCount: (row.task_list_assignments ?? []).length,
   }));
+}
+
+export interface SaveZoneOverrideInput {
+  zoneId: string;
+  /** null clears the rename and falls back to the bundled name. */
+  label: string | null;
+  /** null clears the upload and falls back to the bundled photo. */
+  photoUrl: string | null;
+}
+
+/**
+ * Admin edits to floor-plan rooms. Missing rooms simply have no row, so a
+ * fresh database returns [] and every room keeps its bundled name and photo.
+ */
+export async function fetchZoneOverrides(): Promise<LocationZoneOverride[]> {
+  const { data, error } = await supabase.from('location_zone_overrides').select('*');
+  if (error) throw error;
+  return (data ?? []) as LocationZoneOverride[];
+}
+
+export async function saveZoneOverride(
+  input: SaveZoneOverrideInput,
+): Promise<LocationZoneOverride> {
+  const { data, error } = await supabase
+    .from('location_zone_overrides')
+    .upsert(
+      {
+        zone_id: input.zoneId,
+        label: input.label,
+        photo_url: input.photoUrl,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'zone_id' },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LocationZoneOverride;
+}
+
+/** Room photos live beside the other media uploads, under a `locations/` prefix. */
+export function uploadZonePhoto(params: UploadImageInput): Promise<string> {
+  return uploadImageToMediaBucket('locations', params);
 }
