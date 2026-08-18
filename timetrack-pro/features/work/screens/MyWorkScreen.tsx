@@ -10,7 +10,7 @@ import {
   useCreateDailySop,
   useSopChecklist,
   useSopTemplates,
-  useTodayDailySop,
+  useTodayDailySops,
 } from '@/features/sops/hooks';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -53,11 +53,14 @@ export default function MyWorkScreen() {
   const today = toDateString(new Date());
 
   // Summary numbers for the SOP card; the dedicated page owns the details.
-  const { data: todaySop } = useTodayDailySop();
+  // A day can hold several runs: the one in progress plus any already filed.
+  const { data: todayRuns } = useTodayDailySops();
+  const activeSop = (todayRuns ?? []).find((run: any) => !run.completed_at) ?? null;
+  const completedToday = (todayRuns ?? []).filter((run: any) => !!run.completed_at);
   const { data: templates } = useSopTemplates();
   const { data: sopChecklist } = useSopChecklist(
-    todaySop?.id ?? '',
-    todaySop?.sop_template_id,
+    activeSop?.id ?? '',
+    activeSop?.sop_template_id,
   );
   const createDailySop = useCreateDailySop();
   const completeDailySop = useCompleteDailySop();
@@ -68,15 +71,9 @@ export default function MyWorkScreen() {
     sopChecklist?.templateItems.filter((i) => i.item_type !== 'section') ?? [];
   const sopChecked = sopCheckable.filter((i) => i.checked).length;
   const sopUnfinished = sopCheckable.length - sopChecked;
-  const sopComplete = !!todaySop?.completed_at;
-  // Only a run that hasn't been completed gets the in-progress treatment; a
-  // completed row still comes back from useTodayDailySop for the day.
-  const activeSop = todaySop && !sopComplete ? todaySop : null;
-  const sopSubtitle = sopComplete
-    ? 'Complete ✓'
-    : todaySop
-      ? `${sopChecked} of ${sopCheckable.length} tasks complete`
-      : "Start today's checklist";
+  const sopSubtitle = activeSop
+    ? `${sopChecked} of ${sopCheckable.length} tasks complete`
+    : "Start today's checklist";
 
   // Everything except the SOP already running, so it isn't listed twice.
   const startableTemplates = (templates ?? []).filter(
@@ -89,8 +86,13 @@ export default function MyWorkScreen() {
       { sopTemplateId: templateId, createdBy: user.id },
       {
         onSuccess: () => router.push('/(employee)/sop-checklist' as any),
+        // The only way this fails now is a race: someone else started a
+        // checklist a moment ago and this device hasn't caught up yet.
         onError: () =>
-          showToast('Could not start that SOP. Please try again.', 'error'),
+          showToast(
+            'Could not start that SOP — someone may have just started one. Try again in a moment.',
+            'error',
+          ),
       },
     );
   };
@@ -223,7 +225,7 @@ export default function MyWorkScreen() {
           <Text style={s.sectionTitle}>SOPs</Text>
         </View>
 
-        {todaySop ? (
+        {activeSop ? (
           <View style={s.sopActiveBlock}>
             <TouchableOpacity
               style={s.card}
@@ -234,10 +236,10 @@ export default function MyWorkScreen() {
             >
               <View style={s.cardLeft}>
                 <Text style={s.cardTitle}>
-                  {todaySop.sop_templates?.name ?? "Today's SOP"}
+                  {activeSop.sop_templates?.name ?? "Today's SOP"}
                 </Text>
                 <Text style={s.cardDesc}>{sopSubtitle}</Text>
-                {activeSop && sopCheckable.length > 0 ? (
+                {sopCheckable.length > 0 ? (
                   <View style={s.sopProgressTrack}>
                     <View
                       style={[
@@ -255,22 +257,40 @@ export default function MyWorkScreen() {
               <Text style={s.chevron}>›</Text>
             </TouchableOpacity>
 
-            {activeSop ? (
-              <View style={s.sopActions}>
-                <Button
-                  title="Cancel SOP"
-                  variant="danger"
-                  size="sm"
-                  onPress={() => setConfirming('cancel')}
-                />
-                <Button
-                  title="Mark complete"
-                  variant="secondary"
-                  size="sm"
-                  onPress={() => setConfirming('complete')}
-                />
-              </View>
-            ) : null}
+            <View style={s.sopActions}>
+              <Button
+                title="Cancel SOP"
+                variant="danger"
+                size="sm"
+                onPress={() => setConfirming('cancel')}
+              />
+              <Button
+                title="Mark complete"
+                variant="secondary"
+                size="sm"
+                onPress={() => setConfirming('complete')}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {/* Runs already filed today. Listed so a finished checklist reads as
+            done rather than vanishing, and so the templates below are clearly
+            a fresh start rather than a repeat. */}
+        {completedToday.length > 0 ? (
+          <View style={activeSop ? s.sopListBlock : undefined}>
+            <View style={s.cardList}>
+              {completedToday.map((run: any) => (
+                <View key={run.id} style={[s.card, s.cardDone]}>
+                  <View style={s.cardLeft}>
+                    <Text style={s.cardTitle}>
+                      {run.sop_templates?.name ?? 'SOP'}
+                    </Text>
+                    <Text style={s.cardDesc}>Complete ✓</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -308,7 +328,7 @@ export default function MyWorkScreen() {
               ))}
             </View>
           </View>
-        ) : !todaySop ? (
+        ) : (todayRuns?.length ?? 0) === 0 ? (
           <Text style={s.sopListHint}>
             Your admin hasn't created any SOPs yet.
           </Text>
@@ -407,6 +427,9 @@ const s = StyleSheet.create({
   },
   cardDisabled: {
     opacity: 0.5,
+  },
+  cardDone: {
+    opacity: 0.7,
   },
   cardLeft: {
     flex: 1,
