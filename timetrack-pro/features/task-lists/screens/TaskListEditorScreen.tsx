@@ -124,7 +124,7 @@ export default function TaskListEditorScreen() {
   // on its collapsed row yet.
   const addItem = (itemType: 'task' | 'section' = 'task') => {
     const draft = makeDraft(itemType);
-    setItems((prev) => [...prev, draft]);
+    setItems((prev) => [draft, ...prev]);
     setEditingItemId(draft.id);
   };
 
@@ -132,12 +132,12 @@ export default function TaskListEditorScreen() {
   // in the same editor as everything else.
   const importItems = (parsed: ParsedImportItem[]) => {
     setItems((prev) => [
-      ...prev,
       ...parsed.map((it) => ({
         ...makeDraft(it.item_type),
         title: it.title,
         description: it.description,
       })),
+      ...prev,
     ]);
     setImportOpen(false);
     showToast(
@@ -150,7 +150,6 @@ export default function TaskListEditorScreen() {
   const addFromExisting = (tpl: TemplateItemRef) => {
     const equipmentRefs = tpl.equipment.map((ref) => ({ ...ref }));
     setItems((prev) => [
-      ...prev,
       {
         ...makeDraft(),
         title: tpl.title,
@@ -162,6 +161,7 @@ export default function TaskListEditorScreen() {
         location_to: tpl.location_to,
         equipment: equipmentRefs,
       },
+      ...prev,
     ]);
     setExistingPickerOpen(false);
   };
@@ -238,13 +238,13 @@ export default function TaskListEditorScreen() {
         return;
       }
       setItems((prev) => [
-        ...prev,
         ...result.items.map((task) => ({
           ...makeDraft(),
           title: task.title,
           description: task.description,
           video_timestamp: task.video_timestamp,
         })),
+        ...prev,
       ]);
       showToast(
         `Generated ${result.items.length} task${result.items.length === 1 ? '' : 's'} from video`,
