@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ interface InputProps {
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   editable?: boolean;
+  /** Starting height for a multiline field; it grows with the text from here. */
+  minHeight?: number;
 }
 
 export default function Input({
@@ -30,7 +32,12 @@ export default function Input({
   keyboardType,
   multiline = false,
   editable = true,
+  minHeight,
 }: InputProps) {
+  // Grow with the content so long descriptions are fully visible instead of
+  // being clipped or hidden behind an inner scroll.
+  const [contentHeight, setContentHeight] = useState(0);
+  const base = minHeight ?? (multiline ? 100 : 0);
   return (
     <View style={styles.container}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -38,6 +45,7 @@ export default function Input({
         style={[
           styles.input,
           multiline && styles.multiline,
+          multiline && { height: Math.max(base, contentHeight) },
           error ? styles.inputError : undefined,
           !editable && styles.disabled,
         ]}
@@ -50,6 +58,12 @@ export default function Input({
         multiline={multiline}
         editable={editable}
         textAlignVertical={multiline ? 'top' : 'center'}
+        scrollEnabled={multiline ? false : undefined}
+        onContentSizeChange={
+          multiline
+            ? (e) => setContentHeight(e.nativeEvent.contentSize.height + Spacing.sm)
+            : undefined
+        }
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -79,7 +93,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgSecondary,
   },
   multiline: {
-    minHeight: 100,
     paddingTop: Spacing.md,
   },
   inputError: {
