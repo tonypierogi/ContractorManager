@@ -62,6 +62,7 @@ export default function ItemEditorSheet({
   onClose,
 }: Props) {
   const [pickerMode, setPickerMode] = useState<EquipmentLinkMode | null>(null);
+  const isSection = item?.item_type === 'section';
 
   const close = () => {
     setPickerMode(null);
@@ -73,13 +74,13 @@ export default function ItemEditorSheet({
       <Sheet
         visible={item != null}
         onClose={close}
-        title={item?.title.trim() || 'New task'}
-        subtitle={`Task ${index + 1}`}
+        title={item?.title.trim() || (isSection ? 'New section' : 'New task')}
+        subtitle={`${isSection ? 'Section' : 'Task'} ${index + 1}`}
       >
         {item ? (
           <>
             <Input
-              placeholder="Task title"
+              placeholder={isSection ? 'Section title' : 'Task title'}
               value={item.title}
               onChangeText={(v) => onUpdateField('title', v)}
             />
@@ -91,46 +92,51 @@ export default function ItemEditorSheet({
               minHeight={72}
             />
 
-            <Text style={s.fieldLabel}>Photos</Text>
-            <MediaRow
-              media={item.media}
-              uploading={uploading}
-              onAddFromCamera={() => onAddImage('camera')}
-              onAddFromLibrary={() => onAddImage('library')}
-              onRemove={onRemoveImage}
-            />
+            {!isSection && (
+              <>
+                <Text style={s.fieldLabel}>Photos</Text>
+                <MediaRow
+                  media={item.media}
+                  uploading={uploading}
+                  onAddFromCamera={() => onAddImage('camera')}
+                  onAddFromLibrary={() => onAddImage('library')}
+                  onRemove={onRemoveImage}
+                />
 
-            {(['use', 'return'] as EquipmentLinkMode[]).map((mode) => (
-              <EquipmentModeSection
-                key={mode}
-                mode={mode}
-                refs={item.equipment}
-                equipmentById={equipmentById}
-                homeZones={equipmentHomes}
-                onAdd={() => setPickerMode(mode)}
-                onSetPlacement={onSetEquipmentPlacement}
-                onSetMode={onSetEquipmentMode}
-                onRemove={onRemoveEquipment}
-              />
-            ))}
-            {item.equipment.length > 0 ? (
-              <Text style={s.placementHint}>
-                Each item&apos;s room and photo are filled in from the Equipment screen;
-                clear a room to fall back to the task&apos;s own from/to below.
-              </Text>
-            ) : null}
+                {(['use', 'return'] as EquipmentLinkMode[]).map((mode) => (
+                  <EquipmentModeSection
+                    key={mode}
+                    mode={mode}
+                    refs={item.equipment}
+                    equipmentById={equipmentById}
+                    homeZones={equipmentHomes}
+                    onAdd={() => setPickerMode(mode)}
+                    onSetPlacement={onSetEquipmentPlacement}
+                    onSetMode={onSetEquipmentMode}
+                    onRemove={onRemoveEquipment}
+                  />
+                ))}
+                {item.equipment.length > 0 ? (
+                  <Text style={s.placementHint}>
+                    Each item&apos;s room and photo are filled in from the Equipment
+                    screen; clear a room to fall back to the task&apos;s own from/to
+                    below.
+                  </Text>
+                ) : null}
 
-            <Text style={s.fieldLabel}>Task locations</Text>
-            <LocationZonePicker
-              label="From location"
-              value={item.location_from}
-              onChange={(z) => onSetLocation('location_from', z)}
-            />
-            <LocationZonePicker
-              label="To location"
-              value={item.location_to}
-              onChange={(z) => onSetLocation('location_to', z)}
-            />
+                <Text style={s.fieldLabel}>Task locations</Text>
+                <LocationZonePicker
+                  label="From location"
+                  value={item.location_from}
+                  onChange={(z) => onSetLocation('location_from', z)}
+                />
+                <LocationZonePicker
+                  label="To location"
+                  value={item.location_to}
+                  onChange={(z) => onSetLocation('location_to', z)}
+                />
+              </>
+            )}
 
             <View style={s.doneRow}>
               <Button title="Done" onPress={close} fullWidth />
