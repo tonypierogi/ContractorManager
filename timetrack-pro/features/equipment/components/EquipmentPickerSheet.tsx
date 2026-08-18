@@ -11,11 +11,20 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Sheet from '@/components/ui/Sheet';
 import Button from '@/components/ui/Button';
+import EquipmentTagChips from '@/features/equipment/components/EquipmentTagChips';
+import EquipmentTagFilterRow from '@/features/equipment/components/EquipmentTagFilterRow';
+import { useEquipmentTags } from '@/features/equipment/hooks';
 import {
   EQUIPMENT_MODE_DESCRIPTION,
   EQUIPMENT_MODE_FIELD_LABEL,
   EQUIPMENT_MODE_LABEL,
 } from '@/features/equipment/refs';
+import {
+  matchesTagFilter,
+  tagsById,
+  tagsForEquipment,
+  toggleTagId,
+} from '@/features/equipment/tags';
 import { useLocationZones } from '@/features/locations/hooks';
 import { getLocationLabel } from '@/features/locations/zones';
 import type { Equipment, EquipmentLinkMode } from '@/types/database';
@@ -36,8 +45,8 @@ interface Props {
  * Pick equipment for one side of a task (get it, or bring it back). A bottom
  * sheet rather than a dialog because picking is a step inside editing the
  * task, and because the list needs room: crews recognise their gear by sight,
- * so every row carries its photo and the room it lives in, with a name search
- * and room filter over the top for the long tail.
+ * so every row carries its photo, the room it lives in and its tags, with a
+ * name search plus room and tag filters over the top for the long tail.
  */
 export default function EquipmentPickerSheet({
   mode,
@@ -48,7 +57,9 @@ export default function EquipmentPickerSheet({
 }: Props) {
   const [query, setQuery] = useState('');
   const [room, setRoom] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const { floors } = useLocationZones();
+  const { data: tags } = useEquipmentTags();
 
   // "All" first, then rooms in floor order — the order the building is walked.
   const roomFilters = useMemo(
@@ -65,13 +76,17 @@ export default function EquipmentPickerSheet({
     return (equipment ?? []).filter(
       (item) =>
         (!q || item.name.toLowerCase().includes(q)) &&
-        (!room || item.location === room),
+        (!room || item.location === room) &&
+        matchesTagFilter(item, tagFilter),
     );
-  }, [equipment, query, room]);
+  }, [equipment, query, room, tagFilter]);
+
+  const tagLookup = useMemo(() => tagsById(tags), [tags]);
 
   const close = () => {
     setQuery('');
     setRoom(null);
+    setTagFilter([]);
     onClose();
   };
 
@@ -133,11 +148,18 @@ export default function EquipmentPickerSheet({
         })}
       </ScrollView>
 
+      <EquipmentTagFilterRow
+        tags={tags}
+        selected={tagFilter}
+        onToggle={(tagId) => setTagFilter((prev) => toggleTagId(prev, tagId))}
+        onClear={() => setTagFilter([])}
+      />
+
       {items.length === 0 ? (
         <Text style={s.empty}>
           {(equipment ?? []).length === 0
             ? 'No equipment yet — add some on the Equipment screen first.'
-            : 'Nothing matches that search or room.'}
+            : 'Nothing matches that search, room or tag.'}
         </Text>
       ) : (
         items.map((item) => {
@@ -191,6 +213,11 @@ export default function EquipmentPickerSheet({
                     </View>
                   ) : null}
                 </View>
+                {item.tag_ids.length > 0 ? (
+                  <View style={s.rowTags}>
+                    <EquipmentTagChips tags={tagsForEquipment(item, tagLookup)} max={2} />
+                  </View>
+                ) : null}
               </View>
 
               <Ionicons
@@ -308,6 +335,9 @@ const s = StyleSheet.create({
   },
   rowRoomMissing: {
     color: Colors.textMuted,
+  },
+  rowTags: {
+    marginTop: 4,
   },
   otherBadge: {
     paddingHorizontal: Spacing.sm,

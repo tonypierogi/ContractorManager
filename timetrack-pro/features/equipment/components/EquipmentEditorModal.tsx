@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { useAuth } from '@/features/auth/auth-provider';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
+import EquipmentTagPicker from '@/features/equipment/components/EquipmentTagPicker';
 import {
   useSaveEquipment,
   useDeleteEquipment,
@@ -23,7 +24,7 @@ interface Props {
 }
 
 /**
- * Add/edit form for an equipment item: name, zone, photo.
+ * Add/edit form for an equipment item: name, zone, tags, photo.
  * Extracted from the old standalone Equipment screen so the
  * Locations & Equipment tab can edit in place.
  */
@@ -36,6 +37,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
   const [name, setName] = useState('');
   const [location, setLocation] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [tagIds, setTagIds] = useState<string[]>([]);
 
   // Re-seed the form each time the modal opens.
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
       setName(item?.name ?? '');
       setLocation(item?.location ?? null);
       setImageUrl(item?.image_url ?? null);
+      setTagIds(item?.tag_ids ?? []);
     }
   }, [visible, item]);
 
@@ -79,6 +82,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
         location: location || null,
         // Always the editor's current value — Remove + Save clears the image.
         image_url: imageUrl || null,
+        tag_ids: tagIds,
       });
       onClose();
     } catch {
@@ -114,6 +118,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
         onChangeText={setName}
       />
       <LocationZonePicker value={location} onChange={setLocation} />
+      <EquipmentTagPicker selected={tagIds} onChange={setTagIds} />
 
       <Text style={styles.sectionLabel}>Photo</Text>
       {imageUrl ? (

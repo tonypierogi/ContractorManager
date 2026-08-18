@@ -67,6 +67,7 @@ export const qk = {
   },
   equipment: {
     all: ['equipment'] as const,
+    tags: ['equipment', 'tags'] as const,
   },
   inventory: {
     all: ['inventory'] as const,
