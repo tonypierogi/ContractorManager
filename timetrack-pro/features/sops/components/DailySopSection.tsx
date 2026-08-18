@@ -15,6 +15,7 @@ import {
   useToggleAdHocTask,
 } from '@/features/sops/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
+import { equipmentHomeZones } from '@/features/equipment/refs';
 import TaskDetailSheet, {
   type TaskDetailItem,
 } from '@/features/task-lists/components/TaskDetailSheet';
@@ -55,6 +56,8 @@ export default function DailySopSection() {
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name] as const)),
     [equipment],
   );
+  // Where each piece lives, so a task that names no room still says one.
+  const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
 
   const dailySopId = todaySop?.id;
   // Teammates share this checklist — stream their checks in live.
@@ -151,6 +154,7 @@ export default function DailySopSection() {
             item={item}
             onToggle={handleToggle}
             equipmentNames={equipmentNames}
+            equipmentHomes={equipmentHomes}
             onOpenDetails={() => setDetailItem(item)}
           />
         ))}

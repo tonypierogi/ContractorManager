@@ -34,6 +34,7 @@ import { useTeamMembers } from '@/features/team/hooks';
 import { useEquipment } from '@/features/equipment/hooks';
 import {
   EQUIPMENT_MODE_LABEL,
+  equipmentHomeZones,
   parseEquipmentRefs,
   placementSummary,
 } from '@/features/equipment/refs';
@@ -155,6 +156,8 @@ export default function TaskListDetailScreen() {
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name])),
     [equipment],
   );
+  // Where each piece lives, so rows saved before the auto-fill still say it.
+  const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
 
   const items = data?.items ?? [];
   const numbered = useMemo(() => {
@@ -443,7 +446,11 @@ export default function TaskListDetailScreen() {
                       </View>
                     )}
                     {parseEquipmentRefs(item.equipment).map((ref) => {
-                      const placement = placementSummary(ref, item);
+                      const placement = placementSummary(
+                        ref,
+                        item,
+                        equipmentHomes.get(ref.id) ?? null,
+                      );
                       return (
                         <View key={ref.id} style={styles.equipmentRow}>
                           <Ionicons

@@ -5,6 +5,7 @@ import {
   EQUIPMENT_MODE_LABEL,
   parseEquipmentRefs,
   placementSummary,
+  type EquipmentHomeZones,
 } from '@/features/equipment/refs';
 import { Colors, Spacing, FontSize, FontWeight } from '@/constants/theme';
 import type { SopItem } from '@/types/database';
@@ -15,6 +16,8 @@ interface SopCheckItemProps {
   /** equipment id → display name; unresolved entries fall back to the raw
    * value (legacy SOP items stored names directly). */
   equipmentNames?: Map<string, string>;
+  /** equipment id → the room it lives in, shown when the ref sets no zone. */
+  equipmentHomes?: EquipmentHomeZones;
   /** Opens the full-detail sheet for this task. */
   onOpenDetails?: () => void;
   disabled?: boolean;
@@ -24,6 +27,7 @@ function SopCheckItem({
   item,
   onToggle,
   equipmentNames,
+  equipmentHomes,
   onOpenDetails,
   disabled = false,
 }: SopCheckItemProps) {
@@ -50,11 +54,11 @@ function SopCheckItem({
       equipment={parseEquipmentRefs(item.equipment).map((ref) => ({
         // Legacy rows may store a plain name instead of an id, so fall back to
         // the raw value. SOP items carry no zones of their own, so a ref's own
-        // from/to is all there is to show.
+        // from/to — or the room the equipment lives in — is all there is.
         name: equipmentNames?.get(ref.id) ?? ref.id,
         modeLabel: EQUIPMENT_MODE_LABEL[ref.mode],
         isReturn: ref.mode === 'return',
-        placement: placementSummary(ref, null),
+        placement: placementSummary(ref, null, equipmentHomes?.get(ref.id) ?? null),
       }))}
       onOpenDetails={onOpenDetails}
       checked={item.checked}

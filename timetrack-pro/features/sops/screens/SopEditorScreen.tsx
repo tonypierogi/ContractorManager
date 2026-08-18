@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/Toast';
 import EquipmentModeSection from '@/features/equipment/components/EquipmentModeSection';
 import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
 import {
+  equipmentHomeZones,
   equipmentModes,
   parseEquipmentRefs,
   removeEquipmentRef,
@@ -77,6 +78,9 @@ export default function SopEditorScreen() {
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
     [equipment],
   );
+  // Where each piece of equipment lives, so tagging it on a task fills the
+  // room in instead of asking for it again.
+  const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
 
   // One-shot hydration: a focus refetch must not clobber in-progress edits,
   // and item media/equipment must round-trip so editing never strips them.
@@ -317,6 +321,7 @@ export default function SopEditorScreen() {
                     mode={mode}
                     refs={item.equipment}
                     equipmentById={equipmentById}
+                    homeZones={equipmentHomes}
                     onAdd={() => setEquipmentPicker({ itemId: item.id, mode })}
                     onSetPlacement={(equipmentId, field, zoneId) =>
                       patchEquipment(item.id, (refs) =>
@@ -325,7 +330,12 @@ export default function SopEditorScreen() {
                     }
                     onSetMode={(equipmentId, nextMode) =>
                       patchEquipment(item.id, (refs) =>
-                        setEquipmentMode(refs, equipmentId, nextMode),
+                        setEquipmentMode(
+                          refs,
+                          equipmentId,
+                          nextMode,
+                          equipmentHomes.get(equipmentId) ?? null,
+                        ),
                       )
                     }
                     onRemove={(equipmentId) =>
@@ -364,7 +374,12 @@ export default function SopEditorScreen() {
         onToggle={(equipmentId, mode) =>
           equipmentPicker &&
           patchEquipment(equipmentPicker.itemId, (refs) =>
-            toggleEquipmentRef(refs, equipmentId, mode),
+            toggleEquipmentRef(
+              refs,
+              equipmentId,
+              mode,
+              equipmentHomes.get(equipmentId) ?? null,
+            ),
           )
         }
         onClose={() => setEquipmentPicker(null)}

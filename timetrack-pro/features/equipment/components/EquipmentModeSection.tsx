@@ -6,7 +6,9 @@ import {
   EQUIPMENT_MODE_LABEL,
   EQUIPMENT_ZONE_LABEL,
   refsForMode,
+  type EquipmentHomeZones,
 } from '@/features/equipment/refs';
+import { getLocationLabel } from '@/features/locations/zones';
 import type { EquipmentLinkMode, TaskEquipmentRef } from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -16,6 +18,8 @@ interface Props {
   refs: TaskEquipmentRef[];
   /** equipment id -> display name */
   equipmentById: Map<string, string>;
+  /** equipment id -> the room it lives in; auto-filled into the zone picker. */
+  homeZones?: EquipmentHomeZones;
   /** False on SOP items, which carry no zones of their own to fall back to. */
   showZones?: boolean;
   onAdd: () => void;
@@ -43,6 +47,7 @@ export default function EquipmentModeSection({
   mode,
   refs,
   equipmentById,
+  homeZones,
   showZones = true,
   onAdd,
   onSetPlacement,
@@ -82,7 +87,9 @@ export default function EquipmentModeSection({
       </TouchableOpacity>
 
       {showZones &&
-        mine.map((ref) => (
+        mine.map((ref) => {
+          const home = homeZones?.get(ref.id) ?? null;
+          return (
           <View key={ref.id} style={s.placementCard}>
             <View style={s.placementHeader}>
               <Text style={s.placementName} numberOfLines={1}>
@@ -120,8 +127,16 @@ export default function EquipmentModeSection({
               value={ref.to}
               onChange={(z) => onSetPlacement(ref.id, 'to', z)}
             />
+
+            {home ? (
+              <Text style={s.homeHint}>
+                Kept in {getLocationLabel(home)} — filled in for you; change it
+                if this task is different.
+              </Text>
+            ) : null}
           </View>
-        ))}
+          );
+        })}
     </View>
   );
 }
@@ -202,6 +217,10 @@ const s = StyleSheet.create({
   moveText: {
     fontSize: FontSize.xs,
     color: Colors.textSecondary,
+  },
+  homeHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
   },
   removeBtn: {
     padding: 4,

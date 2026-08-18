@@ -143,7 +143,7 @@ export default function TaskDetailSheet({
         ) : (
           refs.map((ref) => {
             const eq = equipmentById.get(ref.id);
-            const { from, to } = resolvePlacement(ref, item);
+            const { from, to } = resolvePlacement(ref, item, eq?.location ?? null);
             const zoneLabels = EQUIPMENT_ZONE_LABEL[ref.mode];
             return (
               <View key={ref.id} style={s.card}>

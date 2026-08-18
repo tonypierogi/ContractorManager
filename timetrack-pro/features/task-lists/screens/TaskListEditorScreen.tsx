@@ -19,6 +19,7 @@ import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
 import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
 import {
+  equipmentHomeZones,
   equipmentModes,
   parseEquipmentRefs,
   removeEquipmentRef,
@@ -77,6 +78,9 @@ export default function TaskListEditorScreen() {
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
     [equipment],
   );
+  // Where each piece of equipment lives, so tagging it on a task fills the
+  // room in instead of asking for it again.
+  const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
 
   // Editing: populate the form from the existing list exactly once. Without
   // this, saving an edit overwrote the list with the blank form.
@@ -244,7 +248,15 @@ export default function TaskListEditorScreen() {
     setItems((prev) =>
       prev.map((i) =>
         i.id === itemId
-          ? { ...i, equipment: toggleEquipmentRef(i.equipment, equipmentId, mode) }
+          ? {
+              ...i,
+              equipment: toggleEquipmentRef(
+                i.equipment,
+                equipmentId,
+                mode,
+                equipmentHomes.get(equipmentId) ?? null,
+              ),
+            }
           : i,
       ),
     );
@@ -258,7 +270,15 @@ export default function TaskListEditorScreen() {
     setItems((prev) =>
       prev.map((i) =>
         i.id === itemId
-          ? { ...i, equipment: setEquipmentMode(i.equipment, equipmentId, mode) }
+          ? {
+              ...i,
+              equipment: setEquipmentMode(
+                i.equipment,
+                equipmentId,
+                mode,
+                equipmentHomes.get(equipmentId) ?? null,
+              ),
+            }
           : i,
       ),
     );
@@ -421,6 +441,7 @@ export default function TaskListEditorScreen() {
             index={index}
             count={items.length}
             equipmentById={equipmentById}
+            equipmentHomes={equipmentHomes}
             uploading={uploadingItemId === item.id}
             onUpdateField={(field, value) => updateItem(item.id, field, value)}
             onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
