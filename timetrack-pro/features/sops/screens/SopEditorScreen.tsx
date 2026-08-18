@@ -118,7 +118,7 @@ export default function SopEditorScreen() {
       media: [],
       equipment: [],
     };
-    setItems((prev) => [...prev, draft]);
+    setItems((prev) => [draft, ...prev]);
     setEditingItemId(draft.id);
   };
 
@@ -126,7 +126,6 @@ export default function SopEditorScreen() {
   // same editor as everything else.
   const importItems = (parsed: ParsedImportItem[]) => {
     setItems((prev) => [
-      ...prev,
       ...parsed.map((it) => ({
         id: makeId(),
         title: it.title,
@@ -135,6 +134,7 @@ export default function SopEditorScreen() {
         media: [],
         equipment: [],
       })),
+      ...prev,
     ]);
     setImportOpen(false);
     showToast(
@@ -147,7 +147,6 @@ export default function SopEditorScreen() {
   const addFromExisting = (tpl: TemplateItemRef) => {
     const equipmentRefs = tpl.equipment.map((ref) => ({ ...ref }));
     setItems((prev) => [
-      ...prev,
       {
         id: makeId(),
         title: tpl.title,
@@ -157,6 +156,7 @@ export default function SopEditorScreen() {
         media: syncEquipmentMedia([...tpl.media], [], equipmentRefs, equipmentPhotos),
         equipment: equipmentRefs,
       },
+      ...prev,
     ]);
     setExistingPickerOpen(false);
   };
