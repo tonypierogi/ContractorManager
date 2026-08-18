@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,36 +49,43 @@ export default function Sheet({
           <View style={s.backdrop} />
         </TouchableWithoutFeedback>
 
-        <View style={s.sheet}>
-          <View style={s.grabberRow}>
-            <View style={s.grabber} />
-          </View>
-          <View style={s.header}>
-            <View style={s.headerText}>
-              <Text style={s.title}>{title}</Text>
-              {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+        <KeyboardAvoidingView
+          style={s.avoider}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.sheet}>
+            <View style={s.grabberRow}>
+              <View style={s.grabber} />
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              style={s.closeButton}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
+            <View style={s.header}>
+              <View style={s.headerText}>
+                <Text style={s.title}>{title}</Text>
+                {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+              </View>
+              <TouchableOpacity
+                onPress={onClose}
+                style={s.closeButton}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={s.body}
+              contentContainerStyle={[
+                s.bodyContent,
+                { paddingBottom: Spacing.lg + insets.bottom },
+              ]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
             >
-              <Ionicons name="close" size={18} color={Colors.textSecondary} />
-            </TouchableOpacity>
+              {children}
+            </ScrollView>
           </View>
-          <ScrollView
-            style={s.body}
-            contentContainerStyle={[
-              s.bodyContent,
-              { paddingBottom: Spacing.lg + insets.bottom },
-            ]}
-            showsVerticalScrollIndicator={false}
-          >
-            {children}
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </RNModal>
   );
@@ -90,6 +99,12 @@ const s = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(10, 15, 26, 0.75)',
+  },
+  // Holds the sheet against the bottom edge and, on iOS, pads itself by the
+  // keyboard height so the sheet rides above it instead of hiding under it.
+  avoider: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   sheet: {
     maxHeight: '92%',

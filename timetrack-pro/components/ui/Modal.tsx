@@ -5,6 +5,8 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Dimensions,
 } from 'react-native';
@@ -40,7 +42,10 @@ export default function Modal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={[styles.container, { maxWidth: sizeMap[size] }]}>
           <View style={styles.header}>
             <Text style={styles.title} numberOfLines={1}>
@@ -54,11 +59,13 @@ export default function Modal({
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
             {children}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </RNModal>
   );
 }
