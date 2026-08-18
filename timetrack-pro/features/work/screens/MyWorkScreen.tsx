@@ -1,9 +1,20 @@
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useMyTaskAssignments } from '@/features/task-lists/hooks';
-import { useSopChecklist, useTodayDailySop } from '@/features/sops/hooks';
+import {
+  useCancelDailySop,
+  useCompleteDailySop,
+  useCreateDailySop,
+  useSopChecklist,
+  useSopTemplates,
+  useTodayDailySop,
+} from '@/features/sops/hooks';
+import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
 import { parseDateString, toDateString } from '@/features/schedule/lib';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
@@ -31,29 +42,92 @@ const statusBadgeStyles: Record<string, { bg: string; color: string }> = {
 
 /**
  * Unified contractor work page: anything assigned specifically to this user
- * sits above a summary card for today's shared SOP checklist. Every checklist
- * opens on its own dedicated page — nothing renders inline here anymore.
+ * sits above the SOPs — the run in progress (with its cancel / mark-complete
+ * controls) followed by every SOP available to start. Checklists themselves
+ * open on their own dedicated page; nothing renders inline here.
  */
 export default function MyWorkScreen() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { data: assignments } = useMyTaskAssignments(user?.id ?? '');
   const today = toDateString(new Date());
 
   // Summary numbers for the SOP card; the dedicated page owns the details.
   const { data: todaySop } = useTodayDailySop();
+  const { data: templates } = useSopTemplates();
   const { data: sopChecklist } = useSopChecklist(
     todaySop?.id ?? '',
     todaySop?.sop_template_id,
   );
+  const createDailySop = useCreateDailySop();
+  const completeDailySop = useCompleteDailySop();
+  const cancelDailySop = useCancelDailySop();
+  const [confirming, setConfirming] = useState<'complete' | 'cancel' | null>(null);
+
   const sopCheckable =
     sopChecklist?.templateItems.filter((i) => i.item_type !== 'section') ?? [];
   const sopChecked = sopCheckable.filter((i) => i.checked).length;
+  const sopUnfinished = sopCheckable.length - sopChecked;
   const sopComplete = !!todaySop?.completed_at;
+  // Only a run that hasn't been completed gets the in-progress treatment; a
+  // completed row still comes back from useTodayDailySop for the day.
+  const activeSop = todaySop && !sopComplete ? todaySop : null;
   const sopSubtitle = sopComplete
     ? 'Complete ✓'
     : todaySop
       ? `${sopChecked} of ${sopCheckable.length} tasks complete`
       : "Start today's checklist";
+
+  // Everything except the SOP already running, so it isn't listed twice.
+  const startableTemplates = (templates ?? []).filter(
+    (tpl: any) => tpl.id !== activeSop?.sop_template_id,
+  );
+
+  const handleStartSop = (templateId: string) => {
+    if (!user || activeSop) return;
+    createDailySop.mutate(
+      { sopTemplateId: templateId, createdBy: user.id },
+      {
+        onSuccess: () => router.push('/(employee)/sop-checklist' as any),
+        onError: () =>
+          showToast('Could not start that SOP. Please try again.', 'error'),
+      },
+    );
+  };
+
+  const handleCompleteSop = () => {
+    if (!activeSop) return;
+    completeDailySop.mutate(activeSop.id, {
+      onSuccess: () => {
+        setConfirming(null);
+        showToast(
+          sopUnfinished > 0
+            ? `SOP marked complete with ${sopUnfinished} task${
+                sopUnfinished === 1 ? '' : 's'
+              } unfinished.`
+            : 'SOP marked as complete!',
+        );
+      },
+      onError: () => {
+        setConfirming(null);
+        showToast('Failed to mark SOP complete. Please try again.', 'error');
+      },
+    });
+  };
+
+  const handleCancelSop = () => {
+    if (!activeSop) return;
+    cancelDailySop.mutate(activeSop.id, {
+      onSuccess: () => {
+        setConfirming(null);
+        showToast('SOP cancelled.');
+      },
+      onError: (err: any) => {
+        setConfirming(null);
+        showToast(err?.message ?? 'Failed to cancel SOP.', 'error');
+      },
+    });
+  };
 
   const active =
     assignments?.filter(
@@ -146,38 +220,126 @@ export default function MyWorkScreen() {
 
         <View style={s.sectionHeader}>
           <View style={s.accentDot} />
-          <Text style={s.sectionTitle}>Today's SOP</Text>
+          <Text style={s.sectionTitle}>SOPs</Text>
         </View>
-        <TouchableOpacity
-          style={s.card}
-          onPress={() => router.push('/(employee)/sop-checklist' as any)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Open today's SOP checklist"
-        >
-          <View style={s.cardLeft}>
-            <Text style={s.cardTitle}>
-              {todaySop?.sop_templates?.name ?? "Today's SOP"}
-            </Text>
-            <Text style={s.cardDesc}>{sopSubtitle}</Text>
-            {todaySop && !sopComplete && sopCheckable.length > 0 ? (
-              <View style={s.sopProgressTrack}>
-                <View
-                  style={[
-                    s.sopProgressFill,
-                    {
-                      width: `${Math.round(
-                        (sopChecked / sopCheckable.length) * 100,
-                      )}%`,
-                    },
-                  ]}
+
+        {todaySop ? (
+          <View style={s.sopActiveBlock}>
+            <TouchableOpacity
+              style={s.card}
+              onPress={() => router.push('/(employee)/sop-checklist' as any)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Open today's SOP checklist"
+            >
+              <View style={s.cardLeft}>
+                <Text style={s.cardTitle}>
+                  {todaySop.sop_templates?.name ?? "Today's SOP"}
+                </Text>
+                <Text style={s.cardDesc}>{sopSubtitle}</Text>
+                {activeSop && sopCheckable.length > 0 ? (
+                  <View style={s.sopProgressTrack}>
+                    <View
+                      style={[
+                        s.sopProgressFill,
+                        {
+                          width: `${Math.round(
+                            (sopChecked / sopCheckable.length) * 100,
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                ) : null}
+              </View>
+              <Text style={s.chevron}>›</Text>
+            </TouchableOpacity>
+
+            {activeSop ? (
+              <View style={s.sopActions}>
+                <Button
+                  title="Cancel SOP"
+                  variant="danger"
+                  size="sm"
+                  onPress={() => setConfirming('cancel')}
+                />
+                <Button
+                  title="Mark complete"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => setConfirming('complete')}
                 />
               </View>
             ) : null}
           </View>
-          <Text style={s.chevron}>›</Text>
-        </TouchableOpacity>
+        ) : null}
+
+        {startableTemplates.length > 0 ? (
+          <View style={s.sopListBlock}>
+            <Text style={s.sopListLabel}>
+              {activeSop ? 'Other SOPs' : 'Start an SOP'}
+            </Text>
+            {activeSop ? (
+              <Text style={s.sopListHint}>
+                Finish or cancel the SOP above to start another one.
+              </Text>
+            ) : null}
+            <View style={s.cardList}>
+              {startableTemplates.map((tpl: any) => (
+                <TouchableOpacity
+                  key={tpl.id}
+                  style={[s.card, !!activeSop && s.cardDisabled]}
+                  onPress={() => handleStartSop(tpl.id)}
+                  disabled={!!activeSop || createDailySop.isPending}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Start ${tpl.name}`}
+                >
+                  <View style={s.cardLeft}>
+                    <Text style={s.cardTitle}>{tpl.name}</Text>
+                    {tpl.description ? (
+                      <Text style={s.cardDesc} numberOfLines={2}>
+                        {tpl.description}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {activeSop ? null : <Text style={s.chevron}>›</Text>}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : !todaySop ? (
+          <Text style={s.sopListHint}>
+            Your admin hasn't created any SOPs yet.
+          </Text>
+        ) : null}
       </ScrollView>
+
+      <ConfirmDialog
+        visible={confirming === 'complete'}
+        title="Mark SOP complete"
+        message={
+          sopUnfinished > 0
+            ? `${sopUnfinished} of ${sopCheckable.length} tasks are still unchecked. They'll stay unfinished and the checklist will be filed as complete.`
+            : 'All tasks are checked. File this checklist as complete?'
+        }
+        confirmLabel="Mark complete"
+        loading={completeDailySop.isPending}
+        onConfirm={handleCompleteSop}
+        onCancel={() => setConfirming(null)}
+      />
+
+      <ConfirmDialog
+        visible={confirming === 'cancel'}
+        title="Cancel SOP"
+        message="This deletes today's run and everything checked off so far. The SOP can be started again from scratch."
+        confirmLabel="Cancel SOP"
+        cancelLabel="Keep it"
+        destructive
+        loading={cancelDailySop.isPending}
+        onConfirm={handleCancelSop}
+        onCancel={() => setConfirming(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -243,9 +405,34 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardDisabled: {
+    opacity: 0.5,
+  },
   cardLeft: {
     flex: 1,
     marginRight: Spacing.md,
+  },
+  sopActiveBlock: {
+    gap: Spacing.sm,
+  },
+  sopActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
+  },
+  sopListBlock: {
+    marginTop: Spacing.xl,
+  },
+  sopListLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  sopListHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
   },
   cardTitle: {
     fontSize: FontSize.md,
