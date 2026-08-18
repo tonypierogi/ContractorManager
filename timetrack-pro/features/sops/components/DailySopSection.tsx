@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import SopCheckItem from '@/features/sops/components/SopCheckItem';
 import { useAuth } from '@/features/auth/auth-provider';
 import {
-  useTodayDailySop,
+  useTodayDailySops,
   useSopChecklist,
   useSopChecksRealtime,
   useDailySopRunsRealtime,
@@ -35,11 +35,17 @@ import { formatDate } from '@/utils/format';
 export default function DailySopSection() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  // A day can hold several runs; only one is ever in progress.
   const {
-    data: todaySop,
+    data: todayRuns,
     isLoading: loadingTodaySop,
     refetch: refetchTodaySop,
-  } = useTodayDailySop();
+  } = useTodayDailySops();
+  const todaySop = useMemo(
+    () => (todayRuns ?? []).find((run) => !run.completed_at) ?? null,
+    [todayRuns],
+  );
+  const completedTodayCount = (todayRuns ?? []).length - (todaySop ? 1 : 0);
   const {
     data: checklist,
     isLoading: loadingChecklist,
@@ -95,8 +101,19 @@ export default function DailySopSection() {
   };
 
   const handleStartChecklist = (templateId: string) => {
-    if (!user) return;
-    createDailySop.mutate({ sopTemplateId: templateId, createdBy: user.id });
+    if (!user || todaySop) return;
+    createDailySop.mutate(
+      { sopTemplateId: templateId, createdBy: user.id },
+      {
+        // Only one run at a time per day, so the one way this fails is a race
+        // with a teammate who started one seconds ago.
+        onError: () =>
+          showToast(
+            'Could not start that SOP — someone may have just started one. Try again in a moment.',
+            'error',
+          ),
+      },
+    );
   };
 
   const handleAddAdHoc = () => {
@@ -124,33 +141,33 @@ export default function DailySopSection() {
     ).length ?? 0;
   const percentage = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
   const unfinishedItems = totalItems - checkedItems;
-  const isComplete = !!todaySop?.completed_at || completeDailySop.isSuccess;
 
   // When a run ends on someone else's device the section quietly changes
   // shape under you; say who/what happened so it doesn't read as a glitch.
   // Our own complete/cancel already toasts, so those are skipped here.
-  const lastRun = useRef<{ id: string; completed: boolean } | null>(null);
+  // A completed run stays in today's list, so its fate is readable there:
+  // still present means finished, gone means cancelled.
+  const activeRunId = todaySop?.id ?? null;
+  const lastRunId = useRef<string | null>(null);
   useEffect(() => {
-    const previous = lastRun.current;
-    lastRun.current = todaySop
-      ? { id: todaySop.id, completed: !!todaySop.completed_at }
-      : null;
-    if (!previous) return;
-    if (!todaySop) {
-      if (!cancelDailySop.isSuccess) {
-        showToast('This checklist was cancelled by someone else.');
+    const previous = lastRunId.current;
+    lastRunId.current = activeRunId;
+    if (!previous || previous === activeRunId) return;
+    const previousRun = (todayRuns ?? []).find((run) => run.id === previous);
+    if (previousRun?.completed_at) {
+      if (!completeDailySop.isSuccess) {
+        showToast('A teammate marked this checklist complete.');
       }
-      return;
+    } else if (!previousRun && !cancelDailySop.isSuccess) {
+      showToast('This checklist was cancelled by someone else.');
     }
-    if (
-      todaySop.id === previous.id &&
-      !previous.completed &&
-      !!todaySop.completed_at &&
-      !completeDailySop.isSuccess
-    ) {
-      showToast('A teammate marked this checklist complete.');
-    }
-  }, [todaySop, cancelDailySop.isSuccess, completeDailySop.isSuccess, showToast]);
+  }, [
+    activeRunId,
+    todayRuns,
+    cancelDailySop.isSuccess,
+    completeDailySop.isSuccess,
+    showToast,
+  ]);
 
   // Completing with items left unchecked is allowed — the crew decides when a
   // day's checklist is done; the confirm spells out what stays unfinished.
@@ -282,24 +299,23 @@ export default function DailySopSection() {
     </View>
   );
 
-  const renderTodayComplete = () => (
-    <View style={s.centeredState}>
-      <Text style={s.stateIcon}>✓</Text>
-      <Text style={s.stateTitle}>Today's checklist is complete</Text>
-      <Text style={s.stateDesc}>All tasks have been finished.</Text>
-    </View>
-  );
-
   const renderPickTemplate = () => (
     <View>
       <Text style={s.pickTitle}>Start a new checklist</Text>
-      <Text style={s.pickHint}>Choose an SOP below to start today's checklist.</Text>
+      <Text style={s.pickHint}>
+        {completedTodayCount > 0
+          ? `${completedTodayCount} checklist${
+              completedTodayCount === 1 ? '' : 's'
+            } finished today. Choose another SOP to start a fresh run.`
+          : "Choose an SOP below to start today's checklist."}
+      </Text>
       <View style={s.templateList}>
         {templates?.map((tpl) => (
           <TouchableOpacity
             key={tpl.id}
             style={s.templateBtn}
             onPress={() => handleStartChecklist(tpl.id)}
+            disabled={createDailySop.isPending}
             activeOpacity={0.7}
           >
             <View style={s.templateRow}>
@@ -336,9 +352,6 @@ export default function DailySopSection() {
           <Text style={s.stateDesc}>Loading...</Text>
         </View>
       );
-    }
-    if (todaySop && isComplete) {
-      return renderTodayComplete();
     }
     if (todaySop && checklist) {
       return renderActiveChecklist();

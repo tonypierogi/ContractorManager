@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/query-keys';
 import { supabase } from '@/lib/supabase';
 import {
+  activeDailySop,
   addAdHocTask,
   addSopComment,
   cancelDailySop,
@@ -17,7 +18,7 @@ import {
   fetchSopTaskComments,
   fetchSopTemplate,
   fetchSopTemplates,
-  fetchTodayDailySop,
+  fetchTodayDailySops,
   saveSopTemplate,
   toggleAdHocTask,
   toggleSopCheck,
@@ -90,11 +91,22 @@ export function useDeleteSopTemplate() {
   });
 }
 
+/** Every SOP run started today — in-progress and already filed. */
+export function useTodayDailySops() {
+  return useQuery({
+    queryKey: qk.sops.today,
+    queryFn: fetchTodayDailySops,
+    staleTime: 1000 * 15,
+  });
+}
+
+/** Just the run in progress. Shares the cache entry with useTodayDailySops. */
 export function useTodayDailySop() {
   return useQuery({
     queryKey: qk.sops.today,
-    queryFn: fetchTodayDailySop,
+    queryFn: fetchTodayDailySops,
     staleTime: 1000 * 15,
+    select: activeDailySop,
   });
 }
 
@@ -103,6 +115,9 @@ export function useCreateDailySop() {
 
   return useMutation({
     mutationFn: createDailySop,
+    // Both call sites explain the one real failure (a teammate just started a
+    // run) themselves; the raw Postgres message helps nobody.
+    meta: { suppressGlobalError: true },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.sops.daily });
       queryClient.invalidateQueries({ queryKey: qk.sops.checklists });
@@ -269,10 +284,10 @@ export function useCompleteDailySop() {
       const completedAt = new Date().toISOString();
       queryClient.setQueryData(
         qk.sops.today,
-        (old: DailySopWithTemplate | null | undefined) => {
-          if (!old || old.id !== dailySopId) return old;
-          return { ...old, completed_at: completedAt };
-        },
+        (old: DailySopWithTemplate[] | undefined) =>
+          old?.map((run) =>
+            run.id === dailySopId ? { ...run, completed_at: completedAt } : run,
+          ),
       );
       queryClient.invalidateQueries({ queryKey: qk.sops.daily });
     },
@@ -287,8 +302,12 @@ export function useCancelDailySop() {
   return useMutation({
     mutationFn: cancelDailySop,
     meta: { suppressGlobalError: true },
-    onSuccess: () => {
-      queryClient.setQueryData(qk.sops.today, null);
+    onSuccess: (_data, dailySopId) => {
+      queryClient.setQueryData(
+        qk.sops.today,
+        (old: DailySopWithTemplate[] | undefined) =>
+          old?.filter((run) => run.id !== dailySopId),
+      );
       queryClient.invalidateQueries({ queryKey: qk.sops.daily });
       queryClient.invalidateQueries({ queryKey: qk.sops.checklists });
     },

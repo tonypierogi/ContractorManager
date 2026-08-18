@@ -154,16 +154,27 @@ export async function deleteSopTemplate(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function fetchTodayDailySop(): Promise<DailySopWithTemplate | null> {
+/**
+ * Every run started today, oldest first. A day can hold several runs (opening,
+ * closing, …); at most one of them is in progress — see the partial unique
+ * index in 20260818230000_daily_sop_multiple_runs.sql.
+ */
+export async function fetchTodayDailySops(): Promise<DailySopWithTemplate[]> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from('daily_sops')
     .select('*, sop_templates(name)')
     .eq('date', today)
-    .order('completed_at', { ascending: true, nullsFirst: true })
-    .limit(1);
+    .order('created_at', { ascending: true });
   if (error) throw error;
-  return (data?.[0] ?? null) as DailySopWithTemplate | null;
+  return (data ?? []) as DailySopWithTemplate[];
+}
+
+/** The run still in progress today, if there is one. */
+export function activeDailySop(
+  runs: DailySopWithTemplate[] | undefined,
+): DailySopWithTemplate | null {
+  return runs?.find((run) => !run.completed_at) ?? null;
 }
 
 export async function createDailySop(input: {
