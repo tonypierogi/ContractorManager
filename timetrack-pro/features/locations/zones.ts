@@ -31,6 +31,8 @@ export const LOCATION_ZONES: Record<Floor, LocationZone[]> = {
     { id: 'backroom-right', label: 'Backroom Right' },
     { id: 'backroom-left', label: 'Backroom Left' },
     { id: 'big-room', label: 'Big Room' },
+    // Off the big room; not outlined on the floor plan, so no overlay/highlight.
+    { id: 'kitchen', label: 'Kitchen' },
     { id: 'loft', label: 'Loft' },
   ],
   downstairs: [
@@ -39,6 +41,10 @@ export const LOCATION_ZONES: Record<Floor, LocationZone[]> = {
     { id: 'sauna', label: 'Sauna' },
     { id: 'basement', label: 'Basement' },
     { id: 'lounge', label: 'Lounge' },
+    // The two spaces behind the lounge wall, split so crews can be sent to one
+    // side. Like the backroom halves, neither is outlined on the floor-plan PNG.
+    { id: 'behind-lounge-wall-right', label: 'Behind Lounge Wall Right' },
+    { id: 'behind-lounge-wall-left', label: 'Behind Lounge Wall Left' },
     { id: 'lobby', label: 'Lobby' },
     { id: 'bar-closet', label: 'Bar Closet' },
   ],
