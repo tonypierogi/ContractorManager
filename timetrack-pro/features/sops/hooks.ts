@@ -111,6 +111,34 @@ export function useCreateDailySop() {
 }
 
 /**
+ * Live-refresh the roster of SOP runs: a teammate starting today's checklist,
+ * marking it done, or cancelling it reaches every other device without a
+ * manual refresh. Unfiltered on purpose — a run's row is the thing being
+ * created and deleted, so there's no stable id to filter on, and the table
+ * sees a handful of writes a day.
+ */
+export function useDailySopRunsRealtime() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('sop-runs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'daily_sops' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: qk.sops.daily });
+          queryClient.invalidateQueries({ queryKey: qk.sops.checklists });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+}
+
+/**
  * Live-refresh today's SOP checklist: checks (and unchecks) from teammates'
  * devices land without a manual refresh. No-op until the tables are added to
  * the realtime publication (share-page migration) — subscribing to a table
@@ -158,6 +186,21 @@ export function useSopChecksRealtime(dailySopId: string | undefined) {
           filter: `daily_sop_id=eq.${dailySopId}`,
         },
         invalidate,
+      )
+      // Notes left on a task by whoever is working alongside you.
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sop_task_comments',
+          filter: `daily_sop_id=eq.${dailySopId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: qk.sops.commentsFor(dailySopId),
+          });
+        },
       )
       .subscribe();
     return () => {
