@@ -20,6 +20,7 @@ import ChecklistItemRow from '@/components/ui/ChecklistItemRow';
 import { useEquipment } from '@/features/equipment/hooks';
 import {
   EQUIPMENT_MODE_LABEL,
+  equipmentHomeZones,
   parseEquipmentRefs,
   placementSummary,
 } from '@/features/equipment/refs';
@@ -63,6 +64,8 @@ export default function TaskChecklistScreen() {
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name])),
     [equipment],
   );
+  // Where each piece lives, so rows saved before the auto-fill still say it.
+  const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
 
   const items = data?.items ?? [];
   const checkable = items.filter((i: any) => i.item_type !== 'section');
@@ -143,7 +146,11 @@ export default function TaskChecklistScreen() {
                     )}
                     equipment={parseEquipmentRefs(item.equipment).map((ref) => ({
                       name: equipmentNames.get(ref.id) ?? 'Equipment',
-                      placement: placementSummary(ref, item),
+                      placement: placementSummary(
+                        ref,
+                        item,
+                        equipmentHomes.get(ref.id) ?? null,
+                      ),
                       modeLabel: EQUIPMENT_MODE_LABEL[ref.mode],
                       isReturn: ref.mode === 'return',
                     }))}

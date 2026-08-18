@@ -5,7 +5,10 @@ import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import MediaRow from '@/components/ui/MediaRow';
 import EquipmentModeSection from '@/features/equipment/components/EquipmentModeSection';
-import { refsForMode } from '@/features/equipment/refs';
+import {
+  refsForMode,
+  type EquipmentHomeZones,
+} from '@/features/equipment/refs';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { getLocationLabel } from '@/features/locations/zones';
 import type { PhotoSource } from '@/lib/photo-picker';
@@ -48,6 +51,8 @@ interface ItemEditorCardProps {
   count: number;
   /** equipment id -> display name */
   equipmentById: Map<string, string>;
+  /** equipment id -> the room it lives in, pre-filled into its zone picker. */
+  equipmentHomes: EquipmentHomeZones;
   uploading: boolean;
   onUpdateField: (field: 'title' | 'description', value: string) => void;
   onSetLocation: (field: 'location_from' | 'location_to', zoneId: string | null) => void;
@@ -71,6 +76,7 @@ export default function ItemEditorCard({
   index,
   count,
   equipmentById,
+  equipmentHomes,
   uploading,
   onUpdateField,
   onSetLocation,
@@ -204,6 +210,7 @@ export default function ItemEditorCard({
               mode={mode}
               refs={item.equipment}
               equipmentById={equipmentById}
+              homeZones={equipmentHomes}
               onAdd={() => onEditEquipment(mode)}
               onSetPlacement={onSetEquipmentPlacement}
               onSetMode={onSetEquipmentMode}
@@ -212,7 +219,8 @@ export default function ItemEditorCard({
           ))}
           {item.equipment.length > 0 ? (
             <Text style={s.placementHint}>
-              Leave a room blank to use the task&apos;s own from/to below.
+              Rooms start at where each item lives; clear one to fall back to
+              the task&apos;s own from/to below.
             </Text>
           ) : null}
 

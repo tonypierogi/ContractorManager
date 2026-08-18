@@ -1,5 +1,9 @@
 import { formatZoneSpan, getLocationLabel } from '@/features/locations/zones';
-import type { EquipmentLinkMode, TaskEquipmentRef } from '@/types/database';
+import type {
+  Equipment,
+  EquipmentLinkMode,
+  TaskEquipmentRef,
+} from '@/types/database';
 
 /**
  * Reading and editing the `equipment` JSONB on task_list_items / sop_items.
@@ -43,6 +47,27 @@ export const EQUIPMENT_ZONE_LABEL: Record<
   use: { from: 'Get it from', to: 'Use it in' },
   return: { from: 'Pick it up from', to: 'Bring it to' },
 };
+
+/**
+ * equipment id -> the room it lives in, from the Equipment screen. Tagging a
+ * piece of equipment on a task fills that room in for you, so nobody retypes
+ * what the equipment record already knows.
+ */
+export type EquipmentHomeZones = ReadonlyMap<string, string | null>;
+
+export function equipmentHomeZones(
+  equipment: readonly Equipment[] | undefined,
+): Map<string, string | null> {
+  return new Map((equipment ?? []).map((eq) => [eq.id, eq.location ?? null]));
+}
+
+/**
+ * Which zone the equipment's home fills in: you go GET it where it lives, and
+ * you BRING it back to where it lives. The other side stays the task's job.
+ */
+export function homeZoneField(mode: EquipmentLinkMode): 'from' | 'to' {
+  return mode === 'return' ? 'to' : 'from';
+}
 
 /** The refs linked in one mode, for the editors' two equipment fields. */
 export function refsForMode(
@@ -119,22 +144,40 @@ export function toggleEquipmentRef(
   refs: readonly TaskEquipmentRef[],
   equipmentId: string,
   mode: EquipmentLinkMode = 'use',
+  homeZone: string | null = null,
 ): TaskEquipmentRef[] {
   const existing = refs.find((r) => r.id === equipmentId);
   if (!existing) {
-    return [...refs, { id: equipmentId, mode, from: null, to: null }];
+    const ref: TaskEquipmentRef = { id: equipmentId, mode, from: null, to: null };
+    if (homeZone) ref[homeZoneField(mode)] = homeZone;
+    return [...refs, ref];
   }
   if (existing.mode === mode) return refs.filter((r) => r.id !== equipmentId);
-  return refs.map((r) => (r.id === equipmentId ? { ...r, mode } : r));
+  return setEquipmentMode(refs, equipmentId, mode, homeZone);
 }
 
-/** Switch an already-linked piece of equipment between use and return. */
+/**
+ * Switch an already-linked piece of equipment between use and return. The home
+ * room follows the switch: it moves to whichever side now means "where it
+ * lives", and a room the admin picked themselves is left alone.
+ */
 export function setEquipmentMode(
   refs: readonly TaskEquipmentRef[],
   equipmentId: string,
   mode: EquipmentLinkMode,
+  homeZone: string | null = null,
 ): TaskEquipmentRef[] {
-  return refs.map((r) => (r.id === equipmentId ? { ...r, mode } : r));
+  return refs.map((r) => {
+    if (r.id !== equipmentId) return r;
+    const next: TaskEquipmentRef = { ...r, mode };
+    if (homeZone) {
+      const field = homeZoneField(mode);
+      const other = field === 'from' ? 'to' : 'from';
+      if (next[other] === homeZone) next[other] = null;
+      if (!next[field]) next[field] = homeZone;
+    }
+    return next;
+  });
 }
 
 /** Set the pickup or dropoff zone for one tagged piece of equipment. */
@@ -154,17 +197,20 @@ export interface TaskPlacementFallback {
 }
 
 /**
- * Where this equipment actually comes from and goes to. Equipment-level zones
- * win; where they're unset the task's own from/to stands in, so tasks written
- * before this feature keep showing the movement they always did.
+ * Where this equipment actually comes from and goes to. Zones set on the ref
+ * win; next comes the equipment's own home room on the side that means "where
+ * it lives" (so rows saved before the home auto-fill still read right); the
+ * task's own from/to stands in last.
  */
 export function resolvePlacement(
   ref: TaskEquipmentRef,
   task: TaskPlacementFallback | null | undefined,
+  homeZone: string | null = null,
 ): { from: string | null; to: string | null } {
+  const home = homeZoneField(ref.mode);
   return {
-    from: ref.from ?? task?.location_from ?? null,
-    to: ref.to ?? task?.location_to ?? null,
+    from: ref.from ?? (home === 'from' ? homeZone : null) ?? task?.location_from ?? null,
+    to: ref.to ?? (home === 'to' ? homeZone : null) ?? task?.location_to ?? null,
   };
 }
 
@@ -175,8 +221,9 @@ export function resolvePlacement(
 export function placementSummary(
   ref: TaskEquipmentRef,
   task: TaskPlacementFallback | null | undefined,
+  homeZone: string | null = null,
 ): string | null {
-  const { from, to } = resolvePlacement(ref, task);
+  const { from, to } = resolvePlacement(ref, task, homeZone);
   if (ref.mode === 'return') {
     if (to) return `Back to ${getLocationLabel(to)}`;
     return from ? `From ${getLocationLabel(from)}` : null;
