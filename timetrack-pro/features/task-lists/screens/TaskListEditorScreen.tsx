@@ -38,7 +38,7 @@ import ItemEditorCard, {
   type ItemDraft,
 } from '@/features/task-lists/components/ItemEditorCard';
 import ItemEditorSheet from '@/features/task-lists/components/ItemEditorSheet';
-import SectionPickerModal from '@/features/task-lists/components/SectionPickerModal';
+import SectionPickerModal from '@/components/ui/SectionPickerModal';
 import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
@@ -76,8 +76,10 @@ export default function TaskListEditorScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [existingPickerOpen, setExistingPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  // Which item is being sent to a section (set by holding its move arrow).
+  // Which item is being sent to a section (set by holding its drag grip).
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
+  // Scrolling is switched off mid-drag so the page holds still under the row.
+  const [reordering, setReordering] = useState(false);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -300,16 +302,6 @@ export default function TaskListEditorScreen() {
     return items.map((i) => (i.item_type === 'section' ? null : ++n));
   }, [items]);
 
-  const moveItem = (index: number, direction: 'up' | 'down') => {
-    setItems((prev) => {
-      const arr = [...prev];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= arr.length) return arr;
-      [arr[index], arr[target]] = [arr[target], arr[index]];
-      return arr;
-    });
-  };
-
   /** Drag-to-reorder: pull one row out and drop it at its new index. */
   const reorderItems = (from: number, to: number) => {
     setItems((prev) => {
@@ -423,7 +415,7 @@ export default function TaskListEditorScreen() {
           size="sm"
         />
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} scrollEnabled={!reordering}>
         <Text style={styles.heading}>
           {id ? 'Edit Task List' : 'New Task List'}
         </Text>
@@ -524,13 +516,17 @@ export default function TaskListEditorScreen() {
 
         {items.length > 0 && (
           <Text style={styles.reorderHint}>
-            Drag the grip to reorder · hold an arrow to move a task to a section
+            Drag the grip to reorder · hold it to move a task to a section
           </Text>
         )}
         <DraggableList
           data={items}
           keyExtractor={(item) => item.id}
           onReorder={reorderItems}
+          onDragActiveChange={setReordering}
+          onLongPress={(item) => {
+            if (item.item_type !== 'section') setMovingItemId(item.id);
+          }}
           renderItem={({ item, index, dragging, dragHandlers }) => (
             <ItemEditorCard
               item={item}
@@ -540,13 +536,6 @@ export default function TaskListEditorScreen() {
               dragging={dragging}
               dragHandlers={dragHandlers}
               onOpen={() => setEditingItemId(item.id)}
-              onMove={(direction) => moveItem(index, direction)}
-              onMoveToSection={
-                item.item_type === 'section'
-                  ? undefined
-                  : () => setMovingItemId(item.id)
-              }
-              onRemove={() => removeItem(item.id)}
             />
           )}
         />
@@ -600,6 +589,7 @@ export default function TaskListEditorScreen() {
         }
         onAddImage={(source) => editingItem && handleAddImage(editingItem.id, source)}
         onRemoveImage={(mi) => editingItem && removeImage(editingItem.id, mi)}
+        onDelete={() => editingItem && removeItem(editingItem.id)}
         onClose={() => setEditingItemId(null)}
       />
 

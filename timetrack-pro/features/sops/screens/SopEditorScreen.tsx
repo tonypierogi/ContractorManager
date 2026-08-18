@@ -14,6 +14,12 @@ import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import SopItemCard from '@/features/sops/components/SopItemCard';
 import SopItemEditorSheet from '@/features/sops/components/SopItemEditorSheet';
+import DraggableList from '@/components/ui/DraggableList';
+import SectionPickerModal from '@/components/ui/SectionPickerModal';
+import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
+import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
+import type { TemplateItemRef } from '@/features/task-lists/api';
+import type { ParsedImportItem } from '@/features/task-lists/import-text';
 import {
   equipmentHomeZones,
   equipmentImages,
@@ -63,6 +69,12 @@ export default function SopEditorScreen() {
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   // Which item is open in the editing sheet; the list itself stays collapsed.
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  // Which item is being sent to a section (set by holding its drag grip).
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
+  // Scrolling is switched off mid-drag so the page holds still under the row.
+  const [reordering, setReordering] = useState(false);
+  const [existingPickerOpen, setExistingPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -108,6 +120,45 @@ export default function SopEditorScreen() {
     };
     setItems((prev) => [...prev, draft]);
     setEditingItemId(draft.id);
+  };
+
+  // Pasted notes become plain drafts: photos and gear are added after, in the
+  // same editor as everything else.
+  const importItems = (parsed: ParsedImportItem[]) => {
+    setItems((prev) => [
+      ...prev,
+      ...parsed.map((it) => ({
+        id: makeId(),
+        title: it.title,
+        description: it.description,
+        item_type: it.item_type as SopItemType,
+        media: [],
+        equipment: [],
+      })),
+    ]);
+    setImportOpen(false);
+    showToast(
+      `Added ${parsed.length} item${parsed.length === 1 ? '' : 's'} from notes`,
+    );
+  };
+
+  // Copy a step from another SOP or task list into this draft. Media URLs are
+  // shared rather than re-uploaded; task-list-only fields are dropped.
+  const addFromExisting = (tpl: TemplateItemRef) => {
+    const equipmentRefs = tpl.equipment.map((ref) => ({ ...ref }));
+    setItems((prev) => [
+      ...prev,
+      {
+        id: makeId(),
+        title: tpl.title,
+        description: tpl.description ?? '',
+        item_type: (tpl.item_type ?? 'task') as SopItemType,
+        // Copied steps pick up any equipment photo the original predates.
+        media: syncEquipmentMedia([...tpl.media], [], equipmentRefs, equipmentPhotos),
+        equipment: equipmentRefs,
+      },
+    ]);
+    setExistingPickerOpen(false);
   };
 
   // Upload immediately on selection (legacy parity); removing an image only
@@ -182,14 +233,71 @@ export default function SopEditorScreen() {
     setEditingItemId((current) => (current === itemId ? null : current));
   };
 
-  const moveItem = (index: number, direction: 'up' | 'down') => {
+  /** Drag-to-reorder: pull one row out and drop it at its new index. */
+  const reorderItems = (from: number, to: number) => {
     setItems((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) {
+        return prev;
+      }
       const arr = [...prev];
-      const target = direction === 'up' ? index - 1 : index + 1;
-      if (target < 0 || target >= arr.length) return arr;
-      [arr[index], arr[target]] = [arr[target], arr[index]];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
       return arr;
     });
+  };
+
+  const sections = useMemo(() => {
+    const found: { id: string; title: string; taskCount: number }[] = [];
+    items.forEach((it) => {
+      if (it.item_type === 'section') {
+        found.push({
+          id: it.id,
+          title: it.title.trim() || 'Untitled section',
+          taskCount: 0,
+        });
+      } else if (found.length > 0) {
+        found[found.length - 1].taskCount += 1;
+      }
+    });
+    return found;
+  }, [items]);
+
+  const movingItem = items.find((i) => i.id === movingItemId) ?? null;
+
+  // Sections aren't steps, so they don't take a number — the tasks around
+  // them keep counting as the crew will read them.
+  const itemNumbers = useMemo(() => {
+    let n = 0;
+    return items.map((i) => (i.item_type === 'section' ? null : ++n));
+  }, [items]);
+
+  /** Drop the held task at the end of the chosen section (null = top). */
+  const moveToSection = (sectionId: string | null) => {
+    const itemId = movingItemId;
+    setMovingItemId(null);
+    if (!itemId) return;
+    setItems((prev) => {
+      const from = prev.findIndex((i) => i.id === itemId);
+      if (from < 0) return prev;
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      if (sectionId === null) {
+        arr.unshift(moved);
+        return arr;
+      }
+      const sectionIndex = arr.findIndex((i) => i.id === sectionId);
+      if (sectionIndex < 0) return prev;
+      let insertAt = sectionIndex + 1;
+      while (insertAt < arr.length && arr[insertAt].item_type !== 'section') {
+        insertAt += 1;
+      }
+      arr.splice(insertAt, 0, moved);
+      return arr;
+    });
+    const label = sectionId
+      ? (sections.find((s) => s.id === sectionId)?.title ?? 'section')
+      : 'the top of the list';
+    showToast(`Moved to ${label}`);
   };
 
   const handleSave = async () => {
@@ -238,7 +346,7 @@ export default function SopEditorScreen() {
           size="sm"
         />
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} scrollEnabled={!reordering}>
         <Text style={styles.heading}>{id ? 'Edit SOP' : 'New SOP'}</Text>
 
         <Input
@@ -256,33 +364,74 @@ export default function SopEditorScreen() {
         />
 
         <Text style={styles.subheading}>Items</Text>
-
-        {items.map((item, index) => (
-          <SopItemCard
-            key={item.id}
-            item={item}
-            index={index}
-            count={items.length}
-            onOpen={() => setEditingItemId(item.id)}
-            onMove={(direction) => moveItem(index, direction)}
-            onRemove={() => removeItem(item.id)}
-          />
-        ))}
-
-        <View style={styles.addButtons}>
-          <Button
-            title="Add Task"
-            onPress={() => addItem('task')}
-            variant="secondary"
-            size="sm"
-          />
-          <Button
-            title="Add Section"
-            onPress={() => addItem('section')}
-            variant="secondary"
-            size="sm"
-          />
+        {/* Adding sits above the list: on a fifty-step SOP the buttons stay
+            where you left off instead of a scroll away at the bottom. */}
+        <View style={styles.addRow}>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="New Task"
+              onPress={() => addItem('task')}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="New Section"
+              onPress={() => addItem('section')}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
         </View>
+        <View style={styles.addRow}>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="From Existing"
+              onPress={() => setExistingPickerOpen(true)}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="Import List"
+              onPress={() => setImportOpen(true)}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+        </View>
+
+        {items.length > 0 && (
+          <Text style={styles.reorderHint}>
+            Drag the grip to reorder · hold it to move a task to a section
+          </Text>
+        )}
+        <DraggableList
+          data={items}
+          keyExtractor={(item) => item.id}
+          onReorder={reorderItems}
+          onDragActiveChange={setReordering}
+          onLongPress={(item) => {
+            if (item.item_type !== 'section') setMovingItemId(item.id);
+          }}
+          renderItem={({ item, index, dragging, dragHandlers }) => (
+            <SopItemCard
+              item={item}
+              index={index}
+              count={items.length}
+              number={itemNumbers[index]}
+              dragging={dragging}
+              dragHandlers={dragHandlers}
+              onOpen={() => setEditingItemId(item.id)}
+            />
+          )}
+        />
 
       </ScrollView>
 
@@ -330,7 +479,28 @@ export default function SopEditorScreen() {
         }
         onAddImage={(source) => editingItem && handleAddImage(editingItem.id, source)}
         onRemoveImage={(mi) => editingItem && removeImage(editingItem.id, mi)}
+        onDelete={() => editingItem && removeItem(editingItem.id)}
         onClose={() => setEditingItemId(null)}
+      />
+
+      <ExistingItemPickerModal
+        visible={existingPickerOpen}
+        onClose={() => setExistingPickerOpen(false)}
+        onPick={addFromExisting}
+      />
+
+      <ImportTasksModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={importItems}
+      />
+
+      <SectionPickerModal
+        visible={movingItem != null}
+        itemTitle={movingItem?.title.trim() || 'this task'}
+        sections={sections}
+        onPick={moveToSection}
+        onClose={() => setMovingItemId(null)}
       />
     </SafeAreaView>
   );
@@ -371,9 +541,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     marginTop: Spacing.sm,
   },
-  addButtons: {
+  reorderHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  addRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  addRowBtn: {
+    flex: 1,
   },
 });
