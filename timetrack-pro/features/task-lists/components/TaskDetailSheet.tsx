@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Sheet from '@/components/ui/Sheet';
 import Lightbox from '@/components/ui/Lightbox';
@@ -74,7 +75,13 @@ export default function TaskDetailSheet({
 }: TaskDetailSheetProps) {
   // Which "<equipmentId>:<from|to>" zone row is expanded, if any.
   const [openZoneKey, setOpenZoneKey] = useState<string | null>(null);
-  const [lightboxAt, setLightboxAt] = useState<number | null>(null);
+  // Which equipment card has its photo open, if any.
+  const [openEquipmentId, setOpenEquipmentId] = useState<string | null>(null);
+  // Whatever is in the lightbox: the task's photos, or one equipment photo.
+  const [lightbox, setLightbox] = useState<{
+    images: (string | ImageSourcePropType)[];
+    index: number;
+  } | null>(null);
   // Renamed rooms and replaced room photos show through here too.
   useZoneOverrides();
 
@@ -85,7 +92,8 @@ export default function TaskDetailSheet({
 
   const close = () => {
     setOpenZoneKey(null);
-    setLightboxAt(null);
+    setOpenEquipmentId(null);
+    setLightbox(null);
     onClose();
   };
 
@@ -99,7 +107,7 @@ export default function TaskDetailSheet({
       {images.length > 0 ? (
         <>
           <TouchableOpacity
-            onPress={() => setLightboxAt(0)}
+            onPress={() => setLightbox({ images, index: 0 })}
             activeOpacity={0.9}
             accessibilityRole="imagebutton"
             accessibilityLabel={`Photo for ${item?.title ?? 'task'}`}
@@ -111,7 +119,7 @@ export default function TaskDetailSheet({
               {images.slice(1).map((url, i) => (
                 <TouchableOpacity
                   key={url + i}
-                  onPress={() => setLightboxAt(i + 1)}
+                  onPress={() => setLightbox({ images, index: i + 1 })}
                   activeOpacity={0.8}
                 >
                   <Image source={{ uri: url }} style={s.thumb} resizeMode="cover" />
@@ -145,9 +153,22 @@ export default function TaskDetailSheet({
             const eq = equipmentById.get(ref.id);
             const { from, to } = resolvePlacement(ref, item, eq?.location ?? null);
             const zoneLabels = EQUIPMENT_ZONE_LABEL[ref.mode];
+            const name = equipmentLabel(ref.id, eq);
+            const expanded = openEquipmentId === ref.id;
             return (
               <View key={ref.id} style={s.card}>
-                <View style={s.cardHeader}>
+                {/* The whole header opens the item's own photo — on a task you
+                    have never done, seeing the thing beats reading its name. */}
+                <TouchableOpacity
+                  style={s.cardHeader}
+                  onPress={() =>
+                    setOpenEquipmentId((id) => (id === ref.id ? null : ref.id))
+                  }
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityLabel={`${name}, ${expanded ? 'hide' : 'show'} photo`}
+                >
                   {eq?.image_url ? (
                     <Image
                       source={{ uri: eq.image_url }}
@@ -160,15 +181,62 @@ export default function TaskDetailSheet({
                     </View>
                   )}
                   <View style={s.cardHeaderText}>
-                    <Text style={s.equipmentName}>
-                      {equipmentLabel(ref.id, eq)}
-                    </Text>
+                    <Text style={s.equipmentName}>{name}</Text>
                     <Text style={s.modeHint}>
                       {EQUIPMENT_MODE_DESCRIPTION[ref.mode]}
                     </Text>
                   </View>
                   <ModeBadge mode={ref.mode} />
-                </View>
+                  <Ionicons
+                    name={expanded ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={Colors.textSecondary}
+                  />
+                </TouchableOpacity>
+
+                {expanded ? (
+                  <View style={s.equipmentDetail}>
+                    {eq?.image_url ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          setLightbox({ images: [eq.image_url!], index: 0 })
+                        }
+                        activeOpacity={0.9}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={`Photo of ${name}`}
+                      >
+                        <Image
+                          source={{ uri: eq.image_url }}
+                          style={s.equipmentPhoto}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[s.equipmentPhoto, s.thumbPlaceholder]}>
+                        <Ionicons
+                          name="cube-outline"
+                          size={32}
+                          color={Colors.textMuted}
+                        />
+                        <Text style={s.noPhoto}>No photo yet</Text>
+                      </View>
+                    )}
+                    <View style={s.homeRow}>
+                      <Ionicons
+                        name="home-outline"
+                        size={14}
+                        color={eq?.location ? Colors.accent : Colors.textMuted}
+                      />
+                      <Text
+                        style={[s.homeText, !eq?.location && s.homeTextMissing]}
+                      >
+                        {eq?.location
+                          ? `Lives in ${getLocationLabel(eq.location)}`
+                          : 'No home location recorded'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 <ZoneStep
                   icon="arrow-up-circle-outline"
@@ -196,12 +264,14 @@ export default function TaskDetailSheet({
         )}
       </View>
 
-      <Lightbox
-        images={images}
-        startIndex={lightboxAt ?? 0}
-        visible={lightboxAt != null}
-        onClose={() => setLightboxAt(null)}
-      />
+      {lightbox ? (
+        <Lightbox
+          images={lightbox.images}
+          startIndex={lightbox.index}
+          visible
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
     </Sheet>
   );
 }
@@ -367,6 +437,35 @@ const s = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
     marginTop: 1,
+  },
+  equipmentDetail: {
+    gap: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  equipmentPhoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.bgElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noPhoto: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginTop: Spacing.xs,
+  },
+  homeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  homeText: {
+    fontSize: FontSize.sm,
+    color: Colors.text,
+  },
+  homeTextMissing: {
+    color: Colors.textMuted,
   },
   badge: {
     paddingHorizontal: Spacing.sm,
