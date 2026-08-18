@@ -15,7 +15,17 @@ import Modal from '@/components/ui/Modal';
 import Lightbox from '@/components/ui/Lightbox';
 import Button from '@/components/ui/Button';
 import EquipmentEditorModal from '@/features/equipment/components/EquipmentEditorModal';
-import { useEquipment } from '@/features/equipment/hooks';
+import EquipmentTagChips from '@/features/equipment/components/EquipmentTagChips';
+import EquipmentTagFilterRow from '@/features/equipment/components/EquipmentTagFilterRow';
+import EquipmentTagManagerSheet from '@/features/equipment/components/EquipmentTagManagerSheet';
+import { useEquipment, useEquipmentTags } from '@/features/equipment/hooks';
+import {
+  matchesTagFilter,
+  pruneTagFilter,
+  tagsById,
+  tagsForEquipment,
+  toggleTagId,
+} from '@/features/equipment/tags';
 import { useLocationZones } from '@/features/locations/hooks';
 import {
   FLOOR_PLAN_HIGHLIGHT,
@@ -38,10 +48,13 @@ interface Props {
 
 /**
  * "Where's the vacuum?" finder over the equipment table: search by name,
- * narrow by zone, tap an item for its photo and location.
+ * narrow by room or tag, tap an item for its photo and location. Contractors
+ * get the same search and filters as admins — only the add/edit/tag-manage
+ * controls are gated on `canEdit`.
  */
 export default function VenueItemsTab({ canEdit = false }: Props) {
   const { data: equipment, isLoading, refetch } = useEquipment();
+  const { data: tags } = useEquipmentTags();
   const { floors } = useLocationZones();
 
   // "All" first, then rooms in floor order — the order the building is walked.
@@ -56,11 +69,13 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
 
   const [query, setQuery] = useState('');
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [selected, setSelected] = useState<Equipment | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorItem, setEditorItem] = useState<Equipment | null>(null);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
 
   const openAdd = () => {
     setEditorItem(null);
@@ -73,14 +88,25 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
     setEditorOpen(true);
   };
 
+  const tagLookup = useMemo(() => tagsById(tags), [tags]);
+  // Ignore tags deleted since they were picked, so the filter can't get stuck.
+  const activeTagFilter = useMemo(
+    () => pruneTagFilter(tagFilter, tagLookup),
+    [tagFilter, tagLookup],
+  );
+
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (equipment ?? []).filter(
       (item) =>
         (!q || item.name.toLowerCase().includes(q)) &&
-        (!zoneFilter || item.location === zoneFilter),
+        (!zoneFilter || item.location === zoneFilter) &&
+        matchesTagFilter(item, activeTagFilter),
     );
-  }, [equipment, query, zoneFilter]);
+  }, [equipment, query, zoneFilter, activeTagFilter]);
+
+  const selectedTags = selected ? tagsForEquipment(selected, tagLookup) : [];
+  const isFiltered = !!query.trim() || !!zoneFilter || activeTagFilter.length > 0;
 
   const selectedFloor = selected?.location ? zoneFloor(selected.location) : null;
   const selectedPlan =
@@ -130,14 +156,24 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
         )}
         </View>
         {canEdit && (
-          <Pressable
-            onPress={openAdd}
-            accessibilityRole="button"
-            accessibilityLabel="Add equipment"
-            style={({ pressed }) => [s.addBtn, pressed && s.addBtnPressed]}
-          >
-            <Ionicons name="add" size={22} color={Colors.accent} />
-          </Pressable>
+          <>
+            <Pressable
+              onPress={() => setTagManagerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Manage tags"
+              style={({ pressed }) => [s.iconBtn, pressed && s.addBtnPressed]}
+            >
+              <Ionicons name="pricetags-outline" size={19} color={Colors.textSecondary} />
+            </Pressable>
+            <Pressable
+              onPress={openAdd}
+              accessibilityRole="button"
+              accessibilityLabel="Add equipment"
+              style={({ pressed }) => [s.addBtn, pressed && s.addBtnPressed]}
+            >
+              <Ionicons name="add" size={22} color={Colors.accent} />
+            </Pressable>
+          </>
         )}
       </View>
 
@@ -163,6 +199,13 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
           );
         })}
       </ScrollView>
+
+      <EquipmentTagFilterRow
+        tags={tags}
+        selected={activeTagFilter}
+        onToggle={(tagId) => setTagFilter((prev) => toggleTagId(prev, tagId))}
+        onClear={() => setTagFilter([])}
+      />
     </View>
   );
 
@@ -208,6 +251,11 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
                     : 'No location recorded'}
                 </Text>
               </View>
+              {item.tag_ids.length > 0 ? (
+                <View style={s.rowTags}>
+                  <EquipmentTagChips tags={tagsForEquipment(item, tagLookup)} max={2} />
+                </View>
+              ) : null}
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </Pressable>
@@ -217,11 +265,11 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
             <View style={s.empty}>
               <Ionicons name="construct-outline" size={40} color={Colors.textMuted} />
               <Text style={s.emptyTitle}>
-                {query.trim() || zoneFilter ? 'No items match' : 'No items yet'}
+                {isFiltered ? 'No items match' : 'No items yet'}
               </Text>
               <Text style={s.emptyText}>
-                {query.trim() || zoneFilter
-                  ? 'Try a different search or location filter.'
+                {isFiltered
+                  ? 'Try a different search, room or tag.'
                   : canEdit
                     ? 'Tap + to add your first piece of equipment.'
                     : 'Equipment added by an admin shows up here.'}
@@ -274,6 +322,12 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
                 </Text>
               )}
             </View>
+
+            {selectedTags.length > 0 ? (
+              <View style={s.detailTags}>
+                <EquipmentTagChips tags={selectedTags} />
+              </View>
+            ) : null}
 
             {/* Go-find-it panel: what the spot looks like, plus where it sits
                 in the building. */}
@@ -335,11 +389,17 @@ export default function VenueItemsTab({ canEdit = false }: Props) {
       </Modal>
 
       {canEdit && (
-        <EquipmentEditorModal
-          visible={editorOpen}
-          item={editorItem}
-          onClose={() => setEditorOpen(false)}
-        />
+        <>
+          <EquipmentEditorModal
+            visible={editorOpen}
+            item={editorItem}
+            onClose={() => setEditorOpen(false)}
+          />
+          <EquipmentTagManagerSheet
+            visible={tagManagerOpen}
+            onClose={() => setTagManagerOpen(false)}
+          />
+        </>
       )}
 
       {lightboxImages.length > 0 ? (
@@ -384,6 +444,16 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.accent,
     backgroundColor: Colors.accentGlow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgPanel,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -472,6 +542,9 @@ const s = StyleSheet.create({
     color: Colors.textMuted,
     fontWeight: '400',
   },
+  rowTags: {
+    marginTop: 4,
+  },
   empty: {
     alignItems: 'center',
     paddingVertical: Spacing.xxl,
@@ -522,6 +595,9 @@ const s = StyleSheet.create({
   detailFloor: {
     fontSize: FontSize.sm,
     color: Colors.textSecondary,
+  },
+  detailTags: {
+    marginBottom: Spacing.md,
   },
   locationCard: {
     gap: Spacing.md,

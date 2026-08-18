@@ -166,6 +166,24 @@ export interface Equipment {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Tags linked through equipment_tag_links, joined on by fetchEquipment().
+   * Not a column on the row — always [] when nothing is tagged.
+   */
+  tag_ids: string[];
+}
+
+/**
+ * An admin-authored label for grouping equipment ("ladders", "cleaning",
+ * "truck kit"). Names are unique case-insensitively, so the picker never
+ * shows two chips that read alike.
+ */
+export interface EquipmentTag {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
