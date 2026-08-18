@@ -104,7 +104,11 @@ export default function SopItemCard({
           <View
             style={s.grip}
             {...(dragHandlers ?? {})}
-            accessibilityLabel={`Drag ${item.title.trim() || 'item'} to reorder, hold to move it to a section`}
+            accessibilityLabel={
+              isSection
+                ? `Drag ${item.title.trim() || 'section'} to reorder, hold to drag it with its tasks`
+                : `Drag ${item.title.trim() || 'item'} to reorder, hold to move it to a section`
+            }
           >
             <Ionicons name="reorder-two" size={18} color={Colors.textMuted} />
           </View>
