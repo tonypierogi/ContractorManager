@@ -315,6 +315,27 @@ export async function completeDailySop(dailySopId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Cancels an in-progress checklist: the run and its checks go away (checks
+ * cascade), freeing the day so another SOP can be started. RLS only lets the
+ * creator (or an admin) delete, and a blocked delete comes back as success
+ * with zero rows — so we ask for the deleted id and treat an empty result as
+ * a permission failure rather than silently pretending it worked.
+ */
+export async function cancelDailySop(dailySopId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('daily_sops')
+    .delete()
+    .eq('id', dailySopId)
+    .select('id');
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(
+      'Only the person who started this checklist (or an admin) can cancel it.',
+    );
+  }
+}
+
 export async function fetchCompletedDailySops() {
   const { data, error } = await supabase
     .from('daily_sops')
