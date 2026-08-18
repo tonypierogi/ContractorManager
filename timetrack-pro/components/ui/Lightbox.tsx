@@ -11,11 +11,19 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AnnotationOverlay from '@/components/ui/AnnotationOverlay';
+import { containRect, useImageAspectRatio } from '@/components/ui/AnnotatedImage';
+import type { ImageAnnotation } from '@/lib/annotations';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
 interface LightboxProps {
   /** URL strings or bundled sources. Single images must be wrapped in an array. */
   images: (string | ImageSourcePropType)[];
+  /**
+   * Marks to draw over each image, positionally matched to `images`. Sparse by
+   * design — most images have none.
+   */
+  annotations?: (ImageAnnotation[] | null | undefined)[];
   startIndex?: number;
   visible: boolean;
   onClose: () => void;
@@ -29,6 +37,7 @@ function toSource(img: string | ImageSourcePropType): ImageSourcePropType {
 
 export default function Lightbox({
   images,
+  annotations,
   startIndex = 0,
   visible,
   onClose,
@@ -83,10 +92,20 @@ export default function Lightbox({
     [],
   );
 
-  if (!visible) return null;
-
   const safeIndex = Math.min(Math.max(index, 0), Math.max(count - 1, 0));
   const current = count > 0 ? images[safeIndex] : null;
+
+  // Marks are anchored to the photo, so they need the letterbox the contained
+  // image actually lands in — not the wrapper around it.
+  const currentAnnotations = annotations?.[safeIndex] ?? null;
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const aspectRatio = useImageAspectRatio(
+    currentAnnotations?.length && typeof current === 'string' ? current : null,
+  );
+  const rect = containRect(box.width, box.height, aspectRatio);
+
+  if (!visible) return null;
+
   const hasPrev = safeIndex > 0;
   const hasNext = safeIndex < count - 1;
 
@@ -103,12 +122,30 @@ export default function Lightbox({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
         {current != null && (
-          <View style={styles.imageWrap} {...panResponder.panHandlers}>
+          <View
+            style={styles.imageWrap}
+            {...panResponder.panHandlers}
+            onLayout={(e) =>
+              setBox({
+                width: e.nativeEvent.layout.width,
+                height: e.nativeEvent.layout.height,
+              })
+            }
+          >
             <Image
               source={toSource(current)}
               style={styles.image}
               resizeMode="contain"
             />
+            {currentAnnotations?.length ? (
+              <View style={{ position: 'absolute', left: rect.left, top: rect.top }}>
+                <AnnotationOverlay
+                  annotations={currentAnnotations}
+                  width={rect.width}
+                  height={rect.height}
+                />
+              </View>
+            ) : null}
           </View>
         )}
 

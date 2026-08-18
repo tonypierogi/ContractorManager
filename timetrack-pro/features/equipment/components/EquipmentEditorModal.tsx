@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Image, Alert, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import AnnotatedImage from '@/components/ui/AnnotatedImage';
+import ImageAnnotator from '@/components/ui/ImageAnnotator';
+import { serializeAnnotations, type ImageAnnotation } from '@/lib/annotations';
 import { useAuth } from '@/features/auth/auth-provider';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import EquipmentTagPicker from '@/features/equipment/components/EquipmentTagPicker';
@@ -38,6 +41,8 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
   const [location, setLocation] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [annotations, setAnnotations] = useState<ImageAnnotation[]>([]);
+  const [annotatorOpen, setAnnotatorOpen] = useState(false);
 
   // Re-seed the form each time the modal opens.
   useEffect(() => {
@@ -46,6 +51,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
       setLocation(item?.location ?? null);
       setImageUrl(item?.image_url ?? null);
       setTagIds(item?.tag_ids ?? []);
+      setAnnotations(item?.image_annotations ?? []);
     }
   }, [visible, item]);
 
@@ -68,6 +74,8 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
         height: asset.height,
       });
       setImageUrl(url);
+      // Marks belong to the photo they were drawn on, not to the item.
+      setAnnotations([]);
     } catch {
       Alert.alert('Error', 'Failed to upload image');
     }
@@ -82,6 +90,7 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
         location: location || null,
         // Always the editor's current value — Remove + Save clears the image.
         image_url: imageUrl || null,
+        image_annotations: imageUrl ? serializeAnnotations(annotations) : null,
         tag_ids: tagIds,
       });
       onClose();
@@ -123,9 +132,20 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
       <Text style={styles.sectionLabel}>Photo</Text>
       {imageUrl ? (
         <View style={styles.imagePreviewRow}>
-          <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
+          <AnnotatedImage
+            uri={imageUrl}
+            annotations={annotations}
+            style={styles.imagePreview}
+          />
           <View style={styles.imageActions}>
             <View style={styles.imageActionsRow}>
+              <Button
+                title={annotations.length ? 'Edit Marks' : 'Draw'}
+                variant="secondary"
+                size="sm"
+                icon={<Ionicons name="brush-outline" size={16} color={Colors.text} />}
+                onPress={() => setAnnotatorOpen(true)}
+              />
               <Button
                 title="Retake"
                 variant="secondary"
@@ -147,7 +167,10 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
               title="Remove"
               variant="danger"
               size="sm"
-              onPress={() => setImageUrl(null)}
+              onPress={() => {
+                setImageUrl(null);
+                setAnnotations([]);
+              }}
             />
           </View>
         </View>
@@ -189,6 +212,19 @@ export default function EquipmentEditorModal({ visible, item, onClose }: Props) 
           />
         </View>
       )}
+
+      {imageUrl ? (
+        <ImageAnnotator
+          visible={annotatorOpen}
+          uri={imageUrl}
+          annotations={annotations}
+          onSave={(next) => {
+            setAnnotations(next);
+            setAnnotatorOpen(false);
+          }}
+          onClose={() => setAnnotatorOpen(false)}
+        />
+      ) : null}
     </Modal>
   );
 }

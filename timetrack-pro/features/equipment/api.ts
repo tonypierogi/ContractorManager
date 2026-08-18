@@ -1,15 +1,20 @@
 import { supabase } from '@/lib/supabase';
 import { uploadImageToMediaBucket, type UploadImageInput } from '@/lib/uploads';
+import { parseAnnotations, type ImageAnnotation } from '@/lib/annotations';
 import type { Equipment, EquipmentTag } from '@/types/database';
 
 /** The equipment row as it comes back from the database, before tags join on. */
-type EquipmentRow = Omit<Equipment, 'tag_ids'>;
+type EquipmentRow = Omit<Equipment, 'tag_ids' | 'image_annotations'> & {
+  image_annotations?: unknown;
+};
 
 export type SaveEquipmentInput = {
   id?: string;
   name: string;
   location?: string | null;
   image_url?: string | null;
+  /** Marks drawn over image_url; null clears them. */
+  image_annotations?: ImageAnnotation[] | null;
   created_by?: string;
   /** Full set of tags for the item; omit to leave existing tags untouched. */
   tag_ids?: string[];
@@ -20,6 +25,23 @@ export type SaveEquipmentInput = {
  * own code for a table missing from its schema cache. See readTagsSafely().
  */
 const MISSING_TABLE_CODES = ['42P01', 'PGRST205'];
+
+/**
+ * "That column isn't there": Postgres' undefined-column, and PostgREST's code
+ * for a column missing from its schema cache. See saveEquipment() — the
+ * annotations column arrives in a migration applied by hand, so a write has to
+ * survive reaching a database that hasn't had it yet.
+ */
+const MISSING_COLUMN_CODES = ['42703', 'PGRST204'];
+
+function isMissingColumn(error: { code?: string } | null): boolean {
+  return !!error?.code && MISSING_COLUMN_CODES.includes(error.code);
+}
+
+/** Fill in the fields the row may not carry yet, and normalise the JSON one. */
+function toEquipmentRow(row: EquipmentRow): Omit<Equipment, 'tag_ids'> {
+  return { ...row, image_annotations: parseAnnotations(row.image_annotations) };
+}
 
 /**
  * Tag reads are best-effort. Migrations here are applied by hand, so the app
@@ -64,7 +86,7 @@ export async function fetchEquipment(): Promise<Equipment[]> {
   if (error) throw error;
 
   return (data as EquipmentRow[]).map((row) => ({
-    ...row,
+    ...toEquipmentRow(row),
     tag_ids: links.get(row.id) ?? [],
   }));
 }
@@ -107,30 +129,30 @@ export async function saveEquipment(equipment: SaveEquipmentInput): Promise<Equi
   const { tag_ids, ...row } = equipment;
 
   const saved = await (async (): Promise<EquipmentRow> => {
-    if (row.id) {
-      const { id, created_by, ...updates } = row;
-      const { data, error } = await supabase
-        .from('equipment')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as EquipmentRow;
-    }
+    // Written twice at most: once as asked, and — only if this database
+    // predates the annotations migration — again without that column, so the
+    // rest of the edit still saves rather than the whole form failing.
+    const write = async (values: Record<string, unknown>) => {
+      if (values.id) {
+        const { id, created_by, ...updates } = values;
+        return supabase.from('equipment').update(updates).eq('id', id as string).select().single();
+      }
+      return supabase.from('equipment').insert(values).select().single();
+    };
 
-    const { data, error } = await supabase
-      .from('equipment')
-      .insert(row)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as EquipmentRow;
+    const { data, error } = await write(row);
+    if (!error) return data as EquipmentRow;
+    if (!isMissingColumn(error) || !('image_annotations' in row)) throw error;
+
+    const { image_annotations, ...withoutAnnotations } = row;
+    const retry = await write(withoutAnnotations);
+    if (retry.error) throw retry.error;
+    return retry.data as EquipmentRow;
   })();
 
   if (tag_ids) await syncEquipmentTagLinks(saved.id, tag_ids);
 
-  return { ...saved, tag_ids: tag_ids ?? [] };
+  return { ...toEquipmentRow(saved), tag_ids: tag_ids ?? [] };
 }
 
 export function uploadEquipmentImage(params: UploadImageInput): Promise<string> {
