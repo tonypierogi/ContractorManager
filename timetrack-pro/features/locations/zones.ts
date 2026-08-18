@@ -23,6 +23,13 @@ export interface ZoneOverlay {
 export const LOCATION_ZONES: Record<Floor, LocationZone[]> = {
   upstairs: [
     { id: 'back-closet', label: 'Back Closet' },
+    // The curtained back area, split in two so crews can be sent to one side.
+    // Neither side is outlined on the bundled floor-plan PNG, so they have no
+    // ZONE_OVERLAYS entry and no highlight image — they show up as room chips
+    // and in every location picker, and an admin can add a photo from the
+    // room editor (location_zone_overrides.photo_url).
+    { id: 'backroom-right', label: 'Backroom Right' },
+    { id: 'backroom-left', label: 'Backroom Left' },
     { id: 'big-room', label: 'Big Room' },
     { id: 'loft', label: 'Loft' },
   ],
