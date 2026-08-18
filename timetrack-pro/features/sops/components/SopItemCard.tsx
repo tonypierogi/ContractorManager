@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  type GestureResponderHandlers,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/ui/Card';
 import { refsForMode } from '@/features/equipment/refs';
@@ -14,10 +21,13 @@ interface SopItemCardProps {
   };
   index: number;
   count: number;
+  /** Position among the tasks, sections skipped; null for a section row. */
+  number?: number | null;
   /** Open this item in the editing sheet. */
   onOpen: () => void;
-  onMove: (direction: 'up' | 'down') => void;
-  onRemove: () => void;
+  /** Spread onto the grip so the list can drag this row. */
+  dragHandlers?: GestureResponderHandlers;
+  dragging?: boolean;
 }
 
 /**
@@ -29,11 +39,15 @@ export default function SopItemCard({
   item,
   index,
   count,
+  number,
   onOpen,
-  onMove,
-  onRemove,
+  dragHandlers,
+  dragging,
 }: SopItemCardProps) {
   const isSection = item.item_type === 'section';
+  // The first photo stands in for the task — far faster to recognise than a
+  // truncated title when you are scanning a long list.
+  const thumb = item.media.find((m) => m.type === 'image')?.url ?? null;
   const summaryParts: string[] = [];
   if (item.media.length > 0) {
     summaryParts.push(`${item.media.length} photo${item.media.length === 1 ? '' : 's'}`);
@@ -44,7 +58,7 @@ export default function SopItemCard({
   if (toBring > 0) summaryParts.push(`${toBring} to bring`);
 
   return (
-    <Card style={s.itemCard}>
+    <Card style={[s.itemCard, dragging && s.dragging]}>
       <View style={s.header}>
         <TouchableOpacity
           style={s.headerMain}
@@ -53,60 +67,47 @@ export default function SopItemCard({
           accessibilityLabel={`Edit ${item.title.trim() || (isSection ? 'new section' : 'new task')}`}
           activeOpacity={0.7}
         >
-          <View style={[s.typeBadge, isSection && s.sectionBadge]}>
-            <Text style={[s.typeText, isSection && s.sectionText]}>
-              {isSection ? 'Section' : 'Task'}
-            </Text>
+          <View style={[s.numberChip, isSection && s.sectionChip]}>
+            {isSection ? (
+              <Ionicons name="bookmark-outline" size={13} color={Colors.warning} />
+            ) : (
+              <Text style={s.numberText}>{number ?? index + 1}</Text>
+            )}
           </View>
+          {thumb ? <Image source={{ uri: thumb }} style={s.thumb} /> : null}
           <View style={s.headerText}>
             <Text
-              style={[s.headerTitle, !item.title.trim() && s.headerUntitled]}
-              numberOfLines={1}
+              style={[
+                s.headerTitle,
+                isSection && s.sectionTitle,
+                !item.title.trim() && s.headerUntitled,
+              ]}
+              numberOfLines={2}
             >
               {item.title.trim() || (isSection ? 'New section' : 'New task')}
             </Text>
             {summaryParts.length > 0 && (
-              <Text style={s.headerSummary} numberOfLines={1}>
-                {summaryParts.join('  ·  ')}
-              </Text>
+              <Text style={s.headerSummary}>{summaryParts.join('  ·  ')}</Text>
             )}
           </View>
         </TouchableOpacity>
-        <View style={s.controls}>
+        {/* Edit above, drag below: the two things you do to a row, stacked
+            clear of the title so it can run the full width of the card. */}
+        <View style={s.sideCol}>
           <TouchableOpacity
-            onPress={() => onMove('up')}
-            disabled={index === 0}
+            onPress={onOpen}
             style={s.ctrlBtn}
-            accessibilityLabel="Move up"
+            accessibilityLabel={`Edit ${item.title.trim() || 'this item'}`}
           >
-            <Ionicons
-              name="arrow-up"
-              size={16}
-              color={index === 0 ? Colors.border : Colors.textSecondary}
-            />
+            <Ionicons name="pencil" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => onMove('down')}
-            disabled={index === count - 1}
-            style={s.ctrlBtn}
-            accessibilityLabel="Move down"
+          <View
+            style={s.grip}
+            {...(dragHandlers ?? {})}
+            accessibilityLabel={`Drag ${item.title.trim() || 'item'} to reorder, hold to move it to a section`}
           >
-            <Ionicons
-              name="arrow-down"
-              size={16}
-              color={index === count - 1 ? Colors.border : Colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onRemove}
-            style={s.ctrlBtn}
-            accessibilityLabel="Remove item"
-          >
-            <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onOpen} style={s.ctrlBtn} accessibilityLabel="Edit item">
-            <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-          </TouchableOpacity>
+            <Ionicons name="reorder-two" size={18} color={Colors.textMuted} />
+          </View>
         </View>
       </View>
     </Card>
@@ -118,37 +119,65 @@ const s = StyleSheet.create({
     marginBottom: Spacing.sm,
     padding: Spacing.md,
   },
+  dragging: {
+    borderColor: Colors.accent,
+    transform: [{ scale: 1.02 }],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  grip: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  sideCol: {
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  thumb: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.bgElevated,
+    flexShrink: 0,
+  },
   headerMain: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.sm,
     minWidth: 0,
     minHeight: 36,
   },
-  typeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+  numberChip: {
+    width: 24,
+    height: 24,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.accent + '20',
+    backgroundColor: Colors.bgElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  sectionBadge: {
+  sectionChip: {
     backgroundColor: Colors.warning + '20',
   },
-  typeText: {
+  numberText: {
     fontSize: FontSize.xs,
-    fontWeight: '600',
-    color: Colors.accent,
+    fontWeight: '700',
+    color: Colors.textSecondary,
   },
-  sectionText: {
+  sectionTitle: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '700',
     color: Colors.warning,
   },
+
   headerText: {
     flex: 1,
     minWidth: 0,
@@ -157,6 +186,7 @@ const s = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: '600',
     color: Colors.text,
+    lineHeight: 19,
   },
   headerUntitled: {
     color: Colors.textMuted,
@@ -166,11 +196,6 @@ const s = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
     marginTop: 1,
-  },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
   },
   ctrlBtn: {
     width: 30,

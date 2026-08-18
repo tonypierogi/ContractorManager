@@ -1,4 +1,11 @@
-import { View, Text, TouchableOpacity, StyleSheet, type GestureResponderHandlers } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  type GestureResponderHandlers,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/ui/Card';
 import { refsForMode } from '@/features/equipment/refs';
@@ -62,10 +69,6 @@ interface ItemEditorCardProps {
   count: number;
   /** Open this item in the editing sheet. */
   onOpen: () => void;
-  onMove: (direction: 'up' | 'down') => void;
-  /** Long-pressing an arrow asks for the "move to section" picker. */
-  onMoveToSection?: () => void;
-  onRemove: () => void;
   /** Spread onto the grip so the list can drag this row. */
   dragHandlers?: GestureResponderHandlers;
   dragging?: boolean;
@@ -82,27 +85,18 @@ export default function ItemEditorCard({
   number,
   count,
   onOpen,
-  onMove,
-  onMoveToSection,
-  onRemove,
   dragHandlers,
   dragging,
 }: ItemEditorCardProps) {
   const isSection = item.item_type === 'section';
   const summaryParts = isSection ? [] : itemSummary(item);
-  const atTop = index === 0;
-  const atBottom = index === count - 1;
+  // The first photo stands in for the task — far faster to recognise than a
+  // truncated title when you are scanning a long list.
+  const thumb = item.media.find((m) => m.type === 'image')?.url ?? null;
 
   return (
     <Card style={[isSection ? s.sectionCard : s.itemCard, dragging && s.dragging]}>
       <View style={s.header}>
-        <View
-          style={s.grip}
-          {...(dragHandlers ?? {})}
-          accessibilityLabel={`Drag ${item.title.trim() || 'item'} to reorder`}
-        >
-          <Ionicons name="reorder-two" size={18} color={Colors.textMuted} />
-        </View>
         <TouchableOpacity
           style={s.headerMain}
           onPress={onOpen}
@@ -117,6 +111,7 @@ export default function ItemEditorCard({
               <Text style={s.numberText}>{number ?? index + 1}</Text>
             )}
           </View>
+          {thumb ? <Image source={{ uri: thumb }} style={s.thumb} /> : null}
           <View style={s.headerText}>
             <Text
               style={[
@@ -132,45 +127,23 @@ export default function ItemEditorCard({
             )}
           </View>
         </TouchableOpacity>
-        <View style={s.controls}>
-          <TouchableOpacity
-            onPress={() => !atTop && onMove('up')}
-            onLongPress={onMoveToSection}
-            style={s.ctrlBtn}
-            accessibilityLabel={
-              onMoveToSection ? 'Move up (hold to move to a section)' : 'Move up'
-            }
-          >
-            <Ionicons
-              name="arrow-up"
-              size={16}
-              color={atTop ? Colors.border : Colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => !atBottom && onMove('down')}
-            onLongPress={onMoveToSection}
-            style={s.ctrlBtn}
-            accessibilityLabel={
-              onMoveToSection ? 'Move down (hold to move to a section)' : 'Move down'
-            }
-          >
-            <Ionicons
-              name="arrow-down"
-              size={16}
-              color={atBottom ? Colors.border : Colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove} style={s.ctrlBtn} accessibilityLabel="Remove item">
-            <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-          </TouchableOpacity>
+        {/* Edit above, drag below: the two things you do to a row, stacked
+            clear of the title so it can run the full width of the card. */}
+        <View style={s.sideCol}>
           <TouchableOpacity
             onPress={onOpen}
             style={s.ctrlBtn}
-            accessibilityLabel="Edit item"
+            accessibilityLabel={`Edit ${item.title.trim() || 'this item'}`}
           >
-            <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+            <Ionicons name="pencil" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
+          <View
+            style={s.grip}
+            {...(dragHandlers ?? {})}
+            accessibilityLabel={`Drag ${item.title.trim() || 'item'} to reorder, hold to move it to a section`}
+          >
+            <Ionicons name="reorder-two" size={18} color={Colors.textMuted} />
+          </View>
         </View>
       </View>
     </Card>
@@ -197,10 +170,21 @@ const s = StyleSheet.create({
     gap: Spacing.sm,
   },
   grip: {
-    width: 28,
-    minHeight: 36,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  sideCol: {
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  thumb: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.bgElevated,
     flexShrink: 0,
   },
   headerMain: {
@@ -253,15 +237,11 @@ const s = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 1,
   },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flexShrink: 0,
-  },
   ctrlBtn: {
     width: 30,
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
 });

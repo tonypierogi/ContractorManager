@@ -36,6 +36,8 @@ interface Props {
   onRemoveEquipment: (equipmentId: string) => void;
   onAddImage: (source: PhotoSource) => void;
   onRemoveImage: (mediaIndex: number) => void;
+  /** Drop the whole item; the sheet closes itself afterwards. */
+  onDelete: () => void;
   onClose: () => void;
 }
 
@@ -59,6 +61,7 @@ export default function ItemEditorSheet({
   onRemoveEquipment,
   onAddImage,
   onRemoveImage,
+  onDelete,
   onClose,
 }: Props) {
   const [pickerMode, setPickerMode] = useState<EquipmentLinkMode | null>(null);
@@ -142,6 +145,15 @@ export default function ItemEditorSheet({
 
             <View style={s.doneRow}>
               <Button title="Done" onPress={close} fullWidth />
+              <Button
+                title="Delete item"
+                onPress={() => {
+                  onDelete();
+                  onClose();
+                }}
+                variant="ghost"
+                fullWidth
+              />
             </View>
           </>
         ) : null}

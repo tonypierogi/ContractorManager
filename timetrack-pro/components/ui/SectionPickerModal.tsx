@@ -23,6 +23,8 @@ interface SectionPickerModalProps {
 /**
  * Reached by holding a row's up/down arrow: instead of stepping a task past
  * one neighbour at a time, jump it to the end of whichever section you tap.
+ *
+ * Shared by the task-list and SOP editors — both build the same section rows.
  */
 export default function SectionPickerModal({
   visible,
