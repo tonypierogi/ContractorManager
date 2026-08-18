@@ -20,11 +20,11 @@ export interface ItemDraft {
 
 let nextId = 0;
 
-export const makeDraft = (): ItemDraft => ({
+export const makeDraft = (itemType: 'task' | 'section' = 'task'): ItemDraft => ({
   id: `draft-${++nextId}`,
   title: '',
   description: '',
-  item_type: 'task',
+  item_type: itemType,
   media: [],
   location_from: null,
   location_to: null,
@@ -57,9 +57,9 @@ export function itemSummary(item: ItemDraft): string[] {
 interface ItemEditorCardProps {
   item: ItemDraft;
   index: number;
-  count: number;
-  /** Position among tasks only — null for section headers. */
+  /** Position among the tasks, sections skipped; null for a section row. */
   number: number | null;
+  count: number;
   /** Open this item in the editing sheet. */
   onOpen: () => void;
   onMove: (direction: 'up' | 'down') => void;
@@ -79,8 +79,8 @@ interface ItemEditorCardProps {
 export default function ItemEditorCard({
   item,
   index,
-  count,
   number,
+  count,
   onOpen,
   onMove,
   onMoveToSection,
@@ -94,9 +94,7 @@ export default function ItemEditorCard({
   const atBottom = index === count - 1;
 
   return (
-    <Card
-      style={[s.itemCard, isSection && s.sectionCard, dragging && s.dragging]}
-    >
+    <Card style={[isSection ? s.sectionCard : s.itemCard, dragging && s.dragging]}>
       <View style={s.header}>
         <View
           style={s.grip}
@@ -109,18 +107,16 @@ export default function ItemEditorCard({
           style={s.headerMain}
           onPress={onOpen}
           accessibilityRole="button"
-          accessibilityLabel={`Edit ${item.title.trim() || 'new task'}`}
+          accessibilityLabel={`Edit ${item.title.trim() || (isSection ? 'new section' : 'new task')}`}
           activeOpacity={0.7}
         >
-          {isSection ? (
-            <View style={s.sectionChip}>
-              <Ionicons name="bookmark" size={11} color={Colors.accent} />
-            </View>
-          ) : (
-            <View style={s.numberChip}>
+          <View style={[s.numberChip, isSection && s.sectionChip]}>
+            {isSection ? (
+              <Ionicons name="bookmark-outline" size={13} color={Colors.warning} />
+            ) : (
               <Text style={s.numberText}>{number ?? index + 1}</Text>
-            </View>
-          )}
+            )}
+          </View>
           <View style={s.headerText}>
             <Text
               style={[
@@ -187,8 +183,9 @@ const s = StyleSheet.create({
     padding: Spacing.md,
   },
   sectionCard: {
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
     backgroundColor: Colors.bgElevated,
-    borderColor: Colors.accent,
   },
   dragging: {
     borderColor: Colors.accent,
@@ -223,19 +220,13 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  sectionChip: {
+    backgroundColor: Colors.warning + '20',
+  },
   numberText: {
     fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.textSecondary,
-  },
-  sectionChip: {
-    width: 24,
-    height: 24,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.accentGlow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   headerText: {
     flex: 1,
@@ -248,10 +239,10 @@ const s = StyleSheet.create({
     lineHeight: 19,
   },
   sectionTitle: {
-    color: Colors.accent,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontWeight: '700',
+    color: Colors.warning,
   },
   headerUntitled: {
     color: Colors.textMuted,

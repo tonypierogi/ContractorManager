@@ -7,6 +7,7 @@ import {
   useSopChecklist,
   useSopChecksRealtime,
   useToggleSopCheck,
+  useCancelDailySop,
   useCompleteDailySop,
   useCompletedDailySops,
   useSopTemplates,
@@ -19,6 +20,8 @@ import { equipmentHomeZones } from '@/features/equipment/refs';
 import TaskDetailSheet, {
   type TaskDetailItem,
 } from '@/features/task-lists/components/TaskDetailSheet';
+import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { formatDate } from '@/utils/format';
@@ -45,12 +48,14 @@ export default function DailySopSection() {
   const { data: templates, isLoading: loadingTemplates } = useSopTemplates();
   const toggleCheck = useToggleSopCheck();
   const completeDailySop = useCompleteDailySop();
+  const cancelDailySop = useCancelDailySop();
   const createDailySop = useCreateDailySop();
   const addAdHocTask = useAddAdHocTask();
   const toggleAdHocTask = useToggleAdHocTask();
   const { data: equipment } = useEquipment();
   const [newAdHocTitle, setNewAdHocTitle] = useState('');
   const [detailItem, setDetailItem] = useState<TaskDetailItem | null>(null);
+  const [confirming, setConfirming] = useState<'complete' | 'cancel' | null>(null);
 
   const equipmentNames = useMemo(
     () => new Map((equipment ?? []).map((e: any) => [e.id, e.name] as const)),
@@ -114,15 +119,42 @@ export default function DailySopSection() {
       (i) => i.item_type !== 'section' && i.checked,
     ).length ?? 0;
   const percentage = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
-  const allChecked = totalItems > 0 && checkedItems === totalItems;
+  const unfinishedItems = totalItems - checkedItems;
   const isComplete = !!todaySop?.completed_at || completeDailySop.isSuccess;
 
+  // Completing with items left unchecked is allowed — the crew decides when a
+  // day's checklist is done; the confirm spells out what stays unfinished.
   const handleMarkDone = () => {
     if (!todaySop) return;
     completeDailySop.mutate(todaySop.id, {
-      onSuccess: () => showToast('SOP marked as complete!'),
-      onError: () =>
-        showToast('Failed to mark SOP as done. Please try again.', 'error'),
+      onSuccess: () => {
+        setConfirming(null);
+        showToast(
+          unfinishedItems > 0
+            ? `SOP marked complete with ${unfinishedItems} task${
+                unfinishedItems === 1 ? '' : 's'
+              } unfinished.`
+            : 'SOP marked as complete!',
+        );
+      },
+      onError: () => {
+        setConfirming(null);
+        showToast('Failed to mark SOP as done. Please try again.', 'error');
+      },
+    });
+  };
+
+  const handleCancelSop = () => {
+    if (!todaySop) return;
+    cancelDailySop.mutate(todaySop.id, {
+      onSuccess: () => {
+        setConfirming(null);
+        showToast('SOP cancelled.');
+      },
+      onError: (err: any) => {
+        setConfirming(null);
+        showToast(err?.message ?? 'Failed to cancel SOP.', 'error');
+      },
     });
   };
 
@@ -204,18 +236,19 @@ export default function DailySopSection() {
         </TouchableOpacity>
       </View>
 
-      {allChecked && (
-        <TouchableOpacity
-          style={s.markDoneBtn}
-          onPress={handleMarkDone}
-          activeOpacity={0.7}
-          disabled={completeDailySop.isPending}
-        >
-          <Text style={s.markDoneBtnText}>
-            {completeDailySop.isPending ? 'Submitting...' : 'Mark SOP as Done'}
-          </Text>
-        </TouchableOpacity>
-      )}
+      <View style={s.finishRow}>
+        <Button
+          title="Cancel SOP"
+          variant="danger"
+          size="sm"
+          onPress={() => setConfirming('cancel')}
+        />
+        <Button
+          title="Mark SOP as Done"
+          size="sm"
+          onPress={() => setConfirming('complete')}
+        />
+      </View>
     </View>
   );
 
@@ -294,6 +327,32 @@ export default function DailySopSection() {
         item={detailItem}
         equipment={equipment}
         onClose={() => setDetailItem(null)}
+      />
+
+      <ConfirmDialog
+        visible={confirming === 'complete'}
+        title="Mark SOP complete"
+        message={
+          unfinishedItems > 0
+            ? `${unfinishedItems} of ${totalItems} tasks are still unchecked. They'll stay unfinished and the checklist will be filed as complete.`
+            : 'All tasks are checked. File this checklist as complete?'
+        }
+        confirmLabel="Mark complete"
+        loading={completeDailySop.isPending}
+        onConfirm={handleMarkDone}
+        onCancel={() => setConfirming(null)}
+      />
+
+      <ConfirmDialog
+        visible={confirming === 'cancel'}
+        title="Cancel SOP"
+        message="This deletes today's run and everything checked off so far. The SOP can be started again from scratch."
+        confirmLabel="Cancel SOP"
+        cancelLabel="Keep it"
+        destructive
+        loading={cancelDailySop.isPending}
+        onConfirm={handleCancelSop}
+        onCancel={() => setConfirming(null)}
       />
 
       {(completedSops?.length ?? 0) > 0 && (
@@ -442,17 +501,11 @@ const s = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: '600',
   },
-  markDoneBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
+  finishRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
     marginTop: Spacing.lg,
-  },
-  markDoneBtnText: {
-    color: '#fff',
-    fontSize: FontSize.md,
-    fontWeight: '600',
   },
   centeredState: {
     alignItems: 'center',

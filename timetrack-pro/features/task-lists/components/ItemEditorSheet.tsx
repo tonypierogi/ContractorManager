@@ -77,7 +77,7 @@ export default function ItemEditorSheet({
         visible={item != null}
         onClose={close}
         title={item?.title.trim() || (isSection ? 'New section' : 'New task')}
-        subtitle={isSection ? 'Section heading' : `Task ${index + 1}`}
+        subtitle={`${isSection ? 'Section' : 'Task'} ${index + 1}`}
       >
         {item ? (
           <>
@@ -94,7 +94,7 @@ export default function ItemEditorSheet({
               minHeight={72}
             />
 
-            {isSection ? null : (
+            {!isSection && (
               <>
                 <Text style={s.fieldLabel}>Photos</Text>
                 <MediaRow

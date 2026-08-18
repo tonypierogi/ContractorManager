@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import {
   addAdHocTask,
   addSopComment,
+  cancelDailySop,
   completeDailySop,
   createDailySop,
   deleteSopTemplate,
@@ -231,6 +232,22 @@ export function useCompleteDailySop() {
         },
       );
       queryClient.invalidateQueries({ queryKey: qk.sops.daily });
+    },
+  });
+}
+
+/** Cancels today's run. Callers surface the error (it carries the "only the
+ * creator can cancel" message), so the global mutation toast stays out of it. */
+export function useCancelDailySop() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: cancelDailySop,
+    meta: { suppressGlobalError: true },
+    onSuccess: () => {
+      queryClient.setQueryData(qk.sops.today, null);
+      queryClient.invalidateQueries({ queryKey: qk.sops.daily });
+      queryClient.invalidateQueries({ queryKey: qk.sops.checklists });
     },
   });
 }

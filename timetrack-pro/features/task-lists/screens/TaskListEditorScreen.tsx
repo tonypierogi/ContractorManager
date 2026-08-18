@@ -41,6 +41,8 @@ import ItemEditorSheet from '@/features/task-lists/components/ItemEditorSheet';
 import SectionPickerModal from '@/features/task-lists/components/SectionPickerModal';
 import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
+import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
+import type { ParsedImportItem } from '@/features/task-lists/import-text';
 import DraggableList from '@/components/ui/DraggableList';
 import type { TemplateItemRef } from '@/features/task-lists/api';
 import type { TaskEquipmentRef } from '@/types/database';
@@ -73,6 +75,7 @@ export default function TaskListEditorScreen() {
   // Which item is open in the editing sheet; the list itself stays collapsed.
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [existingPickerOpen, setExistingPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // Which item is being sent to a section (set by holding its move arrow).
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
@@ -117,18 +120,27 @@ export default function TaskListEditorScreen() {
 
   // A brand new item opens straight into the sheet — there is nothing to see
   // on its collapsed row yet.
-  const addItem = () => {
-    const draft = makeDraft();
+  const addItem = (itemType: 'task' | 'section' = 'task') => {
+    const draft = makeDraft(itemType);
     setItems((prev) => [...prev, draft]);
     setEditingItemId(draft.id);
   };
 
-  // Sections are the same kind of row as tasks, just typed differently — that
-  // keeps one reorderable list instead of a list of lists.
-  const addSection = () => {
-    const draft = { ...makeDraft(), item_type: 'section' };
-    setItems((prev) => [...prev, draft]);
-    setEditingItemId(draft.id);
+  // Pasted notes become plain drafts: photos, gear and rooms are added after,
+  // in the same editor as everything else.
+  const importItems = (parsed: ParsedImportItem[]) => {
+    setItems((prev) => [
+      ...prev,
+      ...parsed.map((it) => ({
+        ...makeDraft(it.item_type),
+        title: it.title,
+        description: it.description,
+      })),
+    ]);
+    setImportOpen(false);
+    showToast(
+      `Added ${parsed.length} item${parsed.length === 1 ? '' : 's'} from notes`,
+    );
   };
 
   // Copy a task from another list or SOP into this draft (title, description,
@@ -281,6 +293,13 @@ export default function TaskListEditorScreen() {
   const editingItem = items.find((i) => i.id === editingItemId) ?? null;
   const editingIndex = items.findIndex((i) => i.id === editingItemId);
 
+  // Sections aren't steps, so they don't take a number — the tasks around
+  // them keep counting as the crew will read them.
+  const itemNumbers = useMemo(() => {
+    let n = 0;
+    return items.map((i) => (i.item_type === 'section' ? null : ++n));
+  }, [items]);
+
   const moveItem = (index: number, direction: 'up' | 'down') => {
     setItems((prev) => {
       const arr = [...prev];
@@ -303,16 +322,6 @@ export default function TaskListEditorScreen() {
       return arr;
     });
   };
-
-  // Tasks are numbered independently of the sections they sit under.
-  const taskNumbers = useMemo(() => {
-    const numbers = new Map<string, number | null>();
-    let n = 0;
-    items.forEach((it) => {
-      numbers.set(it.id, it.item_type === 'section' ? null : ++n);
-    });
-    return numbers;
-  }, [items]);
 
   const sections = useMemo(() => {
     const found: { id: string; title: string; taskCount: number }[] = [];
@@ -470,6 +479,49 @@ export default function TaskListEditorScreen() {
         {/* Generated tasks land in the same editor as hand-written ones, so
             they can be reordered, photographed and tagged before saving. */}
         <Text style={styles.subheading}>Items</Text>
+        {/* Adding sits above the list: on a fifty-task list the buttons stay
+            where you left off instead of a scroll away at the bottom. */}
+        <View style={styles.addRow}>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="New Task"
+              onPress={() => addItem('task')}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="New Section"
+              onPress={() => addItem('section')}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+        </View>
+        <View style={styles.addRow}>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="From Existing"
+              onPress={() => setExistingPickerOpen(true)}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+          <View style={styles.addRowBtn}>
+            <Button
+              title="Import List"
+              onPress={() => setImportOpen(true)}
+              variant="secondary"
+              size="sm"
+              fullWidth
+            />
+          </View>
+        </View>
+
         {items.length > 0 && (
           <Text style={styles.reorderHint}>
             Drag the grip to reorder · hold an arrow to move a task to a section
@@ -483,8 +535,8 @@ export default function TaskListEditorScreen() {
             <ItemEditorCard
               item={item}
               index={index}
+              number={itemNumbers[index]}
               count={items.length}
-              number={taskNumbers.get(item.id) ?? null}
               dragging={dragging}
               dragHandlers={dragHandlers}
               onOpen={() => setEditingItemId(item.id)}
@@ -498,35 +550,6 @@ export default function TaskListEditorScreen() {
             />
           )}
         />
-        <View style={styles.addRow}>
-          <View style={styles.addRowBtn}>
-            <Button
-              title="New Item"
-              onPress={addItem}
-              variant="secondary"
-              size="sm"
-              fullWidth
-            />
-          </View>
-          <View style={styles.addRowBtn}>
-            <Button
-              title="New Section"
-              onPress={addSection}
-              variant="secondary"
-              size="sm"
-              fullWidth
-            />
-          </View>
-          <View style={styles.addRowBtn}>
-            <Button
-              title="From Existing"
-              onPress={() => setExistingPickerOpen(true)}
-              variant="secondary"
-              size="sm"
-              fullWidth
-            />
-          </View>
-        </View>
 
       </ScrollView>
 
@@ -586,6 +609,12 @@ export default function TaskListEditorScreen() {
         onPick={addFromExisting}
       />
 
+      <ImportTasksModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={importItems}
+      />
+
       <SectionPickerModal
         visible={movingItem != null}
         itemTitle={movingItem?.title.trim() || 'this task'}
@@ -611,6 +640,7 @@ const styles = StyleSheet.create({
   addRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   addRowBtn: {
     flex: 1,
