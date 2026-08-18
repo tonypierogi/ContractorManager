@@ -31,6 +31,7 @@ export default function EquipmentTagFilterRow({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.scroll}
         contentContainerStyle={s.row}
         keyboardShouldPersistTaps="handled"
       >
@@ -54,18 +55,22 @@ export default function EquipmentTagFilterRow({
             </Pressable>
           );
         })}
-        {selected.length > 0 ? (
-          <Pressable
-            onPress={onClear}
-            accessibilityRole="button"
-            accessibilityLabel="Clear tag filter"
-            style={s.clear}
-          >
-            <Ionicons name="close" size={12} color={Colors.textSecondary} />
-            <Text style={s.clearLabel}>Clear</Text>
-          </Pressable>
-        ) : null}
       </ScrollView>
+
+      {/* Outside the scroller: with more tags than fit, a Clear that scrolls
+          away is a filter you can't switch off without hunting for it. */}
+      {selected.length > 0 ? (
+        <Pressable
+          onPress={onClear}
+          accessibilityRole="button"
+          accessibilityLabel="Clear tag filter"
+          hitSlop={8}
+          style={s.clear}
+        >
+          <Ionicons name="close" size={12} color={Colors.textSecondary} />
+          <Text style={s.clearLabel}>Clear</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -76,6 +81,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     paddingBottom: Spacing.md,
+  },
+  scroll: {
+    flex: 1,
   },
   row: {
     gap: Spacing.xs,
@@ -111,7 +119,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: Spacing.xs + 2,
-    paddingHorizontal: Spacing.md,
+    paddingLeft: Spacing.sm,
     minHeight: 32,
   },
   clearLabel: {
