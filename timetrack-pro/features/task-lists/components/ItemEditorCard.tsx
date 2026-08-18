@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, type GestureResponderHandlers } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/ui/Card';
 import { refsForMode } from '@/features/equipment/refs';
@@ -63,7 +63,12 @@ interface ItemEditorCardProps {
   /** Open this item in the editing sheet. */
   onOpen: () => void;
   onMove: (direction: 'up' | 'down') => void;
+  /** Long-pressing an arrow asks for the "move to section" picker. */
+  onMoveToSection?: () => void;
   onRemove: () => void;
+  /** Spread onto the grip so the list can drag this row. */
+  dragHandlers?: GestureResponderHandlers;
+  dragging?: boolean;
 }
 
 /**
@@ -78,14 +83,26 @@ export default function ItemEditorCard({
   count,
   onOpen,
   onMove,
+  onMoveToSection,
   onRemove,
+  dragHandlers,
+  dragging,
 }: ItemEditorCardProps) {
   const isSection = item.item_type === 'section';
   const summaryParts = isSection ? [] : itemSummary(item);
+  const atTop = index === 0;
+  const atBottom = index === count - 1;
 
   return (
-    <Card style={isSection ? s.sectionCard : s.itemCard}>
+    <Card style={[isSection ? s.sectionCard : s.itemCard, dragging && s.dragging]}>
       <View style={s.header}>
+        <View
+          style={s.grip}
+          {...(dragHandlers ?? {})}
+          accessibilityLabel={`Drag ${item.title.trim() || 'item'} to reorder`}
+        >
+          <Ionicons name="reorder-two" size={18} color={Colors.textMuted} />
+        </View>
         <TouchableOpacity
           style={s.headerMain}
           onPress={onOpen}
@@ -107,40 +124,41 @@ export default function ItemEditorCard({
                 isSection && s.sectionTitle,
                 !item.title.trim() && s.headerUntitled,
               ]}
-              numberOfLines={1}
             >
               {item.title.trim() || (isSection ? 'New section' : 'New task')}
             </Text>
             {summaryParts.length > 0 && (
-              <Text style={s.headerSummary} numberOfLines={1}>
-                {summaryParts.join('  ·  ')}
-              </Text>
+              <Text style={s.headerSummary}>{summaryParts.join('  ·  ')}</Text>
             )}
           </View>
         </TouchableOpacity>
         <View style={s.controls}>
           <TouchableOpacity
-            onPress={() => onMove('up')}
-            disabled={index === 0}
+            onPress={() => !atTop && onMove('up')}
+            onLongPress={onMoveToSection}
             style={s.ctrlBtn}
-            accessibilityLabel="Move up"
+            accessibilityLabel={
+              onMoveToSection ? 'Move up (hold to move to a section)' : 'Move up'
+            }
           >
             <Ionicons
               name="arrow-up"
               size={16}
-              color={index === 0 ? Colors.border : Colors.textSecondary}
+              color={atTop ? Colors.border : Colors.textSecondary}
             />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => onMove('down')}
-            disabled={index === count - 1}
+            onPress={() => !atBottom && onMove('down')}
+            onLongPress={onMoveToSection}
             style={s.ctrlBtn}
-            accessibilityLabel="Move down"
+            accessibilityLabel={
+              onMoveToSection ? 'Move down (hold to move to a section)' : 'Move down'
+            }
           >
             <Ionicons
               name="arrow-down"
               size={16}
-              color={index === count - 1 ? Colors.border : Colors.textSecondary}
+              color={atBottom ? Colors.border : Colors.textSecondary}
             />
           </TouchableOpacity>
           <TouchableOpacity onPress={onRemove} style={s.ctrlBtn} accessibilityLabel="Remove item">
@@ -169,15 +187,26 @@ const s = StyleSheet.create({
     padding: Spacing.md,
     backgroundColor: Colors.bgElevated,
   },
+  dragging: {
+    borderColor: Colors.accent,
+    transform: [{ scale: 1.02 }],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  grip: {
+    width: 28,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   headerMain: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.sm,
     minWidth: 0,
     minHeight: 36,
@@ -207,10 +236,12 @@ const s = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: '600',
     color: Colors.text,
+    lineHeight: 19,
   },
   sectionTitle: {
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    fontWeight: '700',
     color: Colors.warning,
   },
   headerUntitled: {
@@ -224,7 +255,7 @@ const s = StyleSheet.create({
   },
   controls: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexShrink: 0,
   },
   ctrlBtn: {

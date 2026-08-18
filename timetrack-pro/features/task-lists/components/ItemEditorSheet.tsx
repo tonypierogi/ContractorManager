@@ -62,6 +62,8 @@ export default function ItemEditorSheet({
   onClose,
 }: Props) {
   const [pickerMode, setPickerMode] = useState<EquipmentLinkMode | null>(null);
+  // A section is only a heading in the list, so it gets the title field and
+  // nothing else — no photos, gear or zones to fill in.
   const isSection = item?.item_type === 'section';
 
   const close = () => {

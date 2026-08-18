@@ -185,19 +185,23 @@ export async function fetchAllTemplateItems(): Promise<TemplateItemRef[]> {
   if (taskItems.error) throw taskItems.error;
   if (sopItems.error) throw sopItems.error;
 
-  const fromLists: TemplateItemRef[] = (taskItems.data ?? []).map((it: any) => ({
-    key: `tl-${it.id}`,
-    source: 'task_list',
-    sourceTitle: it.task_lists?.title ?? 'Task list',
-    sourceLocation: it.task_lists?.location ?? null,
-    title: it.title,
-    description: it.description,
-    item_type: it.item_type,
-    media: it.media ?? [],
-    location_from: it.location_from,
-    location_to: it.location_to,
-    equipment: parseEquipmentRefs(it.equipment),
-  }));
+  // Section headings aren't tasks — copying one into another list would add a
+  // stray heading, not the work.
+  const fromLists: TemplateItemRef[] = (taskItems.data ?? [])
+    .filter((it: any) => it.item_type !== 'section')
+    .map((it: any) => ({
+      key: `tl-${it.id}`,
+      source: 'task_list',
+      sourceTitle: it.task_lists?.title ?? 'Task list',
+      sourceLocation: it.task_lists?.location ?? null,
+      title: it.title,
+      description: it.description,
+      item_type: it.item_type,
+      media: it.media ?? [],
+      location_from: it.location_from,
+      location_to: it.location_to,
+      equipment: parseEquipmentRefs(it.equipment),
+    }));
   const fromSops: TemplateItemRef[] = (sopItems.data ?? [])
     .filter((it: any) => it.item_type !== 'section')
     .map((it: any) => ({

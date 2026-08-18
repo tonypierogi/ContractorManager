@@ -38,10 +38,12 @@ import ItemEditorCard, {
   type ItemDraft,
 } from '@/features/task-lists/components/ItemEditorCard';
 import ItemEditorSheet from '@/features/task-lists/components/ItemEditorSheet';
+import SectionPickerModal from '@/features/task-lists/components/SectionPickerModal';
 import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
 import type { ParsedImportItem } from '@/features/task-lists/import-text';
+import DraggableList from '@/components/ui/DraggableList';
 import type { TemplateItemRef } from '@/features/task-lists/api';
 import type { TaskEquipmentRef } from '@/types/database';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
@@ -74,6 +76,8 @@ export default function TaskListEditorScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [existingPickerOpen, setExistingPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Which item is being sent to a section (set by holding its move arrow).
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
   const equipmentById = useMemo(
     () => new Map((equipment ?? []).map((eq) => [eq.id, eq.name])),
@@ -306,6 +310,66 @@ export default function TaskListEditorScreen() {
     });
   };
 
+  /** Drag-to-reorder: pull one row out and drop it at its new index. */
+  const reorderItems = (from: number, to: number) => {
+    setItems((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) {
+        return prev;
+      }
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+  };
+
+  const sections = useMemo(() => {
+    const found: { id: string; title: string; taskCount: number }[] = [];
+    items.forEach((it) => {
+      if (it.item_type === 'section') {
+        found.push({
+          id: it.id,
+          title: it.title.trim() || 'Untitled section',
+          taskCount: 0,
+        });
+      } else if (found.length > 0) {
+        found[found.length - 1].taskCount += 1;
+      }
+    });
+    return found;
+  }, [items]);
+
+  const movingItem = items.find((i) => i.id === movingItemId) ?? null;
+
+  /** Drop the held task at the end of the chosen section (null = top). */
+  const moveToSection = (sectionId: string | null) => {
+    const itemId = movingItemId;
+    setMovingItemId(null);
+    if (!itemId) return;
+    setItems((prev) => {
+      const from = prev.findIndex((i) => i.id === itemId);
+      if (from < 0) return prev;
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      if (sectionId === null) {
+        arr.unshift(moved);
+        return arr;
+      }
+      const sectionIndex = arr.findIndex((i) => i.id === sectionId);
+      if (sectionIndex < 0) return prev;
+      let insertAt = sectionIndex + 1;
+      while (insertAt < arr.length && arr[insertAt].item_type !== 'section') {
+        insertAt += 1;
+      }
+      arr.splice(insertAt, 0, moved);
+      return arr;
+    });
+    const label = sectionId
+      ? (sections.find((s) => s.id === sectionId)?.title ?? 'section')
+      : 'the top of the list';
+    showToast(`Moved to ${label}`);
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Title is required');
@@ -458,18 +522,34 @@ export default function TaskListEditorScreen() {
           </View>
         </View>
 
-        {items.map((item, index) => (
-          <ItemEditorCard
-            key={item.id}
-            item={item}
-            index={index}
-            number={itemNumbers[index]}
-            count={items.length}
-            onOpen={() => setEditingItemId(item.id)}
-            onMove={(direction) => moveItem(index, direction)}
-            onRemove={() => removeItem(item.id)}
-          />
-        ))}
+        {items.length > 0 && (
+          <Text style={styles.reorderHint}>
+            Drag the grip to reorder · hold an arrow to move a task to a section
+          </Text>
+        )}
+        <DraggableList
+          data={items}
+          keyExtractor={(item) => item.id}
+          onReorder={reorderItems}
+          renderItem={({ item, index, dragging, dragHandlers }) => (
+            <ItemEditorCard
+              item={item}
+              index={index}
+              number={itemNumbers[index]}
+              count={items.length}
+              dragging={dragging}
+              dragHandlers={dragHandlers}
+              onOpen={() => setEditingItemId(item.id)}
+              onMove={(direction) => moveItem(index, direction)}
+              onMoveToSection={
+                item.item_type === 'section'
+                  ? undefined
+                  : () => setMovingItemId(item.id)
+              }
+              onRemove={() => removeItem(item.id)}
+            />
+          )}
+        />
 
       </ScrollView>
 
@@ -534,6 +614,14 @@ export default function TaskListEditorScreen() {
         onClose={() => setImportOpen(false)}
         onImport={importItems}
       />
+
+      <SectionPickerModal
+        visible={movingItem != null}
+        itemTitle={movingItem?.title.trim() || 'this task'}
+        sections={sections}
+        onPick={moveToSection}
+        onClose={() => setMovingItemId(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -543,6 +631,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  reorderHint: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
   },
   addRow: {
     flexDirection: 'row',
