@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import SopItemCard from '@/features/sops/components/SopItemCard';
 import SopItemEditorSheet from '@/features/sops/components/SopItemEditorSheet';
 import DraggableList from '@/components/ui/DraggableList';
+import InsertItemButton from '@/components/ui/InsertItemButton';
 import SectionPickerModal from '@/components/ui/SectionPickerModal';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
@@ -108,8 +109,9 @@ export default function SopEditorScreen() {
   }, [id, existing, hydrated]);
 
   // A brand new item opens straight into the sheet — there is nothing to see
-  // on its collapsed row yet.
-  const addItem = (type: SopItemType) => {
+  // on its collapsed row yet. `at` drops it into the middle of the list, for
+  // the step you realise you missed halfway down.
+  const addItem = (type: SopItemType, at?: number) => {
     const draft: ItemDraft = {
       id: makeId(),
       title: '',
@@ -118,7 +120,12 @@ export default function SopEditorScreen() {
       media: [],
       equipment: [],
     };
-    setItems((prev) => [draft, ...prev]);
+    setItems((prev) => {
+      if (at == null) return [draft, ...prev];
+      const arr = [...prev];
+      arr.splice(Math.min(at, arr.length), 0, draft);
+      return arr;
+    });
     setEditingItemId(draft.id);
   };
 
@@ -421,15 +428,18 @@ export default function SopEditorScreen() {
             if (item.item_type !== 'section') setMovingItemId(item.id);
           }}
           renderItem={({ item, index, dragging, dragHandlers }) => (
-            <SopItemCard
-              item={item}
-              index={index}
-              count={items.length}
-              number={itemNumbers[index]}
-              dragging={dragging}
-              dragHandlers={dragHandlers}
-              onOpen={() => setEditingItemId(item.id)}
-            />
+            <>
+              <SopItemCard
+                item={item}
+                index={index}
+                count={items.length}
+                number={itemNumbers[index]}
+                dragging={dragging}
+                dragHandlers={dragHandlers}
+                onOpen={() => setEditingItemId(item.id)}
+              />
+              <InsertItemButton onPress={() => addItem('task', index + 1)} />
+            </>
           )}
         />
 

@@ -44,6 +44,7 @@ import ExistingItemPickerModal from '@/features/task-lists/components/ExistingIt
 import ImportTasksModal from '@/features/task-lists/components/ImportTasksModal';
 import type { ParsedImportItem } from '@/features/task-lists/import-text';
 import DraggableList from '@/components/ui/DraggableList';
+import InsertItemButton from '@/components/ui/InsertItemButton';
 import type { TemplateItemRef } from '@/features/task-lists/api';
 import type { TaskEquipmentRef } from '@/types/database';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
@@ -121,10 +122,16 @@ export default function TaskListEditorScreen() {
   }, [id, existing, hydrated]);
 
   // A brand new item opens straight into the sheet — there is nothing to see
-  // on its collapsed row yet.
-  const addItem = (itemType: 'task' | 'section' = 'task') => {
+  // on its collapsed row yet. `at` drops it into the middle of the list, for
+  // the task you realise you missed halfway down.
+  const addItem = (itemType: 'task' | 'section' = 'task', at?: number) => {
     const draft = makeDraft(itemType);
-    setItems((prev) => [draft, ...prev]);
+    setItems((prev) => {
+      if (at == null) return [draft, ...prev];
+      const arr = [...prev];
+      arr.splice(Math.min(at, arr.length), 0, draft);
+      return arr;
+    });
     setEditingItemId(draft.id);
   };
 
@@ -528,15 +535,18 @@ export default function TaskListEditorScreen() {
             if (item.item_type !== 'section') setMovingItemId(item.id);
           }}
           renderItem={({ item, index, dragging, dragHandlers }) => (
-            <ItemEditorCard
-              item={item}
-              index={index}
-              number={itemNumbers[index]}
-              count={items.length}
-              dragging={dragging}
-              dragHandlers={dragHandlers}
-              onOpen={() => setEditingItemId(item.id)}
-            />
+            <>
+              <ItemEditorCard
+                item={item}
+                index={index}
+                number={itemNumbers[index]}
+                count={items.length}
+                dragging={dragging}
+                dragHandlers={dragHandlers}
+                onOpen={() => setEditingItemId(item.id)}
+              />
+              <InsertItemButton onPress={() => addItem('task', index + 1)} />
+            </>
           )}
         />
 
