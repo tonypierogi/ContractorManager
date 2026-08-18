@@ -193,6 +193,8 @@ export default function ItemEditorCard({
             placeholder="Description (optional)"
             value={item.description}
             onChangeText={(v) => onUpdateField('description', v)}
+            multiline
+            minHeight={72}
           />
 
           <Text style={s.fieldLabel}>Photos</Text>
