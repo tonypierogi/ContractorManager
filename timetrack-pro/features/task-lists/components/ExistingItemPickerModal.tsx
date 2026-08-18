@@ -206,9 +206,7 @@ export default function ExistingItemPickerModal({
                   </View>
                 )}
                 <View style={s.rowBody}>
-                  <Text style={s.rowTitle} numberOfLines={1}>
-                    {it.title}
-                  </Text>
+                  <Text style={s.rowTitle}>{it.title}</Text>
                   <Text style={s.rowMeta} numberOfLines={1}>
                     {it.sourceTitle}
                     {zone ? `  ·  ${getLocationLabel(zone)}` : ''}
