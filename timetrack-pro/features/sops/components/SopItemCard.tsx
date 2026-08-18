@@ -2,60 +2,16 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '@/components/ui/Card';
 import { refsForMode } from '@/features/equipment/refs';
-import { getLocationLabel } from '@/features/locations/zones';
-import type { MediaItem, TaskEquipmentRef } from '@/types/database';
+import type { MediaItem, SopItemType, TaskEquipmentRef } from '@/types/database';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 
-export interface ItemDraft {
-  id: string;
-  title: string;
-  description: string;
-  item_type: string | null;
-  media: MediaItem[];
-  location_from: string | null;
-  location_to: string | null;
-  equipment: TaskEquipmentRef[];
-  video_timestamp: number | null;
-}
-
-let nextId = 0;
-
-export const makeDraft = (): ItemDraft => ({
-  id: `draft-${++nextId}`,
-  title: '',
-  description: '',
-  item_type: 'task',
-  media: [],
-  location_from: null,
-  location_to: null,
-  equipment: [],
-  video_timestamp: null,
-});
-
-/** The one-line gist of a collapsed item: photos, gear, and where it travels. */
-export function itemSummary(item: ItemDraft): string[] {
-  const parts: string[] = [];
-  if (item.media.length > 0) {
-    parts.push(`${item.media.length} photo${item.media.length === 1 ? '' : 's'}`);
-  }
-  const toGet = refsForMode(item.equipment, 'use').length;
-  const toBring = refsForMode(item.equipment, 'return').length;
-  if (toGet > 0) parts.push(`${toGet} to get`);
-  if (toBring > 0) parts.push(`${toBring} to bring`);
-  const routed = item.equipment.filter((ref) => ref.from || ref.to).length;
-  if (routed > 0) parts.push(`${routed} routed`);
-  if (item.location_from && item.location_to) {
-    parts.push(
-      `${getLocationLabel(item.location_from)} → ${getLocationLabel(item.location_to)}`,
-    );
-  } else if (item.location_from || item.location_to) {
-    parts.push(getLocationLabel((item.location_from ?? item.location_to)!));
-  }
-  return parts;
-}
-
-interface ItemEditorCardProps {
-  item: ItemDraft;
+interface SopItemCardProps {
+  item: {
+    title: string;
+    item_type: SopItemType;
+    media: MediaItem[];
+    equipment: TaskEquipmentRef[];
+  };
   index: number;
   count: number;
   /** Open this item in the editing sheet. */
@@ -65,19 +21,27 @@ interface ItemEditorCardProps {
 }
 
 /**
- * One collapsed row in the list being edited. Editing happens in a sheet on
- * top of the list (ItemEditorSheet) rather than inline, so a fifty-task list
- * stays a list you can scan and reorder instead of a wall of open forms.
+ * One collapsed row of the SOP being edited. Same shape as the task-list
+ * editor's row: the list stays scannable and reorderable, and editing happens
+ * in a sheet on top of it.
  */
-export default function ItemEditorCard({
+export default function SopItemCard({
   item,
   index,
   count,
   onOpen,
   onMove,
   onRemove,
-}: ItemEditorCardProps) {
-  const summaryParts = itemSummary(item);
+}: SopItemCardProps) {
+  const isSection = item.item_type === 'section';
+  const summaryParts: string[] = [];
+  if (item.media.length > 0) {
+    summaryParts.push(`${item.media.length} photo${item.media.length === 1 ? '' : 's'}`);
+  }
+  const toGet = refsForMode(item.equipment, 'use').length;
+  const toBring = refsForMode(item.equipment, 'return').length;
+  if (toGet > 0) summaryParts.push(`${toGet} to get`);
+  if (toBring > 0) summaryParts.push(`${toBring} to bring`);
 
   return (
     <Card style={s.itemCard}>
@@ -86,18 +50,20 @@ export default function ItemEditorCard({
           style={s.headerMain}
           onPress={onOpen}
           accessibilityRole="button"
-          accessibilityLabel={`Edit ${item.title.trim() || 'new task'}`}
+          accessibilityLabel={`Edit ${item.title.trim() || (isSection ? 'new section' : 'new task')}`}
           activeOpacity={0.7}
         >
-          <View style={s.numberChip}>
-            <Text style={s.numberText}>{index + 1}</Text>
+          <View style={[s.typeBadge, isSection && s.sectionBadge]}>
+            <Text style={[s.typeText, isSection && s.sectionText]}>
+              {isSection ? 'Section' : 'Task'}
+            </Text>
           </View>
           <View style={s.headerText}>
             <Text
               style={[s.headerTitle, !item.title.trim() && s.headerUntitled]}
               numberOfLines={1}
             >
-              {item.title.trim() || 'New task'}
+              {item.title.trim() || (isSection ? 'New section' : 'New task')}
             </Text>
             {summaryParts.length > 0 && (
               <Text style={s.headerSummary} numberOfLines={1}>
@@ -131,14 +97,14 @@ export default function ItemEditorCard({
               color={index === count - 1 ? Colors.border : Colors.textSecondary}
             />
           </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove} style={s.ctrlBtn} accessibilityLabel="Remove item">
+          <TouchableOpacity
+            onPress={onRemove}
+            style={s.ctrlBtn}
+            accessibilityLabel="Remove item"
+          >
             <Ionicons name="trash-outline" size={16} color={Colors.danger} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onOpen}
-            style={s.ctrlBtn}
-            accessibilityLabel="Edit item"
-          >
+          <TouchableOpacity onPress={onOpen} style={s.ctrlBtn} accessibilityLabel="Edit item">
             <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -165,19 +131,23 @@ const s = StyleSheet.create({
     minWidth: 0,
     minHeight: 36,
   },
-  numberChip: {
-    width: 24,
-    height: 24,
+  typeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.bgElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.accent + '20',
     flexShrink: 0,
   },
-  numberText: {
+  sectionBadge: {
+    backgroundColor: Colors.warning + '20',
+  },
+  typeText: {
     fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.textSecondary,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  sectionText: {
+    color: Colors.warning,
   },
   headerText: {
     flex: 1,

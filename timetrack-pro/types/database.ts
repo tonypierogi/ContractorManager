@@ -7,6 +7,12 @@ export interface MediaItem {
   url: string;
   type: string;
   name?: string;
+  /**
+   * Set when the photo came from a piece of equipment tagged on the task
+   * rather than from the camera roll, so untagging the equipment can take its
+   * photo back out again. See features/equipment/refs.ts.
+   */
+  equipment_id?: string;
 }
 
 export interface Profile {

@@ -61,7 +61,13 @@ export default function Input({
         scrollEnabled={multiline ? false : undefined}
         onContentSizeChange={
           multiline
-            ? (e) => setContentHeight(e.nativeEvent.contentSize.height + Spacing.sm)
+            ? (e) => {
+                // Track the measured content exactly: padding it out here fed
+                // the next measurement, which on web grew the field by that
+                // padding on every pass until React gave up.
+                const next = e.nativeEvent.contentSize.height;
+                setContentHeight((prev) => (Math.abs(prev - next) <= 1 ? prev : next));
+              }
             : undefined
         }
       />

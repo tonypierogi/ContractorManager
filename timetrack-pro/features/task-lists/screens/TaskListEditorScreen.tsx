@@ -17,14 +17,14 @@ import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/features/auth/auth-provider';
 import { useEquipment } from '@/features/equipment/hooks';
-import EquipmentPickerSheet from '@/features/equipment/components/EquipmentPickerSheet';
 import {
   equipmentHomeZones,
-  equipmentModes,
+  equipmentImages,
   parseEquipmentRefs,
   removeEquipmentRef,
   setEquipmentMode,
   setEquipmentPlacement,
+  syncEquipmentMedia,
   toggleEquipmentRef,
 } from '@/features/equipment/refs';
 import {
@@ -37,10 +37,11 @@ import ItemEditorCard, {
   makeDraft,
   type ItemDraft,
 } from '@/features/task-lists/components/ItemEditorCard';
+import ItemEditorSheet from '@/features/task-lists/components/ItemEditorSheet';
 import VideoImportCard from '@/features/task-lists/components/VideoImportCard';
 import ExistingItemPickerModal from '@/features/task-lists/components/ExistingItemPickerModal';
 import type { TemplateItemRef } from '@/features/task-lists/api';
-import type { EquipmentLinkMode } from '@/types/database';
+import type { TaskEquipmentRef } from '@/types/database';
 import LocationZonePicker from '@/features/locations/components/LocationZonePicker';
 import { pickPhotoAsset, type PhotoSource } from '@/lib/photo-picker';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -67,11 +68,8 @@ export default function TaskListEditorScreen() {
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
-  // Which item's equipment is being picked, and for which side of the task.
-  const [equipmentPicker, setEquipmentPicker] = useState<{
-    itemId: string;
-    mode: EquipmentLinkMode;
-  } | null>(null);
+  // Which item is open in the editing sheet; the list itself stays collapsed.
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [existingPickerOpen, setExistingPickerOpen] = useState(false);
 
   const equipmentById = useMemo(
@@ -81,6 +79,8 @@ export default function TaskListEditorScreen() {
   // Where each piece of equipment lives, so tagging it on a task fills the
   // room in instead of asking for it again.
   const equipmentHomes = useMemo(() => equipmentHomeZones(equipment), [equipment]);
+  // ...and what it looks like, so tagging it also shows the crew the thing.
+  const equipmentPhotos = useMemo(() => equipmentImages(equipment), [equipment]);
 
   // Editing: populate the form from the existing list exactly once. Without
   // this, saving an edit overwrote the list with the blank form.
@@ -111,13 +111,18 @@ export default function TaskListEditorScreen() {
     setHydrated(true);
   }, [id, existing, hydrated]);
 
+  // A brand new item opens straight into the sheet — there is nothing to see
+  // on its collapsed row yet.
   const addItem = () => {
-    setItems((prev) => [...prev, makeDraft()]);
+    const draft = makeDraft();
+    setItems((prev) => [...prev, draft]);
+    setEditingItemId(draft.id);
   };
 
   // Copy a task from another list or SOP into this draft (title, description,
   // photos, equipment, zones — media URLs are shared, not re-uploaded).
   const addFromExisting = (tpl: TemplateItemRef) => {
+    const equipmentRefs = tpl.equipment.map((ref) => ({ ...ref }));
     setItems((prev) => [
       ...prev,
       {
@@ -125,10 +130,11 @@ export default function TaskListEditorScreen() {
         title: tpl.title,
         description: tpl.description ?? '',
         item_type: tpl.item_type ?? 'task',
-        media: [...tpl.media],
+        // Copied tasks pick up any equipment photo the original predates.
+        media: syncEquipmentMedia([...tpl.media], [], equipmentRefs, equipmentPhotos),
         location_from: tpl.location_from,
         location_to: tpl.location_to,
-        equipment: tpl.equipment.map((ref) => ({ ...ref })),
+        equipment: equipmentRefs,
       },
     ]);
     setExistingPickerOpen(false);
@@ -142,6 +148,7 @@ export default function TaskListEditorScreen() {
 
   const removeItem = (itemId: string) => {
     setItems((prev) => prev.filter((i) => i.id !== itemId));
+    setEditingItemId((current) => (current === itemId ? null : current));
   };
 
   const patchItem = (itemId: string, patch: Partial<ItemDraft>) => {
@@ -240,80 +247,27 @@ export default function TaskListEditorScreen() {
     );
   };
 
-  const toggleEquipment = (
+  // Every equipment change goes through here so the task's photos follow the
+  // gear: tagging something copies its picture in, untagging takes it out.
+  const patchEquipment = (
     itemId: string,
-    equipmentId: string,
-    mode: EquipmentLinkMode,
+    update: (refs: TaskEquipmentRef[]) => TaskEquipmentRef[],
   ) => {
     setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? {
-              ...i,
-              equipment: toggleEquipmentRef(
-                i.equipment,
-                equipmentId,
-                mode,
-                equipmentHomes.get(equipmentId) ?? null,
-              ),
-            }
-          : i,
-      ),
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        const equipmentRefs = update(i.equipment);
+        return {
+          ...i,
+          equipment: equipmentRefs,
+          media: syncEquipmentMedia(i.media, i.equipment, equipmentRefs, equipmentPhotos),
+        };
+      }),
     );
   };
 
-  const changeEquipmentMode = (
-    itemId: string,
-    equipmentId: string,
-    mode: EquipmentLinkMode,
-  ) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? {
-              ...i,
-              equipment: setEquipmentMode(
-                i.equipment,
-                equipmentId,
-                mode,
-                equipmentHomes.get(equipmentId) ?? null,
-              ),
-            }
-          : i,
-      ),
-    );
-  };
-
-  const setPlacement = (
-    itemId: string,
-    equipmentId: string,
-    field: 'from' | 'to',
-    zoneId: string | null,
-  ) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? {
-              ...i,
-              equipment: setEquipmentPlacement(i.equipment, equipmentId, field, zoneId),
-            }
-          : i,
-      ),
-    );
-  };
-
-  const removeEquipment = (itemId: string, equipmentId: string) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === itemId
-          ? { ...i, equipment: removeEquipmentRef(i.equipment, equipmentId) }
-          : i,
-      ),
-    );
-  };
-
-  const equipmentPickerItem =
-    items.find((i) => i.id === equipmentPicker?.itemId) ?? null;
+  const editingItem = items.find((i) => i.id === editingItemId) ?? null;
+  const editingIndex = items.findIndex((i) => i.id === editingItemId);
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
     setItems((prev) => {
@@ -440,21 +394,7 @@ export default function TaskListEditorScreen() {
             item={item}
             index={index}
             count={items.length}
-            equipmentById={equipmentById}
-            equipmentHomes={equipmentHomes}
-            uploading={uploadingItemId === item.id}
-            onUpdateField={(field, value) => updateItem(item.id, field, value)}
-            onSetLocation={(field, zoneId) => patchItem(item.id, { [field]: zoneId })}
-            onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
-              setPlacement(item.id, equipmentId, field, zoneId)
-            }
-            onSetEquipmentMode={(equipmentId, mode) =>
-              changeEquipmentMode(item.id, equipmentId, mode)
-            }
-            onRemoveEquipment={(equipmentId) => removeEquipment(item.id, equipmentId)}
-            onAddImage={(source) => handleAddImage(item.id, source)}
-            onRemoveImage={(mi) => removeImage(item.id, mi)}
-            onEditEquipment={(mode) => setEquipmentPicker({ itemId: item.id, mode })}
+            onOpen={() => setEditingItemId(item.id)}
             onMove={(direction) => moveItem(index, direction)}
             onRemove={() => removeItem(item.id)}
           />
@@ -482,14 +422,54 @@ export default function TaskListEditorScreen() {
 
       </ScrollView>
 
-      <EquipmentPickerSheet
-        mode={equipmentPicker?.mode ?? null}
+      <ItemEditorSheet
+        item={editingItem}
+        index={editingIndex}
         equipment={equipment}
-        selected={equipmentModes(equipmentPickerItem?.equipment ?? [])}
-        onToggle={(equipmentId, mode) =>
-          equipmentPicker && toggleEquipment(equipmentPicker.itemId, equipmentId, mode)
+        equipmentById={equipmentById}
+        equipmentHomes={equipmentHomes}
+        uploading={!!editingItem && uploadingItemId === editingItem.id}
+        onUpdateField={(field, value) =>
+          editingItem && updateItem(editingItem.id, field, value)
         }
-        onClose={() => setEquipmentPicker(null)}
+        onSetLocation={(field, zoneId) =>
+          editingItem && patchItem(editingItem.id, { [field]: zoneId })
+        }
+        onSetEquipmentPlacement={(equipmentId, field, zoneId) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
+            setEquipmentPlacement(refs, equipmentId, field, zoneId),
+          )
+        }
+        onSetEquipmentMode={(equipmentId, mode) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
+            setEquipmentMode(
+              refs,
+              equipmentId,
+              mode,
+              equipmentHomes.get(equipmentId) ?? null,
+            ),
+          )
+        }
+        onToggleEquipment={(equipmentId, mode) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) =>
+            toggleEquipmentRef(
+              refs,
+              equipmentId,
+              mode,
+              equipmentHomes.get(equipmentId) ?? null,
+            ),
+          )
+        }
+        onRemoveEquipment={(equipmentId) =>
+          editingItem &&
+          patchEquipment(editingItem.id, (refs) => removeEquipmentRef(refs, equipmentId))
+        }
+        onAddImage={(source) => editingItem && handleAddImage(editingItem.id, source)}
+        onRemoveImage={(mi) => editingItem && removeImage(editingItem.id, mi)}
+        onClose={() => setEditingItemId(null)}
       />
 
       <ExistingItemPickerModal

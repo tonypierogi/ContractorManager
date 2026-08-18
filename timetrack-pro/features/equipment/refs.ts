@@ -2,6 +2,7 @@ import { formatZoneSpan, getLocationLabel } from '@/features/locations/zones';
 import type {
   Equipment,
   EquipmentLinkMode,
+  MediaItem,
   TaskEquipmentRef,
 } from '@/types/database';
 
@@ -59,6 +60,49 @@ export function equipmentHomeZones(
   equipment: readonly Equipment[] | undefined,
 ): Map<string, string | null> {
   return new Map((equipment ?? []).map((eq) => [eq.id, eq.location ?? null]));
+}
+
+/**
+ * equipment id -> its photo from the Equipment screen. Tagging equipment on a
+ * task copies that photo onto the task, so the crew sees the thing they are
+ * being sent for without anyone re-shooting it.
+ */
+export type EquipmentImages = ReadonlyMap<string, string | null>;
+
+export function equipmentImages(
+  equipment: readonly Equipment[] | undefined,
+): Map<string, string | null> {
+  return new Map((equipment ?? []).map((eq) => [eq.id, eq.image_url ?? null]));
+}
+
+/**
+ * Keep a task's photos in step with an equipment change: newly tagged gear
+ * brings its photo in, untagged gear takes its photo back out. Only photos
+ * this added are touched — anything shot for the task itself, and any
+ * equipment photo the admin deleted by hand, is left where it is.
+ */
+export function syncEquipmentMedia(
+  media: readonly MediaItem[],
+  prevRefs: readonly TaskEquipmentRef[],
+  nextRefs: readonly TaskEquipmentRef[],
+  images: EquipmentImages,
+): MediaItem[] {
+  const before = new Set(prevRefs.map((r) => r.id));
+  const after = new Set(nextRefs.map((r) => r.id));
+
+  const kept = media.filter((m) => !m.equipment_id || after.has(m.equipment_id));
+  const urls = new Set(kept.map((m) => m.url));
+  const added: MediaItem[] = [];
+  for (const ref of nextRefs) {
+    if (before.has(ref.id)) continue;
+    const url = images.get(ref.id);
+    if (!url || urls.has(url)) continue;
+    urls.add(url);
+    added.push({ url, type: 'image', equipment_id: ref.id });
+  }
+
+  if (!added.length && kept.length === media.length) return media as MediaItem[];
+  return [...kept, ...added];
 }
 
 /**
