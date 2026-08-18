@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import SopCheckItem from '@/features/sops/components/SopCheckItem';
 import { useAuth } from '@/features/auth/auth-provider';
@@ -6,6 +6,7 @@ import {
   useTodayDailySop,
   useSopChecklist,
   useSopChecksRealtime,
+  useDailySopRunsRealtime,
   useToggleSopCheck,
   useCancelDailySop,
   useCompleteDailySop,
@@ -67,6 +68,9 @@ export default function DailySopSection() {
   const dailySopId = todaySop?.id;
   // Teammates share this checklist — stream their checks in live.
   useSopChecksRealtime(dailySopId);
+  // …and the run itself: someone else starting, finishing, or cancelling
+  // today's checklist swaps this section over without a manual refresh.
+  useDailySopRunsRealtime();
   const userId = user?.id;
   // Set once this SOP has been shared by link; keeps the public page's state
   // in step with checks made here in the app.
@@ -121,6 +125,32 @@ export default function DailySopSection() {
   const percentage = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
   const unfinishedItems = totalItems - checkedItems;
   const isComplete = !!todaySop?.completed_at || completeDailySop.isSuccess;
+
+  // When a run ends on someone else's device the section quietly changes
+  // shape under you; say who/what happened so it doesn't read as a glitch.
+  // Our own complete/cancel already toasts, so those are skipped here.
+  const lastRun = useRef<{ id: string; completed: boolean } | null>(null);
+  useEffect(() => {
+    const previous = lastRun.current;
+    lastRun.current = todaySop
+      ? { id: todaySop.id, completed: !!todaySop.completed_at }
+      : null;
+    if (!previous) return;
+    if (!todaySop) {
+      if (!cancelDailySop.isSuccess) {
+        showToast('This checklist was cancelled by someone else.');
+      }
+      return;
+    }
+    if (
+      todaySop.id === previous.id &&
+      !previous.completed &&
+      !!todaySop.completed_at &&
+      !completeDailySop.isSuccess
+    ) {
+      showToast('A teammate marked this checklist complete.');
+    }
+  }, [todaySop, cancelDailySop.isSuccess, completeDailySop.isSuccess, showToast]);
 
   // Completing with items left unchecked is allowed — the crew decides when a
   // day's checklist is done; the confirm spells out what stays unfinished.
