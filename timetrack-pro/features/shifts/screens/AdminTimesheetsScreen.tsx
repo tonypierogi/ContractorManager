@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import CopyToSpreadsheetButton, {
   type SpreadsheetColumn,
 } from '@/features/shifts/components/CopyToSpreadsheetButton';
-import { useAllShifts, useToggleShiftPaid } from '@/features/shifts/hooks';
+import {
+  useAllShifts,
+  useToggleShiftPaid,
+  useBulkSetShiftsPaid,
+} from '@/features/shifts/hooks';
 import { useTeamMembers } from '@/features/team/hooks';
 import { useToast } from '@/components/ui/Toast';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -42,6 +46,7 @@ export default function TimesheetsScreen() {
     () => ({ start: defaultStartDate() }),
   );
   const [showEmployeePicker, setShowEmployeePicker] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const { showToast } = useToast();
 
   const { data: members } = useTeamMembers();
@@ -51,6 +56,59 @@ export default function TimesheetsScreen() {
     endDate: appliedDates.end,
   });
   const togglePaid = useToggleShiftPaid();
+  const bulkSetPaid = useBulkSetShiftsPaid();
+
+  // Drop any selected id that's no longer in the loaded rows — a changed
+  // filter or a refetch after a mutation can otherwise leave stale ids
+  // selected that the user can no longer see.
+  useEffect(() => {
+    if (!shifts) return;
+    const visibleIds = new Set(shifts.map((s: any) => s.id));
+    setSelected((prev) => {
+      const next = new Set([...prev].filter((id) => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [shifts]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allVisibleSelected = !!shifts && shifts.length > 0 && selected.size === shifts.length;
+
+  const toggleSelectAll = useCallback(() => {
+    setSelected((prev) => {
+      if (!shifts || shifts.length === 0) return prev;
+      if (prev.size === shifts.length) return new Set();
+      return new Set(shifts.map((s: any) => s.id));
+    });
+  }, [shifts]);
+
+  const handleBulkSetPaid = useCallback(
+    (paid: boolean) => {
+      const ids = [...selected];
+      if (ids.length === 0) return;
+      bulkSetPaid.mutate(
+        { ids, paid },
+        {
+          onSuccess: () => {
+            setSelected(new Set());
+            showToast(
+              `Marked ${ids.length} shift${ids.length === 1 ? '' : 's'} as ${paid ? 'paid' : 'pending'}`,
+              'success',
+            );
+          },
+          onError: () => showToast('Could not update those shifts', 'error'),
+        },
+      );
+    },
+    [selected, bulkSetPaid, showToast],
+  );
 
   const applyFilters = () => {
     const start = startDraft.trim();
@@ -137,9 +195,17 @@ export default function TimesheetsScreen() {
       const rate = getHourlyRate(item);
       const amount = hours * rate;
       const isPaid = item.paid;
+      const isSelected = selected.has(item.id);
 
       return (
-        <View style={styles.tableRow}>
+        <View style={[styles.tableRow, isSelected && styles.tableRowSelected]}>
+          <TouchableOpacity style={styles.cellCheckbox} onPress={() => toggleRow(item.id)}>
+            <Ionicons
+              name={isSelected ? 'checkbox' : 'square-outline'}
+              size={20}
+              color={isSelected ? Colors.accent : Colors.textMuted}
+            />
+          </TouchableOpacity>
           <Text style={[styles.cell, styles.cellEmployee]} numberOfLines={1}>
             {getMemberName(item)}
           </Text>
@@ -185,7 +251,7 @@ export default function TimesheetsScreen() {
       );
     },
     // togglePaid.mutate is referentially stable; the mutation object is not
-    [getMemberName, getHourlyRate, togglePaid.mutate],
+    [getMemberName, getHourlyRate, togglePaid.mutate, selected, toggleRow],
   );
 
   return (
@@ -225,9 +291,46 @@ export default function TimesheetsScreen() {
           <CopyToSpreadsheetButton rows={shifts ?? []} columns={exportColumns} />
         </View>
 
+        {selected.size > 0 && (
+          <View style={styles.bulkBar}>
+            <Text style={styles.bulkBarText}>{selected.size} selected</Text>
+            <View style={styles.bulkBarActions}>
+              <Button
+                title="Mark as pending"
+                onPress={() => handleBulkSetPaid(false)}
+                variant="secondary"
+                size="sm"
+                disabled={bulkSetPaid.isPending}
+              />
+              <Button
+                title="Mark as paid"
+                onPress={() => handleBulkSetPaid(true)}
+                size="sm"
+                disabled={bulkSetPaid.isPending}
+              />
+              <TouchableOpacity onPress={() => setSelected(new Set())} style={styles.bulkBarClear}>
+                <Text style={styles.bulkBarClearText}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeader}>
+              <TouchableOpacity style={styles.cellCheckbox} onPress={toggleSelectAll}>
+                <Ionicons
+                  name={
+                    allVisibleSelected
+                      ? 'checkbox'
+                      : selected.size > 0
+                        ? 'checkbox-outline'
+                        : 'square-outline'
+                  }
+                  size={20}
+                  color={selected.size > 0 ? Colors.accent : Colors.textMuted}
+                />
+              </TouchableOpacity>
               <Text style={[styles.headerCell, styles.cellEmployee]}>CONTRACTOR</Text>
               <Text style={[styles.headerCell, styles.cellDate]}>DATE</Text>
               <Text style={[styles.headerCell, styles.cellTime]}>CLOCK IN</Text>
@@ -252,6 +355,7 @@ export default function TimesheetsScreen() {
 
             {shifts && shifts.length > 0 && (
               <View style={styles.totalsRow}>
+                <View style={styles.cellCheckbox} />
                 <Text style={[styles.totalsLabel, styles.cellEmployee]}>Total:</Text>
                 <View style={styles.cellDate} />
                 <View style={styles.cellTime} />
@@ -365,8 +469,36 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     paddingHorizontal: 4,
   },
+  bulkBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.bgElevated,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  bulkBarText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  bulkBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  bulkBarClear: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  bulkBarClearText: {
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+  },
   tableContainer: {
-    minWidth: 850,
+    minWidth: 890,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -420,6 +552,13 @@ const styles = StyleSheet.create({
   cellEdit: {
     width: 32,
     alignItems: 'center',
+  },
+  cellCheckbox: {
+    width: 32,
+    alignItems: 'center',
+  },
+  tableRowSelected: {
+    backgroundColor: Colors.accentGlow,
   },
   inProgressText: {
     color: Colors.textMuted,
