@@ -11,6 +11,7 @@ import {
   fetchMyShifts,
   fetchShiftsWithProfiles,
   setShiftPaid,
+  setShiftsPaidBulk,
   type ShiftFilters,
 } from './api';
 
@@ -60,6 +61,17 @@ export function useToggleShiftPaid() {
 
   return useMutation({
     mutationFn: ({ id, paid }: { id: string; paid: boolean }) => setShiftPaid(id, paid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.timeEntries.all });
+    },
+  });
+}
+
+export function useBulkSetShiftsPaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ids, paid }: { ids: string[]; paid: boolean }) => setShiftsPaidBulk(ids, paid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.timeEntries.all });
     },

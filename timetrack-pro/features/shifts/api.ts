@@ -97,3 +97,8 @@ export async function setShiftPaid(id: string, paid: boolean): Promise<TimeEntry
   if (error) throw error;
   return data as TimeEntry;
 }
+
+export async function setShiftsPaidBulk(ids: string[], paid: boolean): Promise<void> {
+  const { error } = await supabase.from('time_entries').update({ paid }).in('id', ids);
+  if (error) throw error;
+}
