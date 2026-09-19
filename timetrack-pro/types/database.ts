@@ -202,6 +202,94 @@ export interface EquipmentTag {
   updated_at: string;
 }
 
+export type FurnitureShape = 'rect' | 'round' | 'l';
+
+/**
+ * A piece of furniture we own, measured once so it can be placed to scale in
+ * any floor layout. All sizes are whole inches.
+ */
+export interface FurniturePiece {
+  id: string;
+  name: string;
+  /**
+   * 'round' draws an ellipse inside width x depth (a circle when they match).
+   * 'l' draws an L: one arm across the top, one down the left, arm_in deep.
+   */
+  shape: FurnitureShape;
+  /** How deep each arm of an L is; null for other shapes. */
+  arm_in: number | null;
+  /** Side to side, before any rotation. */
+  width_in: number;
+  /** Front to back, before any rotation. */
+  depth_in: number;
+  /** How many we own; null = not tracked. */
+  quantity: number | null;
+  /** Fill colour on the plan, e.g. '#6b8afd'; null = the default. */
+  color: string | null;
+  /** What the piece looks like, so crews grab the right one; null = none. */
+  photo_url: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One piece placed in a layout. Stored inside floor_layouts.items. */
+export interface FloorLayoutItem {
+  /** Stable per placement, so React can key it and selection survives edits. */
+  id: string;
+  piece_id: string;
+  /**
+   * The piece's centre as a fraction (0-1) of the floor-plan image's width.
+   * Fractions, not inches, so re-measuring the plan resizes pieces in place.
+   */
+  x: number;
+  /** The piece's centre as a fraction (0-1) of the image's height. */
+  y: number;
+  /** Clockwise degrees, 0-359. */
+  rotation: number;
+  /** Mirrored left-to-right before rotating — how an L faces the other way. */
+  flip?: boolean;
+  /** Optional tag shown on the plan, e.g. "Table 4" or "DJ". */
+  label: string | null;
+}
+
+export type PlanFloor = 'upstairs' | 'downstairs';
+
+/**
+ * A line dragged along something on a floor-plan image, with its real length.
+ * A floor's scale is fitted from all of its lines together.
+ */
+export interface FloorPlanMeasurement {
+  id: string;
+  floor: PlanFloor;
+  /** What was measured, e.g. "Big Room, back wall". */
+  label: string | null;
+  /** The two ends, as fractions (0-1) of the image's width and height. */
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  length_in: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A saved arrangement of furniture pieces on one floor plan. */
+export interface FloorLayout {
+  id: string;
+  name: string;
+  floor: PlanFloor;
+  /** Room the layout is for, from features/locations/zones.ts; optional. */
+  zone_id: string | null;
+  notes: string | null;
+  items: FloorLayoutItem[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Why a piece of equipment is linked to a task:
  * - 'use': fetch it and put it to work ('from' is where to grab it).

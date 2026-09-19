@@ -84,6 +84,13 @@ export const qk = {
     mine: (userId: string | undefined, filters?: unknown) =>
       ['schedule', 'mine', userId, filters] as const,
   },
+  layouts: {
+    all: ['layouts'] as const,
+    pieces: ['layouts', 'pieces'] as const,
+    measurements: ['layouts', 'measurements'] as const,
+    list: ['layouts', 'list'] as const,
+    detail: (id: string) => ['layouts', 'detail', id] as const,
+  },
   locations: {
     all: ['locations'] as const,
     linkedTasks: (zoneId: string) => ['locations', 'linkedTasks', zoneId] as const,
