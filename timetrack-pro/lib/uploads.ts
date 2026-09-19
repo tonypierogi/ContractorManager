@@ -43,10 +43,10 @@ async function downscaleForUpload(
  * URL. `subdir` follows the legacy path conventions: '' for SOP/task-list
  * media (`{userId}/{ts}-{name}`), 'inventory' / 'inventory-checks' for the
  * inventory feature, 'equipment' for equipment photos, 'locations' for admin
- * replacements of a room's photo.
+ * replacements of a room's photo, 'furniture' for floor-layout furniture.
  */
 export async function uploadImageToMediaBucket(
-  subdir: '' | 'inventory' | 'inventory-checks' | 'equipment' | 'locations',
+  subdir: '' | 'inventory' | 'inventory-checks' | 'equipment' | 'locations' | 'furniture',
   { userId, uri, width, height }: UploadImageInput,
 ): Promise<string> {
   const finalUri = await downscaleForUpload(uri, width, height);
